@@ -33,10 +33,20 @@ class Variable:
 
 
 
+def make_variable(expression: str) -> Variable:
+    split = expression.split("=")
+
+    # variable is part of a domain
+    if len(split) != 2:
+        pass
+
+    else:
+        var = Variable(split[0], None)
+        var.assign(split[1])
+        return var
+
+
 
 if __name__ == "__main__":
-    condition = make_predicate_tree([['integer'], And, ['positive']])
-    Natural_numbers = Set('N', 'n', condition, 'form')
-
-    var = Variable("x", Natural_numbers)
-    print(f"{var.name} is in {var.domain.name}")
+    var = make_variable("x=5")
+    print(f"{var.name} = {var.assignment}")
