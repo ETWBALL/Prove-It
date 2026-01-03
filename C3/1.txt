@@ -1,0 +1,59 @@
+Activity 3
+
+--------------------------------------------------
+(a) Show that P ⇒ (Q ∨ R) is logically equivalent to (P ∧ ¬Q) ⇒ R
+--------------------------------------------------
+
+Claim:  P ⇒ (Q ∨ R)  ≡  (P ∧ ¬Q) ⇒ R
+
+We verify this by truth table.
+
+Let P, Q, R ∈ {T, F}.
+
+| P | Q | R | Q ∨ R | P ⇒ (Q ∨ R) | ¬Q | P ∧ ¬Q | (P ∧ ¬Q) ⇒ R |
+|---|---|---|--------|--------------|----|----------|--------------|
+| T | T | T |   T    |      T       | F  |    F     |      T       |
+| T | T | F |   T    |      T       | F  |    F     |      T       |
+| T | F | T |   T    |      T       | T  |    T     |      T       |
+| T | F | F |   F    |      F       | T  |    T     |      F       |
+| F | T | T |   T    |      T       | F  |    F     |      T       |
+| F | T | F |   T    |      T       | F  |    F     |      T       |
+| F | F | T |   T    |      T       | T  |    F     |      T       |
+| F | F | F |   F    |      T       | T  |    F     |      T       |
+
+Since the columns for  
+P ⇒ (Q ∨ R)  
+and  
+(P ∧ ¬Q) ⇒ R  
+
+are identical for all truth values, the two statements are logically equivalent.
+
+∴  P ⇒ (Q ∨ R) ≡ (P ∧ ¬Q) ⇒ R.
+
+--------------------------------------------------
+(b) If m, n ∈ ℤ and m³ + n³ is odd, then m is odd or n is odd.
+--------------------------------------------------
+
+Claim: If m³ + n³ is odd, then m is odd or n is odd.
+
+Let P(m, n) := “m³ + n³ is odd”  
+Let Q(m, n) := “m is odd or n is odd”
+
+Goal: P(m, n) ⇒ Q(m, n)
+
+PROOF:
+
+1.  Assume P(m, n)                                 Assumption
+2.  Suppose, for contradiction, that ¬Q(m, n)      Assumption
+3.  Then m is even and n is even                   Definition of ¬(A ∨ B)
+4.  So m = 2k and n = 2ℓ for some k, ℓ ∈ ℤ         Definition of even
+5.  Then m³ = (2k)³ = 8k³                          Arithmetic
+6.  And n³ = (2ℓ)³ = 8ℓ³                           Arithmetic
+7.  Hence m³ + n³ = 8k³ + 8ℓ³ = 8(k³ + ℓ³)          Algebra
+8.  Therefore m³ + n³ is even                      Definition of even
+9.  This contradicts step 1                        Contradiction
+
+10. Therefore ¬¬(m is odd or n is odd)             Negation Introduction
+11. Hence m is odd or n is odd                     Double Negation Elimination
+
+∴ If m³ + n³ is odd, then m is odd or n is odd.   □

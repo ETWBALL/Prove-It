@@ -1,0 +1,21 @@
+Claim: Show that if gcd(a, b) ∤ c, then the equation ax + by = c has no integer solutions.
+
+PROOF:
+
+Let P := gcd(a, b) ∣ c  
+Let Q := ∃(x, y) ∈ ℤ² such that ax + by = c  
+
+Goal: ¬P → ¬Q
+
+1.  ¬P                                      Assumption
+2.  Assume Q                               Assumption for contradiction
+3.  ∃(x, y) ∈ ℤ² such that ax + by = c     From 2
+4.  Let d = gcd(a, b)
+5.  d ∣ a ∧ d ∣ b                          Definition of gcd
+6.  d ∣ (ax + by)                          Linear combination property
+7.  ax + by = c                            From 3
+8.  d ∣ c                                  From 6 and 7
+9.  ⊥                                      Contradiction with line 1
+10. ¬Q                                     Negation Introduction (2–9)
+11. ¬P → ¬Q                                Conditional Proof
+

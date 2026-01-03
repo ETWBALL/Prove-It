@@ -1,0 +1,36 @@
+Claim: There is no integer x such that 0 < x < 1.
+
+Let P(x) := (x ∈ ℤ ∧ 0 < x ∧ x < 1)
+
+Goal: Show ¬∃x P(x)
+
+PROOF:
+
+1.  Assume ∃x P(x)                                      Assumption
+2.  Let m be such that P(m)                             Existential Instantiation (EI)
+3.  m ∈ ℤ ∧ 0 < m ∧ m < 1                               Definition of P
+4.  m ∈ ℤ                                               ∧-Elimination
+5.  0 < m                                               ∧-Elimination
+6.  m < 1                                               ∧-Elimination
+
+7.  Define A = { x ∈ ℤ | 0 < x }                         Definition of set
+8.  m ∈ A                                               From 4 and 5
+9.  A ≠ ∅                                               From 8
+
+10. By the Well-Ordering Principle,
+    A has a least element; call it k                     WOP
+
+11. k ∈ A                                               Definition of least element
+12. Hence 0 < k                                         From 11
+13. And k ∈ ℤ                                           From 11
+
+14. Since k > 0, we have k − 1 ≥ 0                       Arithmetic
+15. Since k − 1 < k                                     Arithmetic
+16. Therefore k − 1 ∈ A                                 Definition of A
+
+17. But k − 1 < k contradicts minimality of k           Contradiction
+
+18. ⊥                                                   Contradiction obtained
+19. Therefore ¬∃x P(x)                                  Negation Introduction
+
+20. Hence, there is no integer x such that 0 < x < 1.    □

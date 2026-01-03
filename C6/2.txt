@@ -1,0 +1,32 @@
+Claim: lcm(6,10) = 30
+
+Let P(n) := (6 ∣ n ∧ 10 ∣ n)
+
+Goal: Show that 30 is the least n such that P(n)
+
+PROOF:
+
+1.  6 = 2·3                                  Arithmetic
+2.  10 = 2·5                                 Arithmetic
+
+3.  2 ∣ 6 ∧ 3 ∣ 6                            Definition of divisibility
+4.  2 ∣ 10 ∧ 5 ∣ 10                          Definition of divisibility
+
+5.  2, 3, 5 are the prime factors of 6 and 10     From 1–4
+
+6.  Let m = 2·3·5 = 30                      Definition
+
+7.  6 ∣ 30                                  Since 30 = 6·5
+8.  10 ∣ 30                                 Since 30 = 10·3
+
+9.  P(30)                                   From 7, 8 (∧-introduction)
+
+10. Let k be arbitrary
+11. Assume P(k)                             Assumption
+12. Then 6 ∣ k ∧ 10 ∣ k                     From 11, definition of P
+13. So 2 ∣ k, 3 ∣ k, and 5 ∣ k              From 12, divisor properties
+14. Therefore 2·3·5 ∣ k                     Divisibility closure
+15. Hence 30 ∣ k                            From 14
+
+16. Therefore, 30 is the least positive integer satisfying P
+17. Hence lcm(6,10) = 30                    Definition of lcm
