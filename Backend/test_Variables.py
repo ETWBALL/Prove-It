@@ -21,7 +21,11 @@ def test_make_variable():
     z = make_variable('z=-334')
     assert z.assignment == -334 #z=-334
 
+def test_variable_prints_assignments():
+    x = make_variable('x=5')
+    assert x.__str__() == 'x = 5'
+
 
 if __name__ == '__main__':
     import pytest
-    pytest.main(['-s', 'test_Variables.py'])
+    pytest.main(['test_Variables.py'])
