@@ -64,35 +64,43 @@ def test_make_expr_trees_white_space_robustness() -> None:
 
 def test_make_expr_trees_varying_sizes()-> None:
     expr = make_numerical_expression("(-12) + (0.5)")
+    assert expr.evaluate() == -11.5
     assert expr.__str__() == '(-12) + (0.5)'
 
     expr = make_numerical_expression("((345) * (-2)) + (7.1)")
     assert expr.__str__() == '((345) * (-2)) + (7.1)'
+    assert expr.evaluate() == -682.9
 
     expr = make_numerical_expression("(0.003) + ((-78) * (6))")
     assert expr.__str__() == '(0.003) + ((-78) * (6))'
+    assert expr.evaluate() == -467.997
 
     expr = make_numerical_expression("((-999) + (42)) + ((7) + (-0.25))")
     assert expr.__str__() == '((-999) + (42)) + ((7) + (-0.25))'
+    assert expr.evaluate() == -950.25
 
     expr = make_numerical_expression("((123456) * (-0.5)) + ((-3) + (0.1))")
     assert expr.__str__() == '((123456) * (-0.5)) + ((-3) + (0.1))'
+    assert expr.evaluate() == -61730.9
 
     expr = make_numerical_expression("((0.1) + ((-23) * (456))) * ((7) + (0.07))")
     assert expr.__str__() == '((0.1) + ((-23) * (456))) * ((7) + (0.07))'
+    assert expr.evaluate() == -74149.453
 
     expr = make_numerical_expression("((-0.5) + ((100) * (-2))) + ((0.3) * (-7))")
     assert expr.__str__() == '((-0.5) + ((100) * (-2))) + ((0.3) * (-7))'
+    assert expr.evaluate() == -202.6
 
     expr = make_numerical_expression("(((12) + (-0.01)) * ((-8) + (90))) + ((0.001) + (-3))")
     assert expr.__str__() == '(((12) + (-0.01)) * ((-8) + (90))) + ((0.001) + (-3))'
+    assert expr.evaluate() == 980.181
 
     expr = make_numerical_expression("((345) + ((-0.7) * (9))) * ((-12) + (0.12))")
     assert expr.__str__() == '((345) + ((-0.7) * (9))) * ((-12) + (0.12))'
 
     expr = make_numerical_expression("((0.5) * ((-1000) + (3))) + (((-2) * (7.7)) + (42))")
     assert expr.__str__() == '((0.5) * ((-1000) + (3))) + (((-2) * (7.7)) + (42))'
-
+    assert expr.evaluate() == -471.9
 
 if __name__ == '__main__':
     import pytest
