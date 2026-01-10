@@ -181,6 +181,7 @@ def make_numerical_expression(expression:str) -> Expr:
         left, right = None, None
         middle_i = None
         scope = 0
+        middle = None
 
         for i in range(len(expression)):
 
@@ -196,8 +197,9 @@ def make_numerical_expression(expression:str) -> Expr:
                 if scope == 0:
                     right_bracket_index = i
 
-            if scope == 0:
+            if scope == 0 and left_bracket_index is not None and right_bracket_index is not None:
                 sub_expression = expression[left_bracket_index+1:right_bracket_index]
+                left_bracket_index, right_bracket_index = None, None
 
                 if left is None:
                     left = make_numerical_expression(sub_expression)
@@ -205,11 +207,12 @@ def make_numerical_expression(expression:str) -> Expr:
                     right = make_numerical_expression(sub_expression)
 
             if expression[i] in operators:
-                middle_i = i
+                if left is not None and middle is None:
+                    middle = expression[i]
 
 
 
-        return BinOp(left, expression[middle_i], right)
+        return BinOp(left, middle, right)
 
 
 
