@@ -1,4 +1,4 @@
-from Propositions import BinOp, Num, make_expressions, Variable, make_variable
+from Expression import BinOp, Num, make_expressions, Variable, make_variable
 
 def test_bin_op_print_four_signs() -> None:
     assert BinOp(Num(1), '+', Num(2)).__str__() == '(1) + (2)'
