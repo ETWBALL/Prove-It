@@ -8,6 +8,7 @@ def test_equation_creation():
     assert eqn2.__str__() == "(((a) * ((x)**(2))) + ((b) * (x))) + (c) = 0"
 
 
+
 if __name__ == '__main__':
     import pytest
     pytest.main(['test_expressions.py'])
