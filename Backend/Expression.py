@@ -38,8 +38,8 @@ class Expr:
                     self.assignment = int(split[1])
                 return True
 
-        # if this root is a binary operator
-        if isinstance(self, BinOp):
+        # if this root is a binary operator or a power instance
+        if isinstance(self, BinOp) or isinstance(self, Power):
             left = self.left.update_variable(expression)
             right = self.right.update_variable(expression)
 
@@ -71,9 +71,15 @@ class Num(Expr):
         >>> number.evaluate()
         10.5
         """
-        return self.n  # Simply return the value itself!
+        return self.n # Simply return the value itself!
 
     def __str__(self):
+        """
+        Return the string representation of this expression.
+        >>> number = Num(10.5)
+        >>> number.__str__()
+        '10.5'
+        """
         return f"{self.n}"
 
 class BinOp(Expr):
@@ -116,19 +122,63 @@ class BinOp(Expr):
         right = self.right.evaluate()
 
         if self.op == '+':
-            return left + right
+            return (left + right)
 
         if self.op == '-':
-            return left - right
+            return (left - right)
 
         if self.op == '/':
-            return left / right
+            return (left / right)
 
         else:
-            return left * right
+            return (left * right)
 
     def __str__(self):
         return f"({self.left.__str__()}) {self.op} ({self.right.__str__()})"
+
+class Power(Expr):
+    """An power operation between two expressions.
+
+    === Attributes ===
+    left: the left operand
+    root: power_sign
+    right: the right operand
+
+    === Representation Invariants ===
+    - self.root == '^'
+    """
+    left: Expr
+    root: str
+    right: Expr
+
+    def __init__(self, left: Expr, right: Expr) -> None:
+        """Initialize a new binary operation expression.
+
+        Precondition: <op> is the string '+' or '*'.
+        """
+        self.left = left
+        self.root = '^'
+        self.right = right
+
+    def evaluate(self) -> Any:
+        """Return the *value* of this power expression.
+
+        The returned value should be the result of how this expression would be
+        evaluated by the Python interpreter.
+        >>> equation = Power(Num(1), Num(2))
+        >>> equation.evaluate()
+        1
+        >>> equation = Power(Num(2), Num(8))
+        >>> equation.evaluate()
+        256
+        """
+        left = self.left.evaluate()
+        right = self.right.evaluate()
+
+        return left ** right
+
+    def __str__(self):
+        return f"({self.left.__str__()})^({self.right.__str__()})"
 
 class Variable(Expr):
     """
@@ -199,6 +249,7 @@ class Variable(Expr):
     def __str__(self):
         return f"{self.assignment}" if self.assignment is not None else f"{self.name}"
 
+
 def make_expressions(expression:str) -> Expr:
     """
     Given a string, return an AST numerical object
@@ -260,13 +311,15 @@ def make_expressions(expression:str) -> Expr:
                 else:
                     right = make_expressions(sub_expression)
 
-            if expression[i] in operators:
+            if expression[i] in operators or expression[i] == '^':
+
+                # if left exists and the middle operator is not assigned yet
                 if left is not None and middle is None:
                     middle = expression[i]
 
 
 
-        return BinOp(left, middle, right)
+        return BinOp(left, middle, right) if middle != '^' else Power(left, right)
 
 def make_variable(expression: str):
     split = expression.split("=")

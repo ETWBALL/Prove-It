@@ -199,9 +199,27 @@ def test_update_variable_in_expression():
     expr.update_variable('c=2')
     assert expr.evaluate() == 4
 
+def test_update_powers():
+    expr = make_expressions("(a)^(2)")
+    assert expr.__str__() == '(a)^(2)'
+    expr.update_variable('a=2')
+    assert expr.__str__() == "(2)^(2)"
+    assert expr.evaluate() == 4
 
+    expr.update_variable('a=55')
+    assert expr.evaluate() == 3025
 
-
+    expr = make_expressions("(b)^(l)")
+    assert expr.__str__() == '(b)^(l)'
+    expr.update_variable('l=29')
+    assert expr.__str__() == "(b)^(29)"
+    expr.update_variable('l=299')
+    assert expr.__str__() == "(b)^(299)"
+    expr.update_variable('b=3')
+    assert expr.__str__() == "(3)^(299)"
+    expr.update_variable('l=10')
+    assert expr.__str__() == "(3)^(10)"
+    assert expr.evaluate() == 59049
 
 
 if __name__ == '__main__':

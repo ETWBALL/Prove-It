@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Union, Any
-import Expression
+from Expression import *
 
 for_all = ' ∀ '
 there_exists = ' ∃ '
