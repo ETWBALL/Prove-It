@@ -28,8 +28,8 @@ if __name__ == "__main__":
     # 'a*x**2 + b*x + c = 0'
     # 'x**2 - b*x/a - c/a = 0'
 
-    proposition1 = '2*x**2 + b*x + c = 0'
-    proposition2 =  'x**2 - (b*x)/2 - c/2 = 0'
+    proposition1 = '(a)*(2) = (b)*(2)'
+    proposition2 =  '(a)*(2) = (b)*(2)'
     print(proposition_equations_validity(proposition1, proposition2))
 
 

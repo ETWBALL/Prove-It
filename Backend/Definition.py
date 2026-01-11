@@ -2,61 +2,6 @@ from __future__ import annotations
 from typing import Union, Any
 from sympy import *
 
-for_all = ' ∀ '
-there_exists = ' ∃ '
-quantifiers = [for_all, there_exists]
-
-
-And = ' ∧ '
-Not = ' ¬ '
-Or = ' ∨ '
-Implies = ' ⇒ '
-if_and_only_if = ' ⇔ '
-connectives = [And, Not, Or, Implies, if_and_only_if]
-
-class Predicate:
-    """
-    A binary tree. The root with no parent is the final proposition
-    """
-    # the root would store the real proposition, i.e., for all x, P(x)
-    root: Any
-    left: Union[None, Predicate]
-    right: Union[None, Predicate]
-
-    def __init__(self, info: Union[None, str], left: Union[None, Predicate], right: Union[None, Predicate]) -> None:
-        if info is None:
-            self.root = None
-            self.left = None
-            self.right = None
-        else:
-            self.root = info
-            self.left = left
-            self.right = right
-
-
-class Proposition:
-    """
-    A binary tree. The root with no parent is the final proposition
-    """
-    # the root would store the real proposition, i.e., for all x, P(x)
-    root: Any #TODO decide what Any?
-    truth_value: Union[None, bool]
-    left: Union[None, Proposition]
-    right: Union[None, Proposition]
-
-    def __init__(self, info: Union[None, str], left: Union[None, Proposition], right: Union[None, Proposition], truth_value: Union[None, bool]) -> None:
-        if info is None:
-            self.root = None
-            self.left = None
-            self.right = None
-            self.truth_value = None
-        else:
-            self.root = info
-            self.left = left
-            self.right = right
-            self.truth_value = truth_value
-
-
 class Definition:
     """
     A definition of <object>
@@ -126,6 +71,22 @@ def make_proposition(full_proposition: list) -> Proposition:
         right = make_proposition(full_proposition[2])
         info = left.root + full_proposition[1] + right.root
         return Proposition(info, left, right, None)
+
+
+def make_expression(expression: str) -> Expr:
+    """
+    Given an expression, return an expression tree
+    """
+    #TODO
+
+def make_equation(proposition: str) -> Equation:
+    """
+    Given an equation with a left and right, return an equation tree.
+    Assume the equation is true
+    """
+    split = proposition.split("=")
+    return Equation(make_expression(split[0]), make_expression(split[0]), true)
+
 
 if __name__ == "__main__":
     # P and Q are placeholders
