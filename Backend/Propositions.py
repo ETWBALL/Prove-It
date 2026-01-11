@@ -179,17 +179,20 @@ class BinOp(Expr):
         >>> equation.evaluate()
         5/2
         """
+        left = self.left.evaluate()
+        right = self.right.evaluate()
+
         if self.op == '+':
-            return self.left.evaluate() + self.right.evaluate()
+            return left + right
 
         if self.op == '-':
-            return self.left.evaluate() - self.right.evaluate()
+            return left - right
 
         if self.op == '/':
-            return self.left.evaluate() / self.right.evaluate()
+            return left / right
 
         else:
-            return self.left.evaluate() * self.right.evaluate()
+            return left * right
 
     def __str__(self):
         return f"({self.left.__str__()}) {self.op} ({self.right.__str__()})"
@@ -231,6 +234,7 @@ class Variable(Expr):
         Return the value of the variable
         """
         #TODO might want to change this for variables with conditions, i.e., for even numbers, x=2k
+        # TODO Might want to make this flexible where the user chooses to plug in values or not
 
         # Evaluate what the variable is
         if self.assignment is not None:

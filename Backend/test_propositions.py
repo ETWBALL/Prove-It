@@ -187,6 +187,22 @@ def test_update_variable_in_expression():
     expr.update_variable('a=2')
     assert expr.evaluate() == 2.5
 
+    expr = make_expressions("((a) + (b)) / (c)")
+    expr.update_variable('a=2')
+    assert expr.__str__() == "((2) + (b)) / (c)"
+    expr.update_variable('a=3')
+    assert expr.__str__() == "((3) + (b)) / (c)"
+    expr.update_variable('b=31')
+    assert expr.__str__() == "((3) + (31)) / (c)"
+    expr.update_variable('b=5')
+    assert expr.__str__() == "((3) + (5)) / (c)"
+    expr.update_variable('c=2')
+    assert expr.evaluate() == 4
+
+
+
+
+
 
 if __name__ == '__main__':
     import pytest
