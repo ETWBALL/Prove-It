@@ -1,9 +1,9 @@
 
 from __future__ import annotations
-from typing import Union, Any
 from Sets import Set
 from sympy import Symbol
-from Propositions import Proposition, operators
+from typing import Union, Any
+
 
 class Expr:
     """An abstract class representing a Python expression.
@@ -50,7 +50,7 @@ class Expr:
             return False
 
 class Num(Expr):
-    """An numeric constant literal.
+    """A numeric constant literal.
 
     === Attributes ===
     n: the value of the constant
@@ -122,22 +122,22 @@ class BinOp(Expr):
         right = self.right.evaluate()
 
         if self.op == '+':
-            return (left + right)
+            return left + right
 
         if self.op == '-':
-            return (left - right)
+            return left - right
 
         if self.op == '/':
-            return (left / right)
+            return left / right
 
         else:
-            return (left * right)
+            return left * right
 
     def __str__(self):
         return f"({self.left.__str__()}) {self.op} ({self.right.__str__()})"
 
 class Power(Expr):
-    """An power operation between two expressions.
+    """A power operation between two expressions.
 
     === Attributes ===
     left: the left operand
@@ -192,7 +192,7 @@ class Variable(Expr):
     name: str
     domain: Union[Set, None]
     assignment: Any
-    Properties: list[Proposition]
+    Properties: list[Any]
     _Sy_var: Symbol
 
     def __init__(self, name: str) -> None:
@@ -249,92 +249,6 @@ class Variable(Expr):
     def __str__(self):
         return f"{self.assignment}" if self.assignment is not None else f"{self.name}"
 
-
-def make_expressions(expression:str) -> Expr:
-    """
-    Given a string, return an AST numerical object
-    === Preconditions ==
-    Left operand and right operand must be in brackets
-    Numerical values alone must not be in brackets
-
-    === EXAMPLES ===
-    >>> e = "1"
-    >>> expr = make_expressions(e)
-    >>> print(expr)
-    1
-
-    >>> e = "(4) + (-5)"
-    >>> expr = make_expressions(e)
-    >>> print(expr)
-    (-4) + (-5)
-    """
-    if '(' not in expression or ')' not in expression:
-
-        # Check if it is a float
-        if '.' in expression:
-            return Num(float(expression))
-
-        # Try converting into an int
-        try:
-            return Num(int(expression))
-
-        # Most likely a variable
-        except ValueError:
-            return Variable(expression)
-
-    else:
-        left_bracket_index, right_bracket_index = None, None
-        left, right = None, None
-        scope = 0
-        middle = None
-
-        for i in range(len(expression)):
-
-            # Locate the first bracket. Keep track of number of brackets
-            if expression[i] == '(':
-                if scope == 0:
-                    left_bracket_index = i
-                scope += 1
-
-            # Locate the right bracket. Subtract it,
-            if expression[i] == ')':
-                scope -= 1
-                if scope == 0:
-                    right_bracket_index = i
-
-            if scope == 0 and left_bracket_index is not None and right_bracket_index is not None:
-                sub_expression = expression[left_bracket_index+1:right_bracket_index]
-                left_bracket_index, right_bracket_index = None, None
-
-                if left is None:
-                    left = make_expressions(sub_expression)
-                else:
-                    right = make_expressions(sub_expression)
-
-            if expression[i] in operators or expression[i] == '^':
-
-                # if left exists and the middle operator is not assigned yet
-                if left is not None and middle is None:
-                    middle = expression[i]
-
-
-
-        return BinOp(left, middle, right) if middle != '^' else Power(left, right)
-
-def make_variable(expression: str):
-    split = expression.split("=")
-
-    # variable is part of a "known" domain #TODO make this condition
-
-    # In the case where a user defined the variable to nothing
-    if len(split) != 2:
-        return Variable(split[0])
-
-    # If the variable is assigned to a value, assign
-    else:
-        var = Variable(split[0])
-        var.assign(int(split[1]))
-        return var
 
 
 

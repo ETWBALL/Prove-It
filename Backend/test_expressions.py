@@ -1,4 +1,4 @@
-from Expression import BinOp, Num, make_expressions, Variable, make_variable
+from make import *
 
 def test_bin_op_print_four_signs() -> None:
     assert BinOp(Num(1), '+', Num(2)).__str__() == '(1) + (2)'
@@ -224,4 +224,4 @@ def test_update_powers():
 
 if __name__ == '__main__':
     import pytest
-    pytest.main(['test_propositions.py'])
+    pytest.main(['test_expressions.py'])

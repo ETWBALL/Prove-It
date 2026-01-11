@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Union, Any
-from Expression import *
+from Expression import Expr
 
 for_all = ' ∀ '
 there_exists = ' ∃ '
@@ -69,4 +69,11 @@ class Equation(Proposition):
 
     def __init__(self, left: Expr, right: Expr, truth: bool) -> None:
         super().__init__("=", left, right, truth)
+
+    def __str__(self):
+        """
+        Return a string representation of this equation
+        """
+        return f"{self.left.__str__()} {self.root} {self.right.__str__()}"
+
 
