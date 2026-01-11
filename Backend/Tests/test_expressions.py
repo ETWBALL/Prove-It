@@ -1,4 +1,4 @@
-from make import *
+from Backend.make import *
 
 def test_bin_op_print_four_signs() -> None:
     assert BinOp(Num(1), '+', Num(2)).__str__() == '(1) + (2)'
@@ -184,41 +184,41 @@ def test_make_variable_expressions():
 
 def test_update_variable_in_expression():
     expr = make_expressions("(a) + (0.5)")
-    expr.update_variable('a=2')
+    update_variable(expr, 'a=2')
     assert expr.evaluate() == 2.5
 
     expr = make_expressions("((a) + (b)) / (c)")
-    expr.update_variable('a=2')
+    update_variable(expr, 'a=2')
     assert expr.__str__() == "((2) + (b)) / (c)"
-    expr.update_variable('a=3')
+    update_variable(expr, 'a=3')
     assert expr.__str__() == "((3) + (b)) / (c)"
-    expr.update_variable('b=31')
+    update_variable(expr, 'b=31')
     assert expr.__str__() == "((3) + (31)) / (c)"
-    expr.update_variable('b=5')
+    update_variable(expr, 'b=5')
     assert expr.__str__() == "((3) + (5)) / (c)"
-    expr.update_variable('c=2')
+    update_variable(expr, 'c=2')
     assert expr.evaluate() == 4
 
 def test_update_powers():
     expr = make_expressions("(a)^(2)")
-    assert expr.__str__() == '(a)^(2)'
-    expr.update_variable('a=2')
-    assert expr.__str__() == "(2)^(2)"
+    assert expr.__str__() == '(a)**(2)'
+    update_variable(expr, 'a=2')
+    assert expr.__str__() == "(2)**(2)"
     assert expr.evaluate() == 4
 
-    expr.update_variable('a=55')
+    update_variable(expr, 'a=55')
     assert expr.evaluate() == 3025
 
     expr = make_expressions("(b)^(l)")
-    assert expr.__str__() == '(b)^(l)'
-    expr.update_variable('l=29')
-    assert expr.__str__() == "(b)^(29)"
-    expr.update_variable('l=299')
-    assert expr.__str__() == "(b)^(299)"
-    expr.update_variable('b=3')
-    assert expr.__str__() == "(3)^(299)"
-    expr.update_variable('l=10')
-    assert expr.__str__() == "(3)^(10)"
+    assert expr.__str__() == '(b)**(l)'
+    update_variable(expr, 'l=29')
+    assert expr.__str__() == "(b)**(29)"
+    update_variable(expr, 'l=299')
+    assert expr.__str__() == "(b)**(299)"
+    update_variable(expr, 'b=3')
+    assert expr.__str__() == "(3)**(299)"
+    update_variable(expr, 'l=10')
+    assert expr.__str__() == "(3)**(10)"
     assert expr.evaluate() == 59049
 
 

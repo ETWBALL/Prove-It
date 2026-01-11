@@ -1,6 +1,6 @@
-from Propositions import Equation, operators
-from Expression import Expr, Num, Variable, BinOp, Power
-
+from propositions import Equation, operators, Proposition, Predicate
+from expression import Expr, Num, Variable, BinOp, Power
+from typing import Any
 
 
 def make_equation(eqn: str) -> Equation:
@@ -102,3 +102,67 @@ def make_variable(expression: str):
         var = Variable(split[0])
         var.assign(int(split[1]))
         return var
+
+def get_truth(obj: Any) -> bool:
+    # TODO
+    pass
+
+def make_proposition(full_proposition: list) -> Proposition:
+    # For now, I have not placed truth values on to these "propositions"
+    # Since this is making a proposition tree, there needs to be a way to check if the previous propositions are correct
+    if len(full_proposition) == 1:
+        truth_value = get_truth(full_proposition[0])
+        return Proposition(full_proposition[0], None, None, truth_value)
+
+    else:
+        left = make_proposition(full_proposition[0])
+        right = make_proposition(full_proposition[2])
+        info = left.root + full_proposition[1] + right.root
+        return Proposition(info, left, right, None)
+
+
+def make_predicate_tree(full_proposition: list) -> Predicate:
+    # For now, I have not placed truth values on to these "propositions"
+    # Since this is making a proposition tree, there needs to be a way to check if the previous propositions are correct
+    if len(full_proposition) == 1:
+        return Predicate(full_proposition[0], None, None)
+
+    else:
+        left = make_predicate_tree(full_proposition[0])
+        right = make_predicate_tree(full_proposition[2])
+        info = left.root + full_proposition[1] + right.root
+        return Predicate(info, left, right)
+
+
+def update_variable(expr: Expr, user_input: str) -> bool:
+        """
+        Update the variable of this expression.
+
+        === Preconditions ===
+        expression is in the form of <existing_variable> = <new_value>
+        """
+
+        # Root could be a variable
+        if isinstance(expr, Variable):
+            split = user_input.split('=')
+
+            # Root could be another variable value
+            if expr.name != split[0]:
+                return False
+            else:
+                if "." in split[1]:
+                    expr.assignment = float(split[1])
+                else:
+                    expr.assignment = int(split[1])
+                return True
+
+        # if this root is a binary operator or a power instance
+        if isinstance(expr, BinOp) or isinstance(expr, Power):
+            left = update_variable(expr.left, user_input)
+            right = update_variable(expr.right, user_input)
+
+            return True if left is True or right is True else False
+
+        # This expression is a number
+        else:
+            return False

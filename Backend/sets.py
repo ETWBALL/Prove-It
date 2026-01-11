@@ -1,5 +1,4 @@
-from typing import Any, Union
-from Definition import make_predicate_tree, Predicate
+from typing import Union, Any
 
 class Set:
     """
@@ -15,7 +14,7 @@ class Set:
 
     name: str
     element: list[Any] #TODO create Variable (list[Variable] class)
-    condition: Union[None, Predicate]
+    condition: Any # TODO Needs to be specific: proposition or predicate?
     subsets: list
     latex_form: str
 
@@ -66,14 +65,3 @@ def check_set_equality():
     pass
 
 
-
-
-
-if __name__ == "__main__":
-    condition = make_predicate_tree(['P'])
-
-    set = Finite_Set("berries", 'berry', condition, 'berries = ', None)
-    print(set.cardinality)
-    print(f"we represent elements in {set.name} with the symbol {set.element}")
-    print(f"elements in this finite set {set.name} are {set.set}")
-    print(f"{set.condition.root}")

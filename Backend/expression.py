@@ -1,6 +1,6 @@
 
 from __future__ import annotations
-from Sets import Set
+from sets import Set
 from sympy import Symbol
 from typing import Union, Any
 
@@ -15,39 +15,6 @@ class Expr:
         evaluated by the Python interpreter.
         """
         raise NotImplementedError
-
-    def update_variable(self, expression: str) -> bool:
-        """
-        Update the variable of this expression.
-
-        === Preconditions ===
-        expression is in the form of <existing_variable> = <new_value>
-        """
-
-        # Root could be a variable
-        if isinstance(self, Variable):
-            split = expression.split('=')
-
-            # Root could be another variable value
-            if self.name != split[0]:
-                return False
-            else:
-                if "." in split[1]:
-                    self.assignment = float(split[1])
-                else:
-                    self.assignment = int(split[1])
-                return True
-
-        # if this root is a binary operator or a power instance
-        if isinstance(self, BinOp) or isinstance(self, Power):
-            left = self.left.update_variable(expression)
-            right = self.right.update_variable(expression)
-
-            return True if left is True or right is True else False
-
-        # This expression is a number
-        else:
-            return False
 
 class Num(Expr):
     """A numeric constant literal.
@@ -178,7 +145,7 @@ class Power(Expr):
         return left ** right
 
     def __str__(self):
-        return f"({self.left.__str__()})^({self.right.__str__()})"
+        return f"({self.left.__str__()})**({self.right.__str__()})"
 
 class Variable(Expr):
     """
@@ -196,9 +163,9 @@ class Variable(Expr):
     _Sy_var: Symbol
 
     def __init__(self, name: str) -> None:
+        self.assignment = None
         self.name = name
         self.domain = None
-        self.assignment = None
         self._Sy_var = Symbol(name)
         self.Properties = []
 
