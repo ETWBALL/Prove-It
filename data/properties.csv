@@ -1,0 +1,14 @@
+ID,Type,Floors,SquareMeters,Parking,AvailableFor,Cost
+PROP001,warehouse,1,800.0,15,lease,45000.0
+PROP002,office,3,250.5,8,lease,35000.0
+PROP003,store,1,120.0,5,purchase,180000.0
+PROP004,restaurant,2,300.0,12,both,250000.0
+PROP005,warehouse,2,1200.0,25,lease,60000.0
+PROP006,office,4,450.0,20,lease,55000.0
+PROP007,store,1,95.0,3,lease,28000.0
+PROP008,office,2,180.0,6,purchase,320000.0
+PROP009,warehouse,1,600.0,10,both,380000.0
+PROP010,restaurant,1,150.0,8,lease,32000.0
+PROP011,other,3,500.0,15,lease,48000.0
+PROP012,store,2,200.0,10,both,290000.0
+PROP8D6919CD,warehouse,2,6767.0,5,lease,50.0

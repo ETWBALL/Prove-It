@@ -1,15 +1,16 @@
 from __future__ import annotations
-from typing import Union, Optional, Dict
+from typing import Union, List, Tuple, Optional, Any
 import sys
 import os
 
+# Add parent directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from Definition import (
-    Proposition, Predicate,
-    And, Not, Or, Implies,
-    for_all, there_exists
-)
+# Fix: Import from the correct files within Backend
+from Backend.Definition import Predicate #
+from Backend.Propositions import Proposition, make_proposition #
+from Backend.Propositions import And, Not, Or, Implies, if_and_only_if #
+from Backend.Propositions import for_all, there_exists #
 from rules import InferenceRule
 
 
