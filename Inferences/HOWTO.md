@@ -30,20 +30,3 @@ existential_generalization.apply(Pc, "c", "x")
 ## Given P(c), returns ∃xP(x)
 quantifier_negation.apply(not_forall_Px)
 ## Given ¬∀xP(x), returns ∃x¬P(x)
-
-# proof.py
-
-proof = Proof("conclusion")
-## Create proof with target conclusion
-proof.add_hypothesis("p → q")
-## Add hypothesis, returns line number
-proof.apply_modus_ponens(p_line, implication_line)
-## Apply rule using line numbers
-proof.apply_universal_instantiation(line, "x", "b")
-## Instantiate ∀x with constant b
-proof.apply_quantifier_negation(line)
-## Convert ¬∀x to ∃x¬
-proof.print_proof()
-## Display formatted proof
-proof.is_complete()
-## Check if conclusion reached
