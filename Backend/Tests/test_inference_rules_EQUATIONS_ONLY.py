@@ -27,6 +27,13 @@ def test_IR_common_algebra():
     eqn2 = make_equation("((a)/(b)) + (4) = (c) + (2)")
     assert IR_common_algebra(eqn1, eqn2) == False   # Should work for divisions as well (purposeful mistake)
 
+    eqn1 = make_equation("(((4)*(((k)+(1))^(3)))-((k)+(1))) / (3) = 0")
+    eqn2 = make_equation("((((4)*((k)^(2)))-(k))/(3)) + ((((2)*(k))+(1))^(2)) = 0")
+    assert IR_common_algebra(eqn1, eqn2) == False
+
+    eqn2 = make_equation("((((4)*((k)^(3)))-(k))/(3)) + ((((2)*(k))+(1))^(2)) = 0")
+    assert IR_common_algebra(eqn1, eqn2) == True
+
 
 
 

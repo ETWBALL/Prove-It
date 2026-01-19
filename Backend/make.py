@@ -1,4 +1,4 @@
-from propositions import Equation, operators, Proposition, Predicate
+from propositions import Equation, operators, Proposition
 from expression import Expr, Num, Variable, BinOp, Power
 from typing import Any
 
@@ -119,19 +119,6 @@ def make_proposition(full_proposition: list) -> Proposition:
         right = make_proposition(full_proposition[2])
         info = left.root + full_proposition[1] + right.root
         return Proposition(info, left, right, None)
-
-
-def make_predicate_tree(full_proposition: list) -> Predicate:
-    # For now, I have not placed truth values on to these "propositions"
-    # Since this is making a proposition tree, there needs to be a way to check if the previous propositions are correct
-    if len(full_proposition) == 1:
-        return Predicate(full_proposition[0], None, None)
-
-    else:
-        left = make_predicate_tree(full_proposition[0])
-        right = make_predicate_tree(full_proposition[2])
-        info = left.root + full_proposition[1] + right.root
-        return Predicate(info, left, right)
 
 
 def update_variable(expr: Expr, user_input: str) -> bool:
