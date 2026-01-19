@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 from sets import Set
 from sympy import Symbol

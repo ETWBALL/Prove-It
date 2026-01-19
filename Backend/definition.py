@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Union, Any
 from sympy import *
-from propositions import Predicate
+from propositions import *
 
 class Definition:
     """
@@ -44,4 +44,30 @@ class Definition:
         # TODO fix self.condition root for predicate. It shows an error when referencing the root attribute
         print(f"An {self.object} is called {second} if {self.condition} is satisfied.")
 
+def make_proposition(full_proposition: list) -> Proposition:
+    """
+    Recursion to build a specific Proposition tree (Binary, Unary, Equation) for .evaluate()
+    """
+    # Base Case: Single element (Atomic proposition or Truth value)
+    if len(full_proposition) == 1:
+        return Proposition(full_proposition[0], None, None, None)
 
+    # Recursive Case: Operator in the middle (e.g., [P, 'and', Q])
+    else:
+        left = make_proposition(full_proposition[0])
+        right = make_proposition(full_proposition[2])
+        operator = full_proposition[1].strip()
+
+        # if equation
+        if operator == "=":
+            return Equation(left, right)
+            
+        # if connective (and, or, implies)
+        elif operator in [And.strip(), Or.strip(), Implies.strip(), if_and_only_if.strip()]:
+            return Binary_Connective(left, right, full_proposition[1])
+            
+        else:
+            return Proposition(operator, left, right, None)
+
+def make_predicate_tree(full_proposition: list):
+    pass
