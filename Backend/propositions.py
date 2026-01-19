@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Union, Any
 from expression import Expr
+from sympy import *
 
 for_all = ' ∀ '
 there_exists = ' ∃ '
@@ -116,6 +117,18 @@ class Equation(Proposition):
         self.root = "="
         self.right = right
         self.left = left
+
+    def evaluate(self) -> bool:
+        """
+        Check if the left side is equal to the right side. Return True if this holds. Else, return False
+        """
+        # Left and right expressions in string format
+        left_expression = sympify(str(self.left))
+        right_expression = sympify(str(self.right))
+
+        # Return boolean if they both evaluate to 0
+        return simplify(left_expression - right_expression) == 0
+
 
     def __str__(self):
         """
