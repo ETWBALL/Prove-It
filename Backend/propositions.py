@@ -60,7 +60,7 @@ class Binary_Connective(Proposition):
 
     def evaluate(self) -> bool:
         """
-        Return true according to the connective.
+        Return the boolean value according to the connective. True or False.
         """
         right, left = self.right.evaluate(), self.left.evaluate()
 
@@ -92,6 +92,13 @@ class UnaryConnective(Proposition):
         self.prop = prop
         self.op = op
 
+    def evaluate(self) -> bool:
+        """
+        If self.op is a negation, return the correct evaluation.
+        """
+        # Assuming the only unary operation is a negation
+
+        return not self.prop.evaluate()
 
 
 class Equation(Proposition):
