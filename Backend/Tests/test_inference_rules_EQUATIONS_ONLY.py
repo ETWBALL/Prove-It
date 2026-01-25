@@ -35,6 +35,22 @@ def test_IR_common_algebra():
     assert IR_common_algebra(eqn1, eqn2) == True
 
 
+def test_inference_division_by_nonzero():
+    eqn1 = make_equation("(a)*(2) = (b)*(2)")
+    eqn2 = make_equation("2 = ((b)*(2)) / (a)")
+    assert IR_division_by_nonzero(eqn1, eqn2) == True
+
+    # Weird test case because it should be 0/a
+    eqn1 = make_equation("(((a)*((x)^(2))) + ((b)*(x))) + (c) = 0")
+    eqn2 = make_equation("(((x)^(2)) + (((b)*(x))/(a))) + ((c)/(a)) = 0")
+    assert IR_division_by_nonzero(eqn1, eqn2) == True
+
+    eqn2 = make_equation("(((x)^(2)) + (((b)*(x))/(a))) + ((c)/(a)) = (0)/(a)")
+    assert IR_division_by_nonzero(eqn1, eqn2) == True
+
+    eqn1 = make_equation("(((a)*((x)^(2))) + ((b)*(x))) + (c) = 0")
+    eqn2 = make_equation("0 = 0")
+    assert IR_division_by_nonzero(eqn1, eqn2)
 
 
 

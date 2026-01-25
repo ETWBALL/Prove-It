@@ -1,5 +1,7 @@
 from sympy import *
 from propositions import *
+from sympy import *
+
 
 def IR_common_algebra(eqn1: Equation, eqn2: Equation) -> bool:
     """
@@ -25,8 +27,23 @@ def IR_common_algebra(eqn1: Equation, eqn2: Equation) -> bool:
     return simplify(final)==0
 
 
-def IR_division_by_nonzero(eqn1: Eq, eqn2: Eq) -> bool:
+def IR_division_by_nonzero(premise: Equation, conclusion: Equation) -> bool:
     """
-    Return true if eqn 2 is the valid conclusion from eqn1, using division by nonzero
+    Return true if the concluding expression is the valid conclusion from eqn1 (the premise), using division by nonzero
     """
-    #TODO Make this once equation class is done
+    # Make two equations, with premise on one side and conclusion on the other
+    solver = Symbol('solver', nonzero=True)
+    eqn1 = Eq(sympify(str(premise.left))/solver, sympify(str(conclusion.left)))
+    eqn2 = Eq(sympify(str(premise.right))/solver, sympify(str(conclusion.right)))
+
+    soln1 = solve(eqn1, solver)
+    soln2 = solve(eqn2, solver)
+
+    # Ensure the solutions are the same.
+    if soln1 == soln2:
+        # Then check if the solution is nonzero. Check in the premise
+        solution = str(soln1[0])
+        return True
+
+    return False
+
