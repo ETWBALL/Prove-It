@@ -1,3 +1,5 @@
 .DS_Store
 Backend/__pycache__
 Backend/Tests/__pycache__
+__pycache__/
+*.pyc
