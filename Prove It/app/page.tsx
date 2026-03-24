@@ -1,65 +1,59 @@
-import Image from "next/image";
+'use client';
+import { useState } from 'react';
 
-export default function Home() {
+export default function ProveItApp() {
+  const [statement, setStatement] = useState("");
+  const [proof, setProof] = useState("");
+
+  // This will eventually call your Python Flask API
+  const handleVerify = async () => {
+    // Example: fetch('/api/verify', { method: 'POST', body: JSON.stringify({ statement, proof }) })
+    console.log("Verifying...", { statement, proof });
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="flex h-screen bg-white">
+      {/* Left Column: Input Areas */}
+      <div className="w-2/3 p-8 border-r">
+        <h1 className="text-2xl font-bold mb-4">Statement to Prove</h1>
+        <textarea 
+          className="w-full h-32 p-4 border rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Enter the mathematical statement you want to prove..."
+          value={statement}
+          onChange={(e) => setStatement(e.target.value)}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+
+        <h2 className="text-2xl font-bold mt-8 mb-4">Proof</h2>
+        <textarea 
+          className="w-full h-64 p-4 border rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Enter your proof here..."
+          value={proof}
+          onChange={(e) => setProof(e.target.value)}
+        />
+        
+        <button 
+          onClick={handleVerify}
+          className="mt-4 px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          Check Proof
+        </button>
+      </div>
+
+      {/* Right Column: Definitions & Errors */}
+      <div className="w-1/3 bg-[#1e2330] text-white flex flex-col">
+        <div className="flex-1 p-6 border-b border-gray-600">
+          <h3 className="text-lg font-semibold mb-2">Relevant Definitions & Theorems</h3>
+          <div className="flex flex-col items-center justify-center h-full text-gray-400">
+             <p>No Statement Yet</p>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <div className="flex-1 p-6">
+          <h3 className="text-lg font-semibold mb-2 text-red-400">Errors Detected</h3>
+          <div className="flex flex-col items-center justify-center h-full text-gray-400">
+             <p>No Proof Yet</p>
+          </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
