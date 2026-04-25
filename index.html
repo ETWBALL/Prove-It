@@ -27,7 +27,11 @@
 
     <script>
         /**
-         * Collects UI input and sends it to the local Python Flask API.
+         * Collects UI input, sends it to the local Qwen API, and renders
+         * both the structured analysis paragraphs and the specific line errors.
+         * * @async
+         * @function submitProof
+         * @returns {Promise<void>}
          */
         async function submitProof() {
             const btn = document.getElementById('verify-btn');
@@ -35,25 +39,38 @@
             const statement = document.getElementById('statement').value;
             const proof = document.getElementById('proof').value;
 
+            // Lock UI to prevent duplicate submissions
             btn.disabled = true;
-            btn.innerText = "Analyzing...";
+            btn.innerText = "Analyzing logic...";
             resultsDiv.innerHTML = "";
 
             try {
-                // Ping the local Python server
+                // Ping the local Python Flask server
                 const response = await fetch('http://localhost:5000/verify', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ statement, proof })
                 });
 
-                const errors = await response.json();
+                const data = await response.json();
                 
-                if (errors.length === 0) {
-                    resultsDiv.innerHTML = "<p style='color: green; font-weight: bold;'>No major logic or format errors detected!</p>";
-                } else {
-                    errors.forEach(err => {
-                        // Apply different styling based on error type
+                // 1. Render the Structured Argument (The "Thinking")
+                // NOTE: Renamed variable from 'eval' (reserved JS keyword) to 'evaluation'
+                const evaluation = data.structured_evaluation;
+                resultsDiv.innerHTML += `
+                    <div style="background: #f8f9fa; padding: 1rem; border: 1px solid #dee2e6; margin-top: 1rem;">
+                        <h3>Overall Evaluation</h3>
+                        <p><strong>Logic:</strong> ${evaluation.logic_analysis}</p>
+                        <p><strong>Grammar/Wording:</strong> ${evaluation.grammar_analysis}</p>
+                        <p><strong>Format:</strong> ${evaluation.format_analysis}</p>
+                    </div>
+                `;
+
+                // 2. Render the Specific Line Errors
+                if (data.errors && data.errors.length > 0) {
+                    resultsDiv.innerHTML += `<h3>Specific Errors</h3>`;
+                    data.errors.forEach(err => {
+                        // Apply specific CSS styling based on the error type returned by Qwen
                         const cssClass = err.type === 'logic' ? 'error-card' : 'format-card';
                         resultsDiv.innerHTML += `
                             <div class="${cssClass}">
@@ -62,10 +79,16 @@
                             </div>
                         `;
                     });
+                } else {
+                    // Fallback UI if the JSON array is completely empty
+                    resultsDiv.innerHTML += `<p style='color: green; font-weight: bold; margin-top: 1rem;'>No specific line-item errors flagged.</p>`;
                 }
+
             } catch (e) {
+                console.error("Fetch error:", e);
                 resultsDiv.innerHTML = "<p style='color: red;'>Error connecting to local server. Is app.py running?</p>";
             } finally {
+                // Restore UI state
                 btn.disabled = false;
                 btn.innerText = "Analyze Proof";
             }
