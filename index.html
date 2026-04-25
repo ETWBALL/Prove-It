@@ -3,96 +3,184 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MAT102 Proof Evaluator</title>
+    <title>MAT102 Proof Assistant</title>
     <style>
-        body { font-family: system-ui; max-width: 800px; margin: 2rem auto; }
-        textarea, input { width: 100%; margin-bottom: 1rem; padding: 0.5rem; font-family: monospace; }
-        button { padding: 0.5rem 1rem; background: #002A5C; color: white; border: none; cursor: pointer; }
-        button:disabled { background: #ccc; }
-        .error-card { border-left: 4px solid #d93025; padding: 1rem; background: #f8d7da; margin-top: 1rem; }
-        .format-card { border-left: 4px solid #f2a900; padding: 1rem; background: #fff3cd; margin-top: 1rem; }
+        body { font-family: system-ui; max-width: 800px; margin: 2rem auto; padding: 0 1rem; color: #333; }
+        textarea, input { width: 100%; margin-bottom: 1rem; padding: 0.75rem; font-family: monospace; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { padding: 0.75rem 1.5rem; background: #002A5C; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; font-weight: bold; }
+        button:disabled { background: #999; cursor: not-allowed; }
+        .error-card { border-left: 4px solid #d93025; padding: 1rem; background: #f8d7da; margin-top: 1rem; border-radius: 0 4px 4px 0; }
+        .format-card { border-left: 4px solid #f2a900; padding: 1rem; background: #fff3cd; margin-top: 1rem; border-radius: 0 4px 4px 0; }
+        .evaluation-card { background: #f8f9fa; padding: 1.5rem; border: 1px solid #dee2e6; margin-top: 1.5rem; border-radius: 4px; }
+        #status { font-style: italic; color: #0055A2; margin-bottom: 1.5rem; font-weight: 500; padding: 0.5rem; background: #e6f2ff; border-radius: 4px; display: inline-block;}
     </style>
 </head>
 <body>
-    <h2>MAT102 Proof Evaluator</h2>
+    <h2>MAT102 Local Proof Assistant</h2>
+    <div id="status">Status: Initializing AI engine... Please wait.</div>
     
-    <label>Statement to Prove:</label>
-    <input type="text" id="statement" placeholder="e.g., If n is even, n^2 is even.">
+    <label><strong>Statement to Prove:</strong></label>
+    <input type="text" id="statement" placeholder="e.g., If n is an even integer, then n^2 is even.">
     
-    <label>Your Proof:</label>
-    <textarea id="proof" rows="8" placeholder="Enter your proof steps here..."></textarea>
+    <label><strong>Your Proof:</strong></label>
+    <textarea id="proof" rows="10" placeholder="Enter your proof steps here..."></textarea>
     
-    <button id="verify-btn" onclick="submitProof()">Analyze Proof</button>
+    <button id="verify-btn" onclick="submitProof()" disabled>Loading Model...</button>
     <div id="results"></div>
 
-    <script>
-        /**
-         * Collects UI input, sends it to the local Qwen API, and renders
-         * both the structured analysis paragraphs and the specific line errors.
-         * * @async
-         * @function submitProof
-         * @returns {Promise<void>}
-         */
-        async function submitProof() {
-            const btn = document.getElementById('verify-btn');
-            const resultsDiv = document.getElementById('results');
-            const statement = document.getElementById('statement').value;
-            const proof = document.getElementById('proof').value;
+    <script type="module">
+        import { CreateMLCEngine } from "https://esm.run/@mlc.ai/web-llm";
 
-            // Lock UI to prevent duplicate submissions
+        let engine;
+        const btn = document.getElementById('verify-btn');
+        const statusDiv = document.getElementById('status');
+        const resultsDiv = document.getElementById('results');
+
+        // The official WebLLM compiled Qwen 2.5 model (Highly stable, no local compiling needed)
+        const MODEL_ID = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
+
+        /**
+         * Initializes the WebGPU engine and caches the model in the browser.
+         */
+        async function initWebLLM() {
+            try {
+                const initProgressCallback = (report) => {
+                    statusDiv.innerText = `Status: ${report.text}`;
+                };
+
+                engine = await CreateMLCEngine(MODEL_ID, { initProgressCallback });
+                statusDiv.innerText = "Status: AI Ready. Execution runs 100% locally on your device.";
+                statusDiv.style.backgroundColor = "#d4edda";
+                statusDiv.style.color = "#155724";
+                
+                btn.disabled = false;
+                btn.innerText = "Analyze Proof";
+            } catch (error) {
+                statusDiv.innerText = `Hardware Error: Your browser does not support WebGPU, or hardware acceleration is disabled.`;
+                statusDiv.style.backgroundColor = "#f8d7da";
+                statusDiv.style.color = "#721c24";
+                console.error(error);
+            }
+        }
+
+        /**
+         * Packages the prompt, runs local inference, and safely parses the JSON response.
+         */
+        window.submitProof = async function() {
+            const statement = document.getElementById('statement').value.trim();
+            const proof = document.getElementById('proof').value.trim();
+
+            if (!statement || !proof) {
+                alert("Please provide both a statement and a proof.");
+                return;
+            }
+
             btn.disabled = true;
-            btn.innerText = "Analyzing logic...";
+            btn.innerText = "Analyzing logic... (This may take a few seconds)";
             resultsDiv.innerHTML = "";
 
+            const systemPrompt = `You are a strict MAT102 grading assistant. 
+CRITICAL INSTRUCTION: You MUST return a single, valid JSON object. Do not wrap it in markdown blockquotes. Never use double quotes inside your analysis paragraphs; use single quotes instead.
+
+Use this EXACT flat JSON schema:
+{
+  "logic_analysis": "Write a detailed paragraph explaining the logical flow and any major logical failures here.",
+  "grammar_analysis": "Write a paragraph evaluating mathematical language and clarity.",
+  "format_analysis": "Write a paragraph evaluating proof structure, definitions, and conventions.",
+  "errors": [
+    {
+      "id": "error_1",
+      "type": "logic",
+      "title": "Invalid Deduction",
+      "description": "Short description of the specific error.",
+      "line": 2
+    }
+  ]
+}
+
+If there are no specific line errors, leave the "errors" array empty: []`;
+
+            const userContent = `STATEMENT TO PROVE:\n${statement}\n\nPROOF ATTEMPT:\n${proof}`;
+
             try {
-                // Ping the local Python Flask server
-                const response = await fetch('http://localhost:5000/verify', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ statement, proof })
+                const reply = await engine.chat.completions.create({
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: userContent }
+                    ],
+                    temperature: 0.1
                 });
 
-                const data = await response.json();
-                
-                // 1. Render the Structured Argument (The "Thinking")
-                // NOTE: Renamed variable from 'eval' (reserved JS keyword) to 'evaluation'
-                const evaluation = data.structured_evaluation;
-                resultsDiv.innerHTML += `
-                    <div style="background: #f8f9fa; padding: 1rem; border: 1px solid #dee2e6; margin-top: 1rem;">
-                        <h3>Overall Evaluation</h3>
-                        <p><strong>Logic:</strong> ${evaluation.logic_analysis}</p>
-                        <p><strong>Grammar/Wording:</strong> ${evaluation.grammar_analysis}</p>
-                        <p><strong>Format:</strong> ${evaluation.format_analysis}</p>
-                    </div>
-                `;
+                const rawResponse = reply.choices[0].message.content;
 
-                // 2. Render the Specific Line Errors
-                if (data.errors && data.errors.length > 0) {
-                    resultsDiv.innerHTML += `<h3>Specific Errors</h3>`;
-                    data.errors.forEach(err => {
-                        // Apply specific CSS styling based on the error type returned by Qwen
-                        const cssClass = err.type === 'logic' ? 'error-card' : 'format-card';
-                        resultsDiv.innerHTML += `
-                            <div class="${cssClass}">
-                                <strong>[Line ${err.line || '?'}] ${err.title}</strong>
-                                <p>${err.description}</p>
-                            </div>
-                        `;
-                    });
+                // --- Sanitization Pipeline ---
+                
+                // 1. Strip reasoning blocks (<think> tags from Qwen/Reasoning models)
+                let cleanResponse = rawResponse.replace(/<think>.*?<\/think>/gs, '');
+                cleanResponse = cleanResponse.replace(/<think>.*/gs, '');
+
+                // 2. Strip Markdown formatting
+                cleanResponse = cleanResponse.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+                // 3. Sanitize internal unescaped quotes inside JSON values
+                cleanResponse = cleanResponse.replace(/(?<![:{\[,])"(?![:,}\]])/g, "'");
+
+                // --- JSON Extraction ---
+                const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
+                
+                if (jsonMatch) {
+                    const parsedData = JSON.parse(jsonMatch[0]);
+                    renderFeedback(parsedData);
                 } else {
-                    // Fallback UI if the JSON array is completely empty
-                    resultsDiv.innerHTML += `<p style='color: green; font-weight: bold; margin-top: 1rem;'>No specific line-item errors flagged.</p>`;
+                    throw new Error("No JSON object found in the AI response.");
                 }
 
-            } catch (e) {
-                console.error("Fetch error:", e);
-                resultsDiv.innerHTML = "<p style='color: red;'>Error connecting to local server. Is app.py running?</p>";
+            } catch (error) {
+                console.error("Evaluation Error:", error);
+                resultsDiv.innerHTML = `<p style='color: #d93025; font-weight: bold;'>Error parsing the analysis. The AI generated invalid formatting. Please try clicking Analyze again or rewording your proof slightly.</p>`;
             } finally {
-                // Restore UI state
                 btn.disabled = false;
                 btn.innerText = "Analyze Proof";
             }
+        };
+
+        /**
+         * Renders the parsed JSON data into the DOM.
+         */
+        function renderFeedback(data) {
+            // Render structured analysis
+            resultsDiv.innerHTML = `
+                <div class="evaluation-card">
+                    <h3 style="margin-top: 0;">Overall Evaluation</h3>
+                    <p><strong>Logic:</strong> ${data.logic_analysis || "No analysis provided."}</p>
+                    <p><strong>Grammar/Wording:</strong> ${data.grammar_analysis || "No analysis provided."}</p>
+                    <p><strong>Format:</strong> ${data.format_analysis || "No analysis provided."}</p>
+                </div>
+            `;
+
+            // Render specific line-item errors
+            if (data.errors && data.errors.length > 0) {
+                resultsDiv.innerHTML += `<h3 style="margin-top: 2rem;">Specific Errors</h3>`;
+                data.errors.forEach(err => {
+                    const cssClass = err.type === 'logic' ? 'error-card' : 'format-card';
+                    resultsDiv.innerHTML += `
+                        <div class="${cssClass}">
+                            <strong style="font-size: 1.1em;">[Line ${err.line || '?'}] ${err.title}</strong>
+                            <p style="margin-bottom: 0;">${err.description}</p>
+                        </div>
+                    `;
+                });
+            } else {
+                resultsDiv.innerHTML += `
+                    <div style="background: #e6f4ea; padding: 1rem; border-left: 4px solid #1e8e3e; margin-top: 1.5rem; border-radius: 0 4px 4px 0;">
+                        <strong style="color: #137333;">✓ No specific line-item formatting or logic errors flagged!</strong>
+                    </div>
+                `;
+            }
         }
+
+        // Boot the WebLLM engine as soon as the page loads
+        initWebLLM();
     </script>
 </body>
 </html>
