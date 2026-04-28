@@ -20,7 +20,7 @@ model User {
   // Primary identifiers:
   // - privateId is the internal surrogate key (never expose in public APIs).
   // - publicId is an immutable, opaque id safe to share in URLs and responses.
-  privateId                     Int                             @Id @default(autoincrement())
+  privateId                     Int                             @id @default(autoincrement())
   publicId                      String                          @unique @default(cuid())
 
   // Profile and sign-in:
@@ -35,7 +35,13 @@ model User {
 
   // Optional link to the university the user is associated with (tenant context).
   privateUniversityId           Int?
-  university                    University                      @relation(fields: [privateUniversityId], [privateId], onDelete: SetNull)
+  university                    University                      @relation(fields: [privateUniversityId], references:[privateId], onDelete: SetNull)
+
+
+  // Lifecycle: last successful login; record creation time; soft-delete timestamp when set.
+  lastLoginAt                   DateTime?
+  createdAt                     DateTime                        @default(now())
+  deletedAt                     DateTime?
 
   // Inverse relations: rows in other tables whose foreign keys reference this user’s privateId. Prisma Needs this to work. Not columns in the database
   oauthAccounts                 OAuthAccount[]
@@ -43,18 +49,14 @@ model User {
   documents                     Document[]
   enrollments                   userCourse[]
   dailyUsages                   DailyUsage[]
-  subscriptions                 Subscription[]
-
-  // Lifecycle: last successful login; record creation time; soft-delete timestamp when set.
-  lastLoginAt                   DateTime?
-  createdAt                     DateTime                        @default(now())
-  deletedAt                     DateTime?
+  // At most one Subscription row per user (enforced by @@unique on Subscription.privateUserId).
+  subscription                  Subscription?
 
 }
 
 model OAuthAccount {
   // Links a User to a third-party OAuth identity (e.g. Google): tokens and provider ids.
-  privateId                     Int                             @Id @default(autoincrement())
+  privateId                     Int                             @id @default(autoincrement())
 
   // User linked to this OAuth account; deleting the user cascades and removes linked OAuth rows.
   privateUserId                 Int
@@ -77,7 +79,11 @@ model OAuthAccount {
 
 model Sessions {
   // Authenticated session for a user: tokens, device fingerprint, and expiry tracking.
-  privateId                     Int                             @Id @default(autoincrement())
+  //
+  // Performance: updating lastActiveAt on every request causes write churn. Mitigations to consider
+  // in application code: throttle updates (e.g. at most once per 1–5 minutes), or store activity in
+  // Redis; only persist to DB on session create/refresh/revoke.
+  privateId                     Int                             @id @default(autoincrement())
 
   // Session belongs to exactly one user; removed when user is deleted.
   privateUserId                 Int
@@ -116,7 +122,7 @@ model Document {
   // A proof document owned by a user: metadata, course scope, and compile/edit timestamps.
   //
   // Same dual-id pattern as User: internal key plus stable publicId for sharing links safely.
-  privateId                     Int                             @Id @default(autoincrement())
+  privateId                     Int                             @id @default(autoincrement())
   publicId                      String                          @unique @default(cuid())
 
   // Title and ownership; proof strategy type; optional course context when relevant.
@@ -133,19 +139,20 @@ model Document {
   lastEdited                    DateTime                        @updatedAt
   createdAt                     DateTime                        @default(now())
 
+
+  // Each owner may not reuse the same document title (per-user uniqueness).
+  @@unique([privateOwnerId, title])
+
   // Inverse relations: rows that reference this document’s privateId (bodies, attempts, errors, junction links).
   documentBodies                DocumentBody[]
   proofAttempts                 ProofAttempt[]
   errors                        Error[]
-  documentMathStatements        documentMathStatements[]
-
-  // Each owner may not reuse the same document title (per-user uniqueness).
-  @@unique([privateOwnerId, title])
+  documentMathStatements        DocumentMathStatements[]
 }
 
 model DocumentBody {
   // Versioned body content for a Document: JSON payload keyed by internal ids.
-  privateId                     Int                             @Id @default(autoincrement())
+  privateId                     Int                             @id @default(autoincrement())
   publicId                      String                          @unique @default(cuid())
 
   // Serialized editor/proof content (structure defined by the application layer).
@@ -169,7 +176,7 @@ model ProofAttempt {
 
   // Parent document. Deletes do not cascade so attempts can be retained for analytics or ML.
   privateDocumentId             Int
-  document                      Document                        @relation(fields: [privateDocumentId], references: [privateId], onDelete: SetNull)
+  document                      Document                        @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
 
   // Proof payload and optional named version; manualSave distinguishes autosave vs explicit save.
   content                       Json
@@ -188,6 +195,10 @@ model Hint {
   privateId                     Int                             @id @default(autoincrement())
   publicId                      String                          @unique @default(cuid())
 
+  // Document where this hint comes form
+  privateDocumentId             Int
+  document                      Document                        @relation(fields: [privateDocumentId], references: [privateId], onDelete: cascade)
+
   // Hint body and span inside the proof text; model identifies which assistant/model produced it.
   content                       Json
   startIndex                    Int
@@ -200,28 +211,27 @@ model Hint {
   createdAt                     DateTime                        @default(now())
 
   // Populated from the junction table when this hint is tied to documents/math statements.
-  usageRecords                  documentMathStatements[]
+  usageRecords                  DocumentMathStatements[]
 }
 
-enum ErrorTypes {
-  Incorrectly Negatating a statement
-  Assuming the Converse
-  Equivocation
-  False Dichotomy in Case Analysis
-  Unjustified Reversibility
-  Misapplying a Theorem
-  Misapplying a Definition
-  Misapplying a Lemma
-  Misapplying a Property
-  Misapplying a Axiom
-  Misapplying a Corollary
-  Misapplying a Conjecture
-  Misapplying a Proposition
-  Affirming the Consequent
-  Circular Reasoning
-  Jumping to Conclusions
-  Improper Generalization
-  Incorrectly Negating a Statement
+enum ErrorType {
+  INCORRECTLY_NEGATING_A_STATEMENT
+  ASSUMING_THE_CONVERSE
+  EQUIVOCATION
+  FALSE_DICHOTOMY_IN_CASE_ANALYSIS
+  UNJUSTIFIED_REVERSIBILITY
+  MISAPPLYING_A_THEOREM
+  MISAPPLYING_A_DEFINITION
+  MISAPPLYING_A_LEMMA
+  MISAPPLYING_A_PROPERTY
+  MISAPPLYING_AN_AXIOM
+  MISAPPLYING_A_COROLLARY
+  MISAPPLYING_A_CONJECTURE
+  MISAPPLYING_A_PROPOSITION
+  AFFIRMING_THE_CONSEQUENT
+  CIRCULAR_REASONING
+  JUMPING_TO_CONCLUSIONS
+  IMPROPER_GENERALIZATION
 }
 
 enum Severity {
@@ -231,10 +241,14 @@ enum Severity {
 }
 
 enum ValidationLayer {
-  Latex Parser
-  Computation Checker
-  Proof Wording/Grammar Model
-  Logic Engine
+  // Latex Parser
+  LATEX_PARSER
+  // Surface-level grammar and wording checks only.
+  PROOF_GRAMMER
+  // Grammar plus computational step validation (e.g. arithmetic).
+  COMPUTATION
+  // Full pipeline including logical consistency of the proof chain.
+  LOGIC_CHAIN
 }
 
 model Error {
@@ -278,7 +292,7 @@ enum Textbook {
   Fuchs_102
 }
 
-model documentMathStatements {
+model DocumentMathStatements {
   // Junction: connects a Document, a MathStatement, and an optional Hint with usage metadata.
   privateDocumentId             Int
   document                      Document                        @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
@@ -314,7 +328,7 @@ model MathStatement {
   orderIndex                    Int
 
   // Reverse relation: where this statement appears across documents (via junction table).
-  usageInDocs                   documentMathStatements[]
+  usageInDocs                   DocumentMathStatements[]
 
   createdAt                     DateTime                        @default(now())
 }
@@ -380,18 +394,9 @@ enum PlanTier {
   ULTIMATTE
 }
 
-enum ErrorTypes {
-  // Surface-level grammar and wording checks only.
-  PROOF_GRAMMER
-  // Grammar plus computational step validation (e.g. arithmetic).
-  COMPUTATION
-  // Full pipeline including logical consistency of the proof chain.
-  LOGIC_CHAIN
-}
-
 model Plan {
   // Sellable subscription tier: pricing flags and per-day limits surfaced to the product.
-  id                            Int                             @Id @default(autoincrement())
+  id                            Int                             @id @default(autoincrement())
   name                          PlanTier                        @unique
   monthlyPrice                  Decimal                         @default(0.0)
   isActive                      Boolean                         @default(true)
@@ -401,7 +406,7 @@ model Plan {
   dailyDocLimit                 Int
   hintsPerDefLimit              Int
   suggestionLimit               Int
-  errorVisibility               ErrorTypes
+  errorVisibility               ValidationLayer
 
   createdAt                     DateTime                        @default(now())
 
@@ -412,18 +417,18 @@ model Plan {
 
 model DailyUsage {
   // Per-user daily counters for quota enforcement (resets per calendar rules in application code).
-  privateId                     Int                             @Id @default(autoincrement())
+  privateId                     Int                             @id @default(autoincrement())
   publicId                      String                          @unique @default(cuid())
 
   // Which user’s usage row this is; cascades with user deletion.
   privateUserId                 Int
-  user                          User                            @relation(fields: [privateUserId], references[privateId], onDelete: Cascade)
+  user                          User                            @relation(fields: [privateUserId], references: [privateId], onDelete: Cascade)
 
   // Rolling counters within the row’s logical “day” (document creates, suggestion consumption).
   docsCreatedToday              Int                             @default(0)
   suggestionsUsedToday          Int                             @default(0)
 
-  date                          DateTime                        @default(now())
+  date                          Date                            @default(now())
   createdAt                     DateTime                        @default(now())
 
   // At most one usage aggregate per user per date value (unique pair).
@@ -438,23 +443,28 @@ enum SubscriptionStatus {
 
 model Subscription {
   // Links a user to a billing Plan with processor ids and renewal window.
-  privateId                     Int                             @Id @default(autoincrement())
+  privateId                     Int                             @id @default(autoincrement())
   publicId                      String                          @unique @default(cuid())
 
   // Subscriber and chosen plan; plan delete sets FK null so subscription history can remain.
-  userId                        Int
-  user                          User                            @relation(fields: [userId], references: [privateId], onDelete: Cascade)
+  privateUserId                 Int
+  user                          User                            @relation(fields: [privateUserId], references: [privateId], onDelete: Cascade)
 
   planId                        Int
-  plan                          Plan                            @relation(fields: [planId], references: [privateId], onDelete: SetNull)
+  plan                          Plan                            @relation(fields: [planId], references: [id], onDelete: SetNull)
 
   // Billing lifecycle flags from your provider integration.
   status                        SubscriptionStatus
   cancelAtPeriodEnd             Boolean
 
   // External subscription id from the payment provider (e.g. Stripe) for webhooks and reconciliation.
-  processorSubscriptionId       string
+  processorSubscriptionId       String
 
   // When the current paid period ends (renewal / cancellation semantics in app code).
   currentPeriodEnd              DateTime
+
+  // One subscription record per user at the database level.
+  // If you later need multiple rows per user (e.g. full billing history), drop this and use a
+  // partial unique index in SQL (e.g. one ACTIVE subscription per user) or enforce in application code.
+  @@unique([privateUserId])
 }
