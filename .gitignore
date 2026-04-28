@@ -13,3 +13,8 @@ Prove-It (Repo)/Server (Backend)/node_modules
 Prove-It (Repo)/Server (Backend)/.env
 Client/.env
 Python-services/.env
+
+
+// AI instructions
+/Prove-It (Repo)/AGENTS.md
+/Prove-It (Repo)/CLAUDE.md
