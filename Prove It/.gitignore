@@ -50,3 +50,6 @@ next-env.d.ts
 
 // Cursor Info
 .cursor/
+
+// Local development
+start_local_database.sh
