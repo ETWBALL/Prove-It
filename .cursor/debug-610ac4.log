@@ -1,0 +1,2 @@
+{"sessionId":"610ac4","location":"layout.tsx:RootLayout","message":"SSR body markup intent","data":{"bodyClass":"min-h-full flex flex-col","serverAddsGrAttrs":false},"runId":"pre-fix","hypothesisId":"B","timestamp":1777307573790}
+{"sessionId":"610ac4","location":"layout.tsx:RootLayout","message":"SSR body markup intent","data":{"bodyClass":"min-h-full flex flex-col","serverAddsGrAttrs":false},"runId":"pre-fix","hypothesisId":"B","timestamp":1777307574196}
