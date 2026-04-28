@@ -37,6 +37,14 @@ model User {
   privateUniversityId           Int?
   university                    University                      @relation(fields: [privateUniversityId], [privateId], onDelete: SetNull)
 
+  // Inverse relations: rows in other tables whose foreign keys reference this user’s privateId. Prisma Needs this to work. Not columns in the database
+  oauthAccounts                 OAuthAccount[]
+  sessions                      Sessions[]
+  documents                     Document[]
+  enrollments                   userCourse[]
+  dailyUsages                   DailyUsage[]
+  subscriptions                 Subscription[]
+
   // Lifecycle: last successful login; record creation time; soft-delete timestamp when set.
   lastLoginAt                   DateTime?
   createdAt                     DateTime                        @default(now())
@@ -124,6 +132,12 @@ model Document {
   lastCompiled                  DateTime?
   lastEdited                    DateTime                        @updatedAt
   createdAt                     DateTime                        @default(now())
+
+  // Inverse relations: rows that reference this document’s privateId (bodies, attempts, errors, junction links).
+  documentBodies                DocumentBody[]
+  proofAttempts                 ProofAttempt[]
+  errors                        Error[]
+  documentMathStatements        documentMathStatements[]
 
   // Each owner may not reuse the same document title (per-user uniqueness).
   @@unique([privateOwnerId, title])
@@ -390,6 +404,9 @@ model Plan {
   errorVisibility               ErrorTypes
 
   createdAt                     DateTime                        @default(now())
+
+  // Inverse relation: subscriptions that reference this plan row.
+  subscriptions                 Subscription[]
 }
 
 
