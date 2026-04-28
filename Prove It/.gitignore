@@ -47,3 +47,6 @@ next-env.d.ts
 // AI instructions
 /AGENTS.md
 /CLAUDE.md
+
+// Cursor Info
+.cursor/
