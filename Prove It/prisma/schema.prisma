@@ -1,0 +1,415 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  // Row that represents a user
+  // Internal Primary Key (Hidden from the API)
+  privateId                     Int                             @Id @default(autoincrement())
+  publicId                      String                          @unique @default(cuid()) // Public immutable Id
+
+  name                          String
+  username                      String                          @unique // Used in URLs
+  email                         String                          @unique
+  password                      String                          // Must be hashed
+  bio                           String?
+  avatarUrl                     String?
+
+  privateUniversityId           Int?
+  university                    University                      @relation(fields: [privateUniversityId], [privateId], onDelete: SetNull)
+
+  lastLoginAt                   DateTime?
+  createdAt                     DateTime                        @default(now())
+  deletedAt                     DateTime?                       // Nullable for soft delete
+
+}
+
+model OAuthAccount {
+  // A row that represents one of the user's OAuth accounts
+  privateId                     Int                             @Id @default(autoincrement())
+
+  // Link to the user's privateId. Many-to-one relationship
+  privateUserId                 Int
+  user                          User                            @relation(fields: [privateUserId], references: [privateId], onDelete: Cascade)
+
+  // Provider details
+  providerName                  String
+  providerId                    String
+
+  // Security tokens
+  accessToken                   String                          @unique
+  refreshToken                  String?                         @unique // Not all providers give one
+
+  createdAt                     DateTime                        @default(now())
+
+  // Ensure one user can't link the same Google account twice
+  @@unique([providerName, providerId])
+}
+
+
+model Sessions {
+  privateId                     Int                             @Id @default(autoincrement())
+  privateUserId                 Int
+  user                          User                            @relation(fields: [privateUserId], references: [privateId], onDelete: Cascade)
+
+  // Security tokens
+  accessToken                   String                          @unique
+  refreshToken                  String                          @unique
+
+  device                        String
+
+  tokenExpiresAt                DateTime
+  lastActiveAt                  DateTime
+  createdAt                     DateTime                        @default(now())
+
+}
+
+
+enum ProofType {
+  DIRECT
+  CONTRADICTION
+  CONTRAPOSITIVE
+  WEAK_INDUCTION
+  STRONG_INDUCTION
+  COUNTEREXAMPLE
+  STRUCTURAL_INDUCTION
+  BICONDITIONAL
+  CONDITIONAL
+  CASE_ANALYSIS
+}
+
+
+model Document {
+  // A row that represents a document that a user owns.
+  privateId                     Int                             @Id @default(autoincrement())
+  publicId                      String                          @unique @default(cuid()) // Public immutable Id. Necessary so others don't view other people's work
+
+  // Document metadata
+  title                         String
+  privateOwnerId                Int
+  user                          User                            @relation(fields: [privateOwnerId], references: [privateId], onDelete: Cascade)
+  proofType                     ProofType
+  privateCourseId               Int?
+  course                        Course                          @relation(fields: [privateCourseId], references: [privateId], onDelete: SetNull)
+
+  deletedAt                     DateTime?                       // Nullable for soft delete
+  lastCompiled                  DateTime?
+  lastEdited                    DateTime                        @updatedAt
+  createdAt                     DateTime                        @default(now())
+
+  @@unique([privateOwnerId, title]) // Ensure that a single user cannot have two documents with the same name
+}
+
+model DocumentBody {
+  privateId                     Int                             @Id @default(autoincrement())
+  publicId                      String                          @unique @default(cuid())
+
+  content                       Json
+
+  // Link to Document
+  privateDocumentId             Int
+  document                      Document                        @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
+
+  createdAt                     DateTime                        @default(now())
+
+}
+
+
+model ProofAttempt {
+  // A row that represents a single proof attempt from a document.
+  privateId                     Int                             @id @default(autoincrement())
+  publicId                      String                          @unique @default(cuid()) // Public immutable Id. Necessary so others don't view other people's work
+
+  privateDocumentId             Int
+  document                      Document                        @relation(fields: [privateDocumentId], references: [privateId], onDelete: SetNull) // Not cascading on delete since we'd still want to use it for training data on models
+
+  // Content and Versioning
+  content                       Json
+  versionName                   String?
+  manualSave                    Boolean                         @default(false)
+
+  // Analytics and Metadata
+  errorCount                    Int                             @default(0)
+  historicalMetadata            Json
+
+  createdAt                     DateTime                        @default(now())
+}
+
+model Hint {
+  // A row that represents a hint
+  privateId                     Int                             @id @default(autoincrement())
+  publicId                      String                          @unique @default(cuid()) // Public immutable Id. Necessary so others don't view other people's work
+
+  content                       Json
+  startIndex                    Int
+  endIndex                      Int
+  model                         String
+
+  resolvedAt                    DateTime?
+  dismissedAt                   DateTime?
+  createdAt                     DateTime                        @default(now())
+
+  // Back-relation to the junction table
+  usageRecords                  documentMathStatements[]
+}
+
+enum ErrorTypes {
+  Incorrectly Negatating a statement
+  Assuming the Converse
+  Equivocation
+  False Dichotomy in Case Analysis
+  Unjustified Reversibility
+  Misapplying a Theorem
+  Misapplying a Definition
+  Misapplying a Lemma
+  Misapplying a Property
+  Misapplying a Axiom
+  Misapplying a Corollary
+  Misapplying a Conjecture
+  Misapplying a Proposition
+  Affirming the Consequent
+  Circular Reasoning
+  Jumping to Conclusions
+  Improper Generalization
+  Incorrectly Negating a Statement
+}
+
+enum Severity {
+  LOW
+  MODERATE
+  CRITICAL
+}
+
+enum ValidationLayer {
+  Latex Parser
+  Computation Checker
+  Proof Wording/Grammar Model
+  Logic Engine
+}
+
+model Error {
+  // A row represents a single error appearing in some document
+  privateId                     Int                             @id @default(autoincrement())
+  publicId                      String                          @unique @default(cuid()) // Public immutable Id. Necessary so others don't view other people's work
+
+  // Location in the ProofAttempt content
+  startIndex                    Int
+  endIndex                      Int
+  suggestedFix                  Json
+
+  // Document Link
+  privateDocumentId             Int
+  document                      Document                        @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
+
+  type                          ErrorTypes
+  severity                      Severity
+  layer                         ValidationLayer
+  model                         String
+
+  resolvedAt                    DateTime?
+  dismissedAt                   DateTime?
+  createdAt                     DateTime                        @default(now())
+
+}
+
+enum Library {
+  DEFINITION
+  THEOREM
+  LEMMA
+  PROPERTY
+  AXIOM
+  COROLLARY
+  CONJECTURE
+  PROPOSITION
+}
+
+enum Textbook {
+  Fuchs_102
+}
+
+model documentMathStatements {
+  // Junction table: Each row represents a (document, math_statement, hint) triplet.
+  privateDocumentId             Int
+  document                      Document                        @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
+
+  privateMathStatementId        Int
+  mathstatement                 MathStatement                   @relation(fields: [privateMathStatementId], references: [privateId], onDelete: Cascade)
+
+  privateHintId                 Int
+  hint                          Hint                            @relation(fields: [privateHintId], references: [privateId], onDelete: Cascade)
+
+  // Interaction Data
+  wasUsed                       Boolean                         @default(false)
+  resolvedAt                    DateTime?
+  dismissedAt                   DateTime?
+  createdAt                     DateTime                        @default(now())
+
+  // Primary Key
+  @@id([privateDocumentId, privateMathStatementId, privateHintId])
+}
+
+model MathStatement {
+  // A row representing a single math statement
+  privateId                     Int                             @id @default(autoincrement())
+  publicId                      String                          @unique @default(cuid()) // Public immutable Id.
+
+  type                          Library
+  name                          String
+  content                       Json
+  privateCourseId               Int
+  course                        Course                          @relation(fields: [privateCourseId], references: [privateId], onDelete: Cascade)
+  textbook                      Textbook
+  orderIndex                    Int
+
+  // Junction link for usage tracking
+  usageInDocs                   documentMathStatements[]
+
+  createdAt                     DateTime                        @default(now())
+}
+
+model userCourse {
+  // Junction table: A row represents a (user, course) pair
+  privateUserId                 Int
+  user                          User                            @relation(fields: [privateUserId], references: [privateId], onDelete: Cascade)
+
+  privateCourseId               Int
+  course                        Course                          @relation(fields: [privateCourseId], references: [privateId], onDelete: Cascade)
+
+  unenrolledAt                  DateTime?
+  createdAt                     DateTime                        @default(now())
+
+  // Composite primary key
+  @@id([privateUserId, privateCourseId])
+}
+
+enum Country {
+  CANADA
+}
+
+model Course {
+  // A row represents a single course
+  privateId                     Int                             @id @default(autoincrement())
+  publicId                      String                          @unique @default(cuid()) // Public immutable Id.
+
+  // Course info
+  name                          String
+  universityId                  Int
+  university                    University                      @relation(fields: [universityId], references: [privateId], onDelete: Cascade)
+
+  // Back-Relations
+  documents                     Document[]
+  mathStatements                MathStatement[]
+  enrollments                   userCourse[]
+
+  // Allow many universities to have the same course name
+  @@unique([universityId, name])
+
+  createdAt                     DateTime                        @default(now())
+}
+
+model University {
+  // A row represents a university
+  privateId                     Int                             @id @default(autoincrement())
+  publicId                      String                          @unique @default(cuid()) // Public immutable Id.
+
+  name                          String
+  logoUrl                       String
+  country                       Country
+
+  Relationships (The "Multi-Tenant" links)
+  users                         User[]
+  courses                       Course[]
+
+  createdAt                     DateTime                        @default(now())
+}
+
+enum PlanTier {
+  FREE
+  PRO
+  ULTIMATTE
+}
+enum ErrorTypes {
+  PROOF_GRAMMER // Grammar only
+  COMPUTATION // Grammar + computation
+  LOGIC_CHAIN // Everything
+}
+
+model Plan {
+  //row that represents a Plan
+
+  id                            Int                             @Id @default(autoincrement())
+  name                          PlanTier                        @unique
+  monthlyPrice                  Decimal                         @default(0.0)
+  isActive                      Boolean                         @default(true)
+
+  // Perks
+  dailyDocLimit                 Int                             // Max documents a user can make
+  hintsPerDefLimit              Int                             //Max hints shown
+  suggestionLimit               Int                             //Max suggestions shown per proof
+  errorVisibility               ErrorTypes                      // What kind of errors to show
+
+  createdAt                     DateTime                        @default(now())
+}
+
+
+model DailyUsage {
+  // A row that represents a user's daily usage
+  privateId                     Int                             @Id @default(autoincrement())
+  publicId                      String                          @unique @default(cuid()) // Public immutable Id. Necessary so others don't view other people's work
+
+  // User relation. One user can have many daily usages.
+  privateUserId                 Int
+  user                          User                            @relation(fields: [privateUserId], references[privateId], onDelete: Cascade)
+
+  // Information
+  docsCreatedToday              Int                             @default(0)
+  suggestionsUsedToday          Int                             @default(0)
+
+  date                          DateTime                        @default(now())
+  createdAt                     DateTime                        @default(now())
+
+  // Ensure one user only has ONE record per day
+  @@unique([privateUserId, date])
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  PAST_DUE
+}
+
+model Subscription {
+  // A row that represents a user's Subscription
+  privateId                     Int                             @Id @default(autoincrement())
+  publicId                      String                          @unique @default(cuid())
+
+  // User Information
+  userId                        Int
+  user                          User                            @relation(fields: [userId], references: [privateId], onDelete: Cascade)
+
+  // Plan information
+  planId                        Int
+  plan                          Plan                            @relation(fields: [planId], references: [privateId], onDelete: SetNull)
+
+  // Subscription information
+  status                        SubscriptionStatus
+  cancelAtPeriodEnd             Boolean
+
+  // Payment Processor, i.e., Stripe
+  processorSubscriptionId       string
+
+  // Expiration date
+  currentPeriodEnd              DateTime
+}
