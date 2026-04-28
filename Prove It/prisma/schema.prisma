@@ -29,13 +29,13 @@ model User {
   name                          String
   username                      String                          @unique
   email                         String                          @unique
-  password                      String
+  password                      String?
   bio                           String?
   avatarUrl                     String?
 
   // Optional link to the university the user is associated with (tenant context).
   privateUniversityId           Int?
-  university                    University                      @relation(fields: [privateUniversityId], references:[privateId], onDelete: SetNull)
+  university                    University?                     @relation(fields: [privateUniversityId], references: [privateId], onDelete: SetNull)
 
 
   // Lifecycle: last successful login; record creation time; soft-delete timestamp when set.
@@ -131,7 +131,7 @@ model Document {
   user                          User                            @relation(fields: [privateOwnerId], references: [privateId], onDelete: Cascade)
   proofType                     ProofType
   privateCourseId               Int?
-  course                        Course                          @relation(fields: [privateCourseId], references: [privateId], onDelete: SetNull)
+  course                        Course?                         @relation(fields: [privateCourseId], references: [privateId], onDelete: SetNull)
 
   // Soft delete and editor/compiler bookkeeping.
   deletedAt                     DateTime?
@@ -147,6 +147,7 @@ model Document {
   documentBodies                DocumentBody[]
   proofAttempts                 ProofAttempt[]
   errors                        Error[]
+  hints                         Hint[]
   documentMathStatements        DocumentMathStatements[]
 }
 
@@ -185,7 +186,7 @@ model ProofAttempt {
 
   // Diagnostics captured with this snapshot (e.g. error counts and opaque analytics Json).
   errorCount                    Int                             @default(0)
-  historicalMetadata            Json
+  historicalMetadata            Json?
 
   createdAt                     DateTime                        @default(now())
 }
@@ -195,12 +196,12 @@ model Hint {
   privateId                     Int                             @id @default(autoincrement())
   publicId                      String                          @unique @default(cuid())
 
-  // Document where this hint comes form
+  // Document this hint belongs to.
   privateDocumentId             Int
-  document                      Document                        @relation(fields: [privateDocumentId], references: [privateId], onDelete: cascade)
+  document                      Document                        @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
 
   // Hint body and span inside the proof text; model identifies which assistant/model produced it.
-  content                       Json
+  content                       Json?
   startIndex                    Int
   endIndex                      Int
   model                         String
@@ -259,14 +260,14 @@ model Error {
   // Character range inside the proof JSON/content that this error refers to; suggestedFix is structured guidance.
   startIndex                    Int
   endIndex                      Int
-  suggestedFix                  Json
+  suggestedFix                  Json?
 
   // Owning document for navigation and permissions.
   privateDocumentId             Int
   document                      Document                        @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
 
   // Taxonomy: kind of mistake, severity band, validation pipeline stage, and originating model id.
-  type                          ErrorTypes
+  type                          ErrorType
   severity                      Severity
   layer                         ValidationLayer
   model                         String
@@ -378,7 +379,7 @@ model University {
   publicId                      String                          @unique @default(cuid())
 
   name                          String
-  logoUrl                       String
+  logoUrl                       String?
   country                       Country
 
   // All users and courses that belong to this university (multi-tenant boundaries).
@@ -428,10 +429,12 @@ model DailyUsage {
   docsCreatedToday              Int                             @default(0)
   suggestionsUsedToday          Int                             @default(0)
 
-  date                          Date                            @default(now())
+  // Calendar day in UTC only (PostgreSQL DATE via @db.Date). Matches @@unique with privateUserId (one row per user per UTC day).
+  // Default uses UTC so “today” is consistent regardless of client timezone; see lib/dailyUsageDate.ts for app-side upserts.
+  date                          DateTime                        @db.Date @default(dbgenerated("(now() AT TIME ZONE 'utc')::date"))
+
   createdAt                     DateTime                        @default(now())
 
-  // At most one usage aggregate per user per date value (unique pair).
   @@unique([privateUserId, date])
 }
 
@@ -450,18 +453,18 @@ model Subscription {
   privateUserId                 Int
   user                          User                            @relation(fields: [privateUserId], references: [privateId], onDelete: Cascade)
 
-  planId                        Int
-  plan                          Plan                            @relation(fields: [planId], references: [id], onDelete: SetNull)
+  planId                        Int?
+  plan                          Plan?                           @relation(fields: [planId], references: [id], onDelete: SetNull)
 
   // Billing lifecycle flags from your provider integration.
   status                        SubscriptionStatus
-  cancelAtPeriodEnd             Boolean
+  cancelAtPeriodEnd             Boolean                         @default(false)
 
-  // External subscription id from the payment provider (e.g. Stripe) for webhooks and reconciliation.
-  processorSubscriptionId       String
+  // Set when the payment provider creates the subscription (can lag row creation).
+  processorSubscriptionId       String?
 
-  // When the current paid period ends (renewal / cancellation semantics in app code).
-  currentPeriodEnd              DateTime
+  // Null until the current period end is known from the provider.
+  currentPeriodEnd              DateTime?
 
   // One subscription record per user at the database level.
   // If you later need multiple rows per user (e.g. full billing history), drop this and use a
