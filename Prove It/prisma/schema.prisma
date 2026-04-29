@@ -26,8 +26,8 @@ model User {
   // Profile and sign-in:
   // Display name; username (unique URL slug); unique email; bcrypt-hashed password;
   // optional bio and avatar image URL.
-  name                          String
-  username                      String                          @unique
+  name                          String?
+  username                      String?                         @unique
   email                         String                          @unique
   password                      String?
   bio                           String?
@@ -385,6 +385,23 @@ model University {
   // All users and courses that belong to this university (multi-tenant boundaries).
   users                         User[]
   courses                       Course[]
+
+  // Reverse relation: Many domains to one university
+  emailDomains                  UniversityDomain[]
+
+  createdAt                     DateTime                        @default(now())
+}
+
+model UniversityDomain {
+  // A table of domains belonging to universities. Easily add multiple email domains
+  privateId                     Int                             @id @default(autoincrement())
+  publicId                      String                          @unique @default(cuid())
+
+  domain                        String                          @unique
+
+  // University Information
+  privateUniversityId           Int
+  university                    University                      @relation(fields:[privateUniversityId], references: [privateId], onDelete: Cascade)
 
   createdAt                     DateTime                        @default(now())
 }
