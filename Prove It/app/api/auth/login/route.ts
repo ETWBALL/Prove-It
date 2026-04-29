@@ -3,8 +3,15 @@ import { prisma } from '@/lib/prisma'
 import { ProveItRateLimit } from '@/lib/rateLimiter'
 import { getClientIpForRateLimit } from '@/lib/requestIp'
 import { LoginSchema } from '@/lib/Validation/zodSchemas';
-import { verifyPassword } from '@/lib/AuthUtility/passwordHashing';
+import { verifyPassword, hashOpaqueToken } from '@/lib/AuthUtility/passwordHashing';
+import { generateAccessToken, generateRefreshToken } from '@/lib/AuthUtility/auth-utility';
+import { env } from '@/lib/Validation/zodSchemas';
+import { cookieMaxAgeSeconds, expiresAtFromSpan } from '@/lib/date-utility';
 
+function cookieSecure(request: Request): boolean {
+    if (process.env.NODE_ENV === 'production') return true
+    return request.headers.get('x-forwarded-proto') === 'https'
+}
 
 export async function POST(request: Request) {
     // (1) RATE LIMIT CHECK (IP-based because they aren't logged in yet)
@@ -37,12 +44,8 @@ export async function POST(request: Request) {
     const user = await prisma.user.findUnique({
         where: { email: email.toLowerCase() },
         select: {
+            privateId: true, // Do not return this to the user
             password: true, // Dangerous, make sure not to return it
-            name: true,
-            username: true,
-            email: true,
-            bio: true,
-            avatarUrl: true,
             publicId: true,
         }
     })
@@ -57,8 +60,50 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
     }
 
-    // (5) Return JWT token
+    // (5) Generate JWT tokens, store their current session, and return to user
+    const accessToken = await generateAccessToken({ publicId: user.publicId })
+    const refreshToken = await generateRefreshToken({ publicId: user.publicId })
 
-    // DONT RETURN PASSWORD
+    const accessMaxAge = cookieMaxAgeSeconds(env.ACCESS_TOKEN_EXPIRES_IN)
+    const refreshMaxAge = cookieMaxAgeSeconds(env.REFRESH_TOKEN_EXPIRES_IN)
+
+    try {
+        await prisma.sessions.create({
+            data: {
+                privateUserId: user.privateId!,
+                refreshToken: await hashOpaqueToken(refreshToken),
+                device: request.headers.get('user-agent') || 'Unknown',
+                tokenExpiresAt: expiresAtFromSpan(env.REFRESH_TOKEN_EXPIRES_IN),
+                lastActiveAt: new Date(),
+            }
+        })
+    } catch (error) {
+        console.error(error)
+        return NextResponse.json({ error: 'Failed to create session' }, { status: 500 })
+    }
+
+    const response = NextResponse.json({success: true, message: "login successful"}, { status: 200 })
+
+    const secure = cookieSecure(request)
+    response.cookies.set({
+        name: 'accessToken',
+        value: accessToken,
+        httpOnly: true,
+        secure,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: accessMaxAge,
+    })
+    response.cookies.set({
+        name: 'refreshToken',
+        value: refreshToken,
+        httpOnly: true,
+        secure,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: refreshMaxAge,
+    })
+
+    return response
 
 }

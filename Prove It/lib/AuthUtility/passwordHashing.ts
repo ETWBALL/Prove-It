@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 import bcrypt from 'bcrypt'
 import { envSchema } from '@/lib/Validation/zodSchemas'
 
@@ -9,4 +11,15 @@ export async function hashPassword(password: string) {
 
 export async function verifyPassword(password: string, hashedPassword: string) {
     return await bcrypt.compare(password, hashedPassword)
+}
+
+/** SHA-256 hex then bcrypt so long JWTs are not truncated by bcrypt’s 72-byte input limit. */
+export async function hashOpaqueToken(token: string) {
+    const digest = createHash('sha256').update(token, 'utf8').digest('hex')
+    return bcrypt.hash(digest, BCRYPT_SALT_ROUNDS)
+}
+
+export async function verifyOpaqueToken(token: string, hashed: string) {
+    const digest = createHash('sha256').update(token, 'utf8').digest('hex')
+    return bcrypt.compare(digest, hashed)
 }

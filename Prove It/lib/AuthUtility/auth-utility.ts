@@ -8,8 +8,8 @@ export async function generateAccessToken(payload: { publicId: UserModel['public
     return await new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setIssuer(env.NEXT_PUBLIC_APP_URL)        
-    .setAudience(env.NEXT_PUBLIC_APP_URL)  
+    .setIssuer(env.APP_URL)        
+    .setAudience(env.APP_URL)  
     .setExpirationTime(env.ACCESS_TOKEN_EXPIRES_IN)
     .sign(new TextEncoder().encode(env.ACCESS_TOKEN_JWT_SECRET));
 } 
@@ -19,11 +19,10 @@ export async function generateAccessToken(payload: { publicId: UserModel['public
 export async function verifyAccessToken(token: string){
     try {
         return await jwtVerify(token, new TextEncoder().encode(env.ACCESS_TOKEN_JWT_SECRET), {
-            issuer: env.NEXT_PUBLIC_APP_URL,
-            audience: env.NEXT_PUBLIC_APP_URL,
+            issuer: env.APP_URL,
+            audience: env.APP_URL,
         });
     } catch (error) {
-        console.error(error);
         return null;
     }
 }
@@ -47,7 +46,6 @@ export async function verifyRefreshToken(token: string){
             audience: env.NEXT_PUBLIC_APP_URL,
         });
     } catch (error) {
-        console.error(error);
         return null;
     }
 }

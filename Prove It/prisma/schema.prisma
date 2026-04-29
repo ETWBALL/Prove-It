@@ -90,7 +90,6 @@ model Sessions {
   user                          User                            @relation(fields: [privateUserId], references: [privateId], onDelete: Cascade)
 
   // Bearer-style secrets used to validate requests for this session.
-  accessToken                   String                          @unique
   refreshToken                  String                          @unique
 
   // Short label for the client (browser name, OS, etc.) for auditing and revoke UX.
