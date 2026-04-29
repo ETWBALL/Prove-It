@@ -20,6 +20,12 @@ export const SignupSchema = z.object({
     message: "Passwords do not match",
 });
 
+// Validation schema for login
+export const LoginSchema = z.object({
+    email: z.string().email("Invalid email address").trim().toLowerCase(),
+    password: z.string({ error: "Password is required" }).min(1, "Password cannot be empty").max(128, "Password is too long"),
+});
+
 
 // Validation schema for environment variables
 export const envSchema = z.object({
