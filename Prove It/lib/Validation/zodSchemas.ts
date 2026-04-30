@@ -68,3 +68,13 @@ export const envSchema = z.object({
   })
 
 export const env = envSchema.parse(process.env)
+
+
+/** Validates user id on verified JWT payloads; allows standard claims (iat, exp, iss, aud, …). */
+export const TokenPayloadSchema = z
+    .object({
+        publicId: z.string({ error: 'Public ID is required' }).cuid('Invalid public ID'),
+        sessionPublicId: z.string({ error: 'Session public ID is required' }).cuid('Invalid session public ID'),
+    })
+    .passthrough()
+    .transform((p) => ({ publicId: p.publicId, sessionPublicId: p.sessionPublicId }))

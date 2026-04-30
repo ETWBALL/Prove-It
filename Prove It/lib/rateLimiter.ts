@@ -8,3 +8,9 @@ export const ProveItRateLimit = new Ratelimit({
   analytics: true,
   prefix: "@upstash/ratelimit",
 });
+
+// For refresh rates
+export const refreshRatelimit = new Ratelimit({
+    redis: Redis.fromEnv(),
+    limiter: Ratelimit.slidingWindow(30, '1 m'), // 10 refreshes per minute per session
+  })

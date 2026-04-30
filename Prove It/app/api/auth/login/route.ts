@@ -61,49 +61,57 @@ export async function POST(request: Request) {
     }
 
     // (5) Generate JWT tokens, store their current session, and return to user
-    const accessToken = await generateAccessToken({ publicId: user.publicId })
-    const refreshToken = await generateRefreshToken({ publicId: user.publicId })
-
-    const accessMaxAge = cookieMaxAgeSeconds(env.ACCESS_TOKEN_EXPIRES_IN)
-    const refreshMaxAge = cookieMaxAgeSeconds(env.REFRESH_TOKEN_EXPIRES_IN)
-
     try {
-        await prisma.sessions.create({
+        const session = await prisma.sessions.create({
             data: {
                 privateUserId: user.privateId!,
-                refreshToken: await hashOpaqueToken(refreshToken),
                 device: request.headers.get('user-agent') || 'Unknown',
                 tokenExpiresAt: expiresAtFromSpan(env.REFRESH_TOKEN_EXPIRES_IN),
                 lastActiveAt: new Date(),
             }
         })
+        const accessToken = await generateAccessToken({ publicId: user.publicId, sessionPublicId: session.publicId })
+        const refreshToken = await generateRefreshToken({ publicId: user.publicId, sessionPublicId: session.publicId })
+
+        // Add the refresh token payload back
+        await prisma.sessions.update({
+            where: { publicId: session.publicId },
+            data: {
+                refreshToken: await hashOpaqueToken(refreshToken),
+            }
+        })
+
+        const accessMaxAge = cookieMaxAgeSeconds(env.ACCESS_TOKEN_EXPIRES_IN)
+        const refreshMaxAge = cookieMaxAgeSeconds(env.REFRESH_TOKEN_EXPIRES_IN)
+
+        const response = NextResponse.json({success: true, message: "login successful"}, { status: 200 })
+
+        const secure = cookieSecure(request)
+        response.cookies.set({
+            name: 'accessToken',
+            value: accessToken,
+            httpOnly: true,
+            secure,
+            sameSite: 'lax',
+            path: '/',
+            maxAge: accessMaxAge,
+        })
+        response.cookies.set({
+            name: 'refreshToken',
+            value: refreshToken,
+            httpOnly: true,
+            secure,
+            sameSite: 'lax',
+            path: '/',
+            maxAge: refreshMaxAge,
+        })
+    
+        return response
+
     } catch (error) {
         console.error(error)
         return NextResponse.json({ error: 'Failed to create session' }, { status: 500 })
     }
 
-    const response = NextResponse.json({success: true, message: "login successful"}, { status: 200 })
-
-    const secure = cookieSecure(request)
-    response.cookies.set({
-        name: 'accessToken',
-        value: accessToken,
-        httpOnly: true,
-        secure,
-        sameSite: 'lax',
-        path: '/',
-        maxAge: accessMaxAge,
-    })
-    response.cookies.set({
-        name: 'refreshToken',
-        value: refreshToken,
-        httpOnly: true,
-        secure,
-        sameSite: 'lax',
-        path: '/',
-        maxAge: refreshMaxAge,
-    })
-
-    return response
 
 }

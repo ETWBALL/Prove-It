@@ -84,13 +84,14 @@ model Sessions {
   // in application code: throttle updates (e.g. at most once per 1–5 minutes), or store activity in
   // Redis; only persist to DB on session create/refresh/revoke.
   privateId                     Int                             @id @default(autoincrement())
+  publicId                      String                          @unique @default(cuid())
 
   // Session belongs to exactly one user; removed when user is deleted.
   privateUserId                 Int
   user                          User                            @relation(fields: [privateUserId], references: [privateId], onDelete: Cascade)
 
   // Bearer-style secrets used to validate requests for this session.
-  refreshToken                  String                          @unique
+  refreshToken                  String?                         @unique
 
   // Short label for the client (browser name, OS, etc.) for auditing and revoke UX.
   device                        String
