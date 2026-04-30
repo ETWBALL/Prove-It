@@ -41,8 +41,12 @@ io.on('connection', (socket) => {
 
 
     // Event 3: User types (insert, delete, replace)
+    socket.on('document:type', (delta: Delta) => {
+        io.to(delta.documentId).emit('document:type', delta)
+        console.log(`User typed in document ${delta.documentId}`)
+    })
 
-    // Listen for socket disconnection events
+    // Event 4: Listen for sudden disconnects
     socket.on('disconnect', () => {
         console.log('A user disconnected')
     })

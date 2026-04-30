@@ -5,13 +5,16 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon --exec ts-node src/index.ts"
+    "dev": "nodemon --exec ts-node src/index.ts",
+    "generate": "prisma generate --schema=../Prove-It/prisma/schema.prisma"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@prisma/client": "^6.19.3",
     "jsonwebtoken": "^9.0.3",
+    "prisma": "^6.19.3",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
