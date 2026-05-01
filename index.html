@@ -3,184 +3,173 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MAT102 Proof Assistant</title>
+    <title>MAT102 Logic Studio | University of Toronto</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = { 
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }, 
+                    colors: { 
+                        uoft: { 
+                            blue: '#1E3765',    // Official U of T Navy
+                            darker: '#0A1526',  // Deep background
+                            orange: '#F2A900'   // High-contrast accent orange
+                        } 
+                    } 
+                } 
+            } 
+        }
+    </script>
     <style>
-        body { font-family: system-ui; max-width: 800px; margin: 2rem auto; padding: 0 1rem; color: #333; }
-        textarea, input { width: 100%; margin-bottom: 1rem; padding: 0.75rem; font-family: monospace; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        button { padding: 0.75rem 1.5rem; background: #002A5C; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; font-weight: bold; }
-        button:disabled { background: #999; cursor: not-allowed; }
-        .error-card { border-left: 4px solid #d93025; padding: 1rem; background: #f8d7da; margin-top: 1rem; border-radius: 0 4px 4px 0; }
-        .format-card { border-left: 4px solid #f2a900; padding: 1rem; background: #fff3cd; margin-top: 1rem; border-radius: 0 4px 4px 0; }
-        .evaluation-card { background: #f8f9fa; padding: 1.5rem; border: 1px solid #dee2e6; margin-top: 1.5rem; border-radius: 4px; }
-        #status { font-style: italic; color: #0055A2; margin-bottom: 1.5rem; font-weight: 500; padding: 0.5rem; background: #e6f2ff; border-radius: 4px; display: inline-block;}
+        .glass-panel { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .glass-input { background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); color: white; }
+        .glass-input:focus { outline: none; border-color: #F2A900; box-shadow: 0 0 0 2px rgba(242, 169, 0, 0.3); }
+        select option { background-color: #1E3765; color: white; }
     </style>
 </head>
-<body>
-    <h2>MAT102 Local Proof Assistant</h2>
-    <div id="status">Status: Initializing AI engine... Please wait.</div>
+<body class="bg-gradient-to-br from-uoft-darker to-uoft-blue min-h-screen text-white font-sans overflow-hidden relative flex flex-col">
     
-    <label><strong>Statement to Prove:</strong></label>
-    <input type="text" id="statement" placeholder="e.g., If n is an even integer, then n^2 is even.">
-    
-    <label><strong>Your Proof:</strong></label>
-    <textarea id="proof" rows="10" placeholder="Enter your proof steps here..."></textarea>
-    
-    <button id="verify-btn" onclick="submitProof()" disabled>Loading Model...</button>
-    <div id="results"></div>
+    <div class="absolute inset-0 z-0 opacity-30 pointer-events-none">
+        <canvas id="bg-chart"></canvas>
+    </div>
 
-    <script type="module">
-        import { CreateMLCEngine } from "https://esm.run/@mlc.ai/web-llm";
+    <header class="absolute top-6 left-1/2 -translate-x-1/2 glass-panel px-6 py-3 rounded-full flex gap-6 items-center z-10 w-11/12 max-w-4xl justify-between">
+        <div class="flex items-center gap-3">
+            <img src="uoft.jpg" alt="U of T Logo" class="h-6 object-contain">
+            <div class="h-4 w-px bg-white/20"></div>
+            <span class="font-semibold tracking-wide text-sm text-gray-200">Department of Mathematics</span>
+        </div>
+        <button onclick="openLogin()" class="text-sm font-medium hover:text-uoft-orange transition-colors">Sign In</button>
+    </header>
 
-        let engine;
-        const btn = document.getElementById('verify-btn');
-        const statusDiv = document.getElementById('status');
-        const resultsDiv = document.getElementById('results');
+    <main class="flex-1 flex flex-col items-center justify-center text-center px-4 z-10">
+        <h1 class="text-5xl md:text-7xl font-bold tracking-tight mb-6">
+            behind all truths, there is a <span class="text-uoft-orange">proof</span>
+        </h1>
+        <p class="text-xl text-gray-300 max-w-2xl mb-10 leading-relaxed font-light">
+            The local MAT102 AI evaluator. Verify your structural logic and mathematical grammar instantly, before you submit.
+        </p>
+        <button onclick="openLogin()" class="bg-uoft-orange hover:bg-orange-500 text-uoft-darker px-8 py-4 rounded-2xl font-bold text-lg shadow-[0_0_20px_rgba(242,169,0,0.4)] transition-all hover:-translate-y-1">
+            Access Workspace
+        </button>
+        
+        <div class="mt-12 flex items-center gap-2 glass-panel px-4 py-2 rounded-full">
+            <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+            <span class="text-xs text-gray-300 font-medium">142 students active this session</span>
+        </div>
+    </main>
 
-        // The official WebLLM compiled Qwen 2.5 model (Highly stable, no local compiling needed)
-        const MODEL_ID = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
+    <div id="login-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md transition-opacity">
+        <div class="glass-panel p-10 rounded-3xl w-full max-w-md relative animate-[fadeIn_0.3s_ease-out]">
+            <button onclick="closeLogin()" class="absolute top-6 right-6 text-gray-400 hover:text-white transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
 
-        /**
-         * Initializes the WebGPU engine and caches the model in the browser.
-         */
-        async function initWebLLM() {
-            try {
-                const initProgressCallback = (report) => {
-                    statusDiv.innerText = `Status: ${report.text}`;
-                };
-
-                engine = await CreateMLCEngine(MODEL_ID, { initProgressCallback });
-                statusDiv.innerText = "Status: AI Ready. Execution runs 100% locally on your device.";
-                statusDiv.style.backgroundColor = "#d4edda";
-                statusDiv.style.color = "#155724";
-                
-                btn.disabled = false;
-                btn.innerText = "Analyze Proof";
-            } catch (error) {
-                statusDiv.innerText = `Hardware Error: Your browser does not support WebGPU, or hardware acceleration is disabled.`;
-                statusDiv.style.backgroundColor = "#f8d7da";
-                statusDiv.style.color = "#721c24";
-                console.error(error);
-            }
-        }
-
-        /**
-         * Packages the prompt, runs local inference, and safely parses the JSON response.
-         */
-        window.submitProof = async function() {
-            const statement = document.getElementById('statement').value.trim();
-            const proof = document.getElementById('proof').value.trim();
-
-            if (!statement || !proof) {
-                alert("Please provide both a statement and a proof.");
-                return;
-            }
-
-            btn.disabled = true;
-            btn.innerText = "Analyzing logic... (This may take a few seconds)";
-            resultsDiv.innerHTML = "";
-
-            const systemPrompt = `You are a strict MAT102 grading assistant. 
-CRITICAL INSTRUCTION: You MUST return a single, valid JSON object. Do not wrap it in markdown blockquotes. Never use double quotes inside your analysis paragraphs; use single quotes instead.
-
-Use this EXACT flat JSON schema:
-{
-  "logic_analysis": "Write a detailed paragraph explaining the logical flow and any major logical failures here.",
-  "grammar_analysis": "Write a paragraph evaluating mathematical language and clarity.",
-  "format_analysis": "Write a paragraph evaluating proof structure, definitions, and conventions.",
-  "errors": [
-    {
-      "id": "error_1",
-      "type": "logic",
-      "title": "Invalid Deduction",
-      "description": "Short description of the specific error.",
-      "line": 2
-    }
-  ]
-}
-
-If there are no specific line errors, leave the "errors" array empty: []`;
-
-            const userContent = `STATEMENT TO PROVE:\n${statement}\n\nPROOF ATTEMPT:\n${proof}`;
-
-            try {
-                const reply = await engine.chat.completions.create({
-                    messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: userContent }
-                    ],
-                    temperature: 0.1
-                });
-
-                const rawResponse = reply.choices[0].message.content;
-
-                // --- Sanitization Pipeline ---
-                
-                // 1. Strip reasoning blocks (<think> tags from Qwen/Reasoning models)
-                let cleanResponse = rawResponse.replace(/<think>.*?<\/think>/gs, '');
-                cleanResponse = cleanResponse.replace(/<think>.*/gs, '');
-
-                // 2. Strip Markdown formatting
-                cleanResponse = cleanResponse.replace(/```json/gi, '').replace(/```/g, '').trim();
-
-                // 3. Sanitize internal unescaped quotes inside JSON values
-                cleanResponse = cleanResponse.replace(/(?<![:{\[,])"(?![:,}\]])/g, "'");
-
-                // --- JSON Extraction ---
-                const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
-                
-                if (jsonMatch) {
-                    const parsedData = JSON.parse(jsonMatch[0]);
-                    renderFeedback(parsedData);
-                } else {
-                    throw new Error("No JSON object found in the AI response.");
-                }
-
-            } catch (error) {
-                console.error("Evaluation Error:", error);
-                resultsDiv.innerHTML = `<p style='color: #d93025; font-weight: bold;'>Error parsing the analysis. The AI generated invalid formatting. Please try clicking Analyze again or rewording your proof slightly.</p>`;
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "Analyze Proof";
-            }
-        };
-
-        /**
-         * Renders the parsed JSON data into the DOM.
-         */
-        function renderFeedback(data) {
-            // Render structured analysis
-            resultsDiv.innerHTML = `
-                <div class="evaluation-card">
-                    <h3 style="margin-top: 0;">Overall Evaluation</h3>
-                    <p><strong>Logic:</strong> ${data.logic_analysis || "No analysis provided."}</p>
-                    <p><strong>Grammar/Wording:</strong> ${data.grammar_analysis || "No analysis provided."}</p>
-                    <p><strong>Format:</strong> ${data.format_analysis || "No analysis provided."}</p>
+            <h2 id="welcome-header" class="text-3xl font-bold mb-2">Sign In</h2>
+            <p id="welcome-subtext" class="text-gray-400 mb-8">Access your local MAT102 environment.</p>
+            
+            <form id="login-form" class="space-y-5">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">UTOR Email</label>
+                    <input type="email" id="utor-email" placeholder="e.g., student@mail.utoronto.ca" required class="glass-input w-full p-3 rounded-xl transition-all">
                 </div>
-            `;
-
-            // Render specific line-item errors
-            if (data.errors && data.errors.length > 0) {
-                resultsDiv.innerHTML += `<h3 style="margin-top: 2rem;">Specific Errors</h3>`;
-                data.errors.forEach(err => {
-                    const cssClass = err.type === 'logic' ? 'error-card' : 'format-card';
-                    resultsDiv.innerHTML += `
-                        <div class="${cssClass}">
-                            <strong style="font-size: 1.1em;">[Line ${err.line || '?'}] ${err.title}</strong>
-                            <p style="margin-bottom: 0;">${err.description}</p>
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Course</label>
+                    <div class="relative">
+                        <select id="class-select" required class="glass-input w-full p-3 rounded-xl transition-all appearance-none cursor-pointer">
+                            <option value="MAT102Y5" selected>MAT102Y5 - Intro to Mathematical Proofs</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                            <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
                         </div>
-                    `;
-                });
-            } else {
-                resultsDiv.innerHTML += `
-                    <div style="background: #e6f4ea; padding: 1rem; border-left: 4px solid #1e8e3e; margin-top: 1.5rem; border-radius: 0 4px 4px 0;">
-                        <strong style="color: #137333;">✓ No specific line-item formatting or logic errors flagged!</strong>
                     </div>
-                `;
-            }
-        }
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Password</label>
+                    <input type="password" id="utor-password" placeholder="••••••••" required class="glass-input w-full p-3 rounded-xl transition-all">
+                </div>
+                <button type="submit" class="w-full bg-uoft-orange hover:bg-orange-500 text-uoft-darker p-3 rounded-xl font-bold mt-6 transition-colors">
+                    Launch Studio
+                </button>
+            </form>
+        </div>
+    </div>
 
-        // Boot the WebLLM engine as soon as the page loads
-        initWebLLM();
+    <script>
+        // Modal Logic
+        function openLogin() { document.getElementById('login-modal').classList.remove('hidden'); }
+        function closeLogin() { document.getElementById('login-modal').classList.add('hidden'); }
+
+        // Local Storage / Authentication Logic
+        document.addEventListener("DOMContentLoaded", () => {
+            const emailInput = document.getElementById("utor-email");
+            const header = document.getElementById("welcome-header");
+            const subtext = document.getElementById("welcome-subtext");
+            const loginForm = document.getElementById("login-form");
+
+            const savedEmail = localStorage.getItem("utorEmail");
+            if (savedEmail) {
+                emailInput.value = savedEmail;
+                header.innerText = "Welcome back!";
+                subtext.innerHTML = `Continuing as <strong class="text-white">${savedEmail}</strong>`;
+            }
+
+            loginForm.addEventListener("submit", (e) => {
+                e.preventDefault(); 
+                localStorage.setItem("utorEmail", emailInput.value);
+                // Redirect to dashboard
+                window.location.href = "dashboard.html";
+            });
+
+            // --- Background Chart Initialization ---
+            const ctx = document.getElementById('bg-chart').getContext('2d');
+            
+            // Generate a fake exponential growth dataset mimicking student adoption
+            const labels = Array.from({length: 30}, (_, i) => `Day ${i+1}`);
+            const dataPoints = [];
+            let currentUsers = 5;
+            for(let i = 0; i < 30; i++) {
+                dataPoints.push(currentUsers);
+                // Fake growth formula (adds randomness)
+                currentUsers = Math.floor(currentUsers * 1.15) + Math.floor(Math.random() * 10);
+            }
+
+            // Create gradient for the line fill
+            let gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, 'rgba(242, 169, 0, 0.5)'); // U of T Orange
+            gradient.addColorStop(1, 'rgba(30, 55, 101, 0)');   // Fade into Navy
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Active Proof Evaluations',
+                        data: dataPoints,
+                        borderColor: '#F2A900',
+                        backgroundColor: gradient,
+                        borderWidth: 3,
+                        pointRadius: 0,
+                        fill: true,
+                        tension: 0.4 // Smooth, curved line
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 2000, easing: 'easeOutQuart' },
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                    scales: {
+                        x: { display: false }, // Hide axes to make it look like abstract background art
+                        y: { display: false, min: 0 }
+                    },
+                    layout: { padding: { bottom: -20 } } // Push graph slightly off the bottom edge
+                }
+            });
+        });
     </script>
 </body>
 </html>

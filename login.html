@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - MAT102 Studio</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] }, colors: { uoft: { blue: '#1E3765', darker: '#0A1526', orange: '#F2A900' } } } } }
+    </script>
+    <style>
+        .glass-panel { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .glass-input { background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); color: white; }
+        .glass-input:focus { outline: none; border-color: #F2A900; box-shadow: 0 0 0 2px rgba(242, 169, 0, 0.3); }
+        select option { background-color: #1E3765; color: white; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-uoft-darker to-uoft-blue min-h-screen text-white font-sans flex items-center justify-center relative overflow-hidden">
+    
+    <a href="index.html" class="absolute top-8 left-8 text-gray-400 hover:text-white flex items-center gap-2 transition-colors z-20">
+        ← Back to Home
+    </a>
+    
+    <div class="glass-panel p-10 rounded-3xl w-full max-w-md z-10">
+        <h2 id="welcome-header" class="text-3xl font-bold mb-2">Sign In</h2>
+        <p id="welcome-subtext" class="text-gray-400 mb-8">Access your local MAT102 workspace.</p>
+        
+        <!-- Error Message Container (Hidden by default) -->
+        <div id="error-message" class="hidden bg-red-500/20 border-l-4 border-red-500 text-red-200 p-3 rounded-md mb-6 text-sm"></div>
+
+        <form id="login-form" class="space-y-5">
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">UTOR Email</label>
+                <input type="email" id="utor-email" placeholder="e.g., student@mail.utoronto.ca" required class="glass-input w-full p-3 rounded-xl transition-all">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Course</label>
+                <div class="relative">
+                    <select id="class-select" required class="glass-input w-full p-3 rounded-xl transition-all appearance-none cursor-pointer">
+                        <option value="MAT102Y5" selected>MAT102Y5 - Intro to Mathematical Proofs</option>
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                        <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Password</label>
+                <input type="password" id="utor-password" placeholder="••••••••" required class="glass-input w-full p-3 rounded-xl transition-all">
+            </div>
+
+            <button type="submit" class="w-full bg-uoft-orange hover:bg-orange-500 text-uoft-darker p-3 rounded-xl font-bold mt-6 transition-colors shadow-lg shadow-uoft-orange/20">
+                Launch Studio
+            </button>
+        </form>
+    </div>
+    
+    <div class="absolute bottom-1/4 -right-32 w-96 h-96 bg-purple-600/20 rounded-full mix-blend-screen filter blur-3xl opacity-50 pointer-events-none"></div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const emailInput = document.getElementById("utor-email");
+            const header = document.getElementById("welcome-header");
+            const subtext = document.getElementById("welcome-subtext");
+            const loginForm = document.getElementById("login-form");
+            const errorBox = document.getElementById("error-message");
+
+            // Acknowledge returning user if email is in localStorage
+            const savedEmail = localStorage.getItem("utorEmail");
+            if (savedEmail) {
+                emailInput.value = savedEmail;
+                header.innerText = "Welcome back!";
+                subtext.innerHTML = `Continuing as <strong class="text-white">${savedEmail}</strong>`;
+            }
+
+            loginForm.addEventListener("submit", (e) => {
+                e.preventDefault(); 
+                
+                const email = emailInput.value.trim();
+                const password = document.getElementById("utor-password").value;
+
+                // Hardcoded secure validation block
+                if (email === "moeez.omair@mail.utoronto.ca" && password === "QunTheGoat123!@#") {
+                    errorBox.classList.add("hidden");
+                    localStorage.setItem("utorEmail", email);
+                    window.location.href = "dashboard.html";
+                } else {
+                    errorBox.innerText = "Invalid UTOR Email or Password.";
+                    errorBox.classList.remove("hidden");
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor - MAT102 Studio</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] }, colors: { uoft: { blue: '#1E3765', darker: '#0A1526', orange: '#F2A900' } } } } }
+    </script>
+    <style>
+        .glass-panel { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-uoft-darker min-h-screen text-white font-sans flex overflow-hidden">
+    
+    <!-- Left Sidebar Dock -->
+    <nav class="w-16 glass-panel border-r border-white/5 flex flex-col items-center py-6 gap-6 z-20 shadow-2xl">
+        <a href="dashboard.html" class="text-gray-400 hover:text-uoft-orange p-2 transition-colors" title="Back to Dashboard">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+        </a>
+    </nav>
+
+    <main class="flex-1 flex flex-col h-screen overflow-y-auto items-center py-10 px-4 relative bg-gradient-to-br from-uoft-darker to-uoft-blue/30">
+        
+        <!-- API Connection Status -->
+        <div id="ai-status" class="glass-panel px-4 py-2 rounded-full text-xs font-medium text-gray-300 mb-6 flex items-center gap-2 shadow-lg z-10 border border-white/10">
+            <div class="w-2 h-2 rounded-full bg-green-500" id="ai-status-dot"></div>
+            <span id="ai-status-text">Client-Server Mode: Ready to connect to local API</span>
+        </div>
+
+        <!-- The Paper / Editor -->
+        <div class="w-full max-w-3xl glass-panel rounded-3xl p-10 shadow-[0_0_40px_rgba(0,0,0,0.5)] relative z-10">
+            <input type="text" id="statement" placeholder="Statement to Prove..." class="w-full bg-transparent text-2xl font-bold text-white mb-6 placeholder-gray-500 border-b border-white/10 pb-4 focus:outline-none focus:border-uoft-orange transition-colors">
+            
+            <textarea id="proof" rows="12" placeholder="Start drafting your proof here. Use standard mathematical English." class="w-full bg-transparent text-gray-300 leading-relaxed resize-y placeholder-gray-600 focus:outline-none"></textarea>
+            
+            <div class="flex justify-end mt-8 pt-6 border-t border-white/10">
+                <button id="verify-btn" onclick="submitProof()" class="bg-uoft-orange hover:bg-orange-500 text-uoft-darker px-8 py-3 rounded-xl font-bold shadow-[0_0_15px_rgba(242,169,0,0.3)] transition-all disabled:bg-gray-700 disabled:text-gray-400 disabled:shadow-none disabled:cursor-not-allowed">
+                    Analyze Logic
+                </button>
+            </div>
+        </div>
+
+        <!-- Results Container -->
+        <div id="results" class="w-full max-w-3xl mt-8 flex flex-col gap-4 z-10 pb-20"></div>
+    </main>
+
+    <!-- Client-Server API Script -->
+    <script>
+        const btn = document.getElementById('verify-btn');
+        const resultsDiv = document.getElementById('results');
+
+        window.submitProof = async function() {
+            const statement = document.getElementById('statement').value.trim();
+            const proof = document.getElementById('proof').value.trim();
+
+            if (!statement || !proof) return alert("Statement and proof are required.");
+
+            // Lock UI and instruct user to check Python terminal
+            btn.disabled = true;
+            btn.innerText = "Analyzing logic... (Check Terminal)";
+            resultsDiv.innerHTML = "";
+
+            try {
+                // Ping the local Python app.py
+                const response = await fetch('http://127.0.0.1:5000/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ statement, proof })
+                });
+
+                if (!response.ok) throw new Error("API Connection Failed");
+
+                const data = await response.json();
+                renderFeedback(data);
+
+            } catch (error) {
+                console.error(error);
+                resultsDiv.innerHTML = `<div class="glass-panel p-6 rounded-2xl border-l-4 border-red-500"><p class="text-red-400 font-medium">Network Error: Could not connect to API. Is app.py running in your terminal?</p></div>`;
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Analyze Logic";
+            }
+        };
+
+        function renderFeedback(data) {
+            // Note: Renamed from 'eval' to 'evaluation' to fix JS Strict Mode errors
+            const evaluation = data.structured_evaluation || {};
+
+            resultsDiv.innerHTML = `
+                <div class="glass-panel p-8 rounded-3xl mt-4">
+                    <h3 class="text-xl font-bold mb-6 flex items-center gap-3 text-white">
+                        <svg class="w-6 h-6 text-uoft-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                        Structural Analysis
+                    </h3>
+                    <div class="space-y-6">
+                        <div><span class="text-xs font-bold uppercase tracking-wider text-uoft-orange mb-1 block">Logic Flow</span><p class="text-gray-300 text-sm leading-relaxed">${evaluation.logic_analysis || "No analysis provided."}</p></div>
+                        <div><span class="text-xs font-bold uppercase tracking-wider text-uoft-orange mb-1 block">Mathematical Grammar</span><p class="text-gray-300 text-sm leading-relaxed">${evaluation.grammar_analysis || "No analysis provided."}</p></div>
+                        <div><span class="text-xs font-bold uppercase tracking-wider text-uoft-orange mb-1 block">Formatting Conventions</span><p class="text-gray-300 text-sm leading-relaxed">${evaluation.format_analysis || "No analysis provided."}</p></div>
+                    </div>
+                </div>
+            `;
+
+            if (data.errors && data.errors.length > 0) {
+                data.errors.forEach(err => {
+                    const isLogic = err.type === 'logic';
+                    const colorClasses = isLogic ? 'border-red-500 bg-red-500/10' : 'border-yellow-500 bg-yellow-500/10';
+                    const titleColor = isLogic ? 'text-red-400' : 'text-yellow-400';
+                    resultsDiv.innerHTML += `
+                        <div class="glass-panel p-5 rounded-2xl border-l-4 ${colorClasses}">
+                            <div class="flex items-start gap-3">
+                                <span class="bg-black/50 px-2 py-1 rounded text-xs font-mono text-gray-300 mt-0.5 border border-white/10">Line ${err.line || '?'}</span>
+                                <div><h4 class="font-bold ${titleColor} mb-1">${err.title}</h4><p class="text-sm text-gray-300">${err.description}</p></div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                resultsDiv.innerHTML += `
+                    <div class="glass-panel p-5 rounded-2xl border-l-4 border-green-500 bg-green-500/10 flex items-center gap-3">
+                        <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <div><h4 class="font-bold text-green-400">Proof Validated</h4><p class="text-sm text-green-200">No major formatting or logical breaks detected.</p></div>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

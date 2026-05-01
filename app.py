@@ -1,12 +1,9 @@
 """
-MAT102 Proof API Server (Transformers Version: Qwen 3.0 0.6B)
-=============================================================
-This Flask application uses the Hugging Face transformers library to load the 
-Qwen 3.0 0.6B model into memory. It handles the JSON-formatted MAT102 proof 
-evaluation using the instruction-tuned model to ensure proper system prompt adherence.
-
-Dependencies:
-    pip install flask flask-cors transformers torch accelerate
+MAT102 Proof API Server (Transformers Client-Server Version)
+============================================================
+This Flask application loads Qwen 3.0 0.6B into memory and exposes a /verify endpoint.
+It includes a strict string-sanitization pipeline to prevent JSON decoding errors
+and prints all outputs to the terminal for debugging and monitoring.
 """
 
 from flask import Flask, request, jsonify
@@ -16,60 +13,52 @@ import re
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 app = Flask(__name__)
-CORS(app) # Allow frontend to communicate with backend
+# Allow the local HTML file to communicate with this backend
+CORS(app) 
 
 print("Loading Qwen 3.0 0.6B model... (This happens once at startup)")
 
-# 1. Model Selection
-# The Instruct version is strictly required to follow the JSON formatting rules.
 model_id = "Qwen/Qwen3-0.6B"
-
-# 2. Load Tokenizer and Model
-# Using AutoModelForCausalLM because this is a pure text-generation task.
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 model = AutoModelForCausalLM.from_pretrained(
     model_id,
-    device_map="auto",    # Automatically maps to GPU if available, else CPU
-    torch_dtype="auto"    # Uses the most efficient memory format
+    device_map="auto",    
+    torch_dtype="auto"    
 )
-print("Model loaded successfully! Server is ready.")
+print("Model loaded successfully! Server is ready on http://127.0.0.1:5000")
 
 @app.route('/verify', methods=['POST'])
 def verify_proof():
-    """
-    Accepts a JSON payload containing the mathematical statement and proof,
-    evaluates it using Qwen 3.0 0.6B, and returns formatted JSON feedback.
-    """
     data = request.json
     statement = data.get('statement', '')
     proof = data.get('proof', '')
 
-    # 3. Inject MAT102 System Prompt
-    system_prompt = """You are a strict MAT102 grading assistant. Evaluate the proof in THREE categories: Logic, Grammar, and Format.
+    print("\n" + "="*50)
+    print("NEW REQUEST RECEIVED")
+    print(f"Statement: {statement}")
+    print("="*50)
 
-    CRITICAL INSTRUCTIONS:
-    - You MUST return a single, valid JSON object. No markdown, no conversational text.
-    - Do not solve the proof. Only point out flaws.
+    # Flattened JSON Schema to prevent nested parsing errors
+    system_prompt = """You are a strict MAT102 grading assistant. 
+CRITICAL INSTRUCTION: You MUST return a single, valid JSON object. Do not wrap it in markdown blockquotes. Never use double quotes inside your analysis paragraphs; use single quotes instead.
 
-    Return your response using this EXACT JSON schema:
+Use this EXACT flat JSON schema:
+{
+  "logic_analysis": "Write a detailed paragraph explaining the logical flow and any major logical failures here.",
+  "grammar_analysis": "Write a paragraph evaluating mathematical language and clarity.",
+  "format_analysis": "Write a paragraph evaluating proof structure, definitions, and conventions.",
+  "errors": [
     {
-    "structured_evaluation": {
-        "logic_analysis": "Write a detailed paragraph explaining the logical flow and any major logical failures here.",
-        "grammar_analysis": "Write a paragraph evaluating mathematical language and clarity.",
-        "format_analysis": "Write a paragraph evaluating proof structure, definitions, and conventions."
-    },
-    "errors": [
-        {
-        "id": "error_1",
-        "type": "logic",
-        "title": "Invalid Deduction",
-        "description": "Short description of the specific error.",
-        "line": 2
-        }
-    ]
+      "id": "error_1",
+      "type": "logic",
+      "title": "Invalid Deduction",
+      "description": "Short description of the specific error.",
+      "line": 2
     }
+  ]
+}
 
-    If there are no specific errors to list, leave the "errors" array empty: []"""
+If there are no specific line errors, leave the "errors" array empty: []"""
 
     user_content = f"STATEMENT TO PROVE:\n{statement}\n\nPROOF ATTEMPT:\n{proof}"
 
@@ -78,8 +67,6 @@ def verify_proof():
         {"role": "user", "content": user_content}
     ]
 
-    # 4. Apply Chat Template
-    # Formats the messages into the specific token structure Qwen expects
     text_prompt = tokenizer.apply_chat_template(
         messages, 
         tokenize=False, 
@@ -88,33 +75,54 @@ def verify_proof():
     
     inputs = tokenizer([text_prompt], return_tensors="pt").to(model.device)
 
-    # 5. Generate AI Response
-    # temperature=0.1 ensures the output is highly deterministic for JSON parsing
+    print("\n--- GENERATING RESPONSE (Please wait) ---")
+    
+    # 2048 tokens to allow reasoning models to finish their <think> blocks
     outputs = model.generate(
         **inputs, 
-        max_new_tokens=512, 
-        temperature=0.1, 
+        max_new_tokens=2048, 
         do_sample=False
     )
     
-    # Slice the output to remove the prompt tokens
     generated_ids = outputs[0][inputs["input_ids"].shape[-1]:]
     raw_response = tokenizer.decode(generated_ids, skip_special_tokens=True)
 
-    # 6. Safely Extract JSON using Regex
-    # We now search for a JSON object {} instead of an array []
+    print(f"RAW MODEL OUTPUT:\n{raw_response}\n")
+
+    # --- Sanitization Pipeline ---
+    # 1. Strip <think> tags
+    clean_response = re.sub(r'<think>.*?</think>', '', raw_response, flags=re.DOTALL)
+    clean_response = re.sub(r'<think>.*', '', clean_response, flags=re.DOTALL)
+
+    # 2. Strip Markdown formatting
+    clean_response = clean_response.replace("```json", "").replace("```", "").strip()
+
+    # 3. Sanitize unescaped internal double quotes
+    clean_response = re.sub(r'(?<![:{\[,])"(?![:,}\]])', "'", clean_response)
+
+    print(f"CLEANED JSON OUTPUT:\n{clean_response}\n---------------------------\n")
+
     try:
-        json_match = re.search(r'\{.*\}', raw_response, re.DOTALL)
+        json_match = re.search(r'\{.*\}', clean_response, re.DOTALL)
         if json_match:
-            return jsonify(json.loads(json_match.group(0)))
-        
-        # Failsafe if the model completely hallucinated
+            parsed_data = json.loads(json_match.group(0))
+            
+            # Map the flat JSON back into the nested structure the frontend expects
+            return jsonify({
+                "structured_evaluation": {
+                    "logic_analysis": parsed_data.get("logic_analysis", "No analysis provided."),
+                    "grammar_analysis": parsed_data.get("grammar_analysis", "No analysis provided."),
+                    "format_analysis": parsed_data.get("format_analysis", "No analysis provided.")
+                },
+                "errors": parsed_data.get("errors", [])
+            })
+            
+        print("ERROR: Regex failed to find a JSON object in the cleaned text.")
         return jsonify({"structured_evaluation": {"logic_analysis": "Failed to parse AI output.", "grammar_analysis": "", "format_analysis": ""}, "errors": []})
         
-    except json.JSONDecodeError:
-        print(f"Failed to parse JSON. Raw output: {raw_response}")
-        return jsonify({"structured_evaluation": {"logic_analysis": "JSON format error.", "grammar_analysis": "", "format_analysis": ""}, "errors": []})
+    except json.JSONDecodeError as e:
+        print(f"JSON PARSING ERROR: {e}")
+        return jsonify({"structured_evaluation": {"logic_analysis": "JSON format error. Check backend terminal.", "grammar_analysis": "", "format_analysis": ""}, "errors": []})
 
 if __name__ == '__main__':
-    # Runs the server locally on port 5000
     app.run(port=5000)
