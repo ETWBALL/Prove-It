@@ -164,6 +164,7 @@ exports.Prisma.DocumentScalarFieldEnum = {
   privateOwnerId: 'privateOwnerId',
   proofType: 'proofType',
   privateCourseId: 'privateCourseId',
+  numErrors: 'numErrors',
   deletedAt: 'deletedAt',
   lastCompiled: 'lastCompiled',
   lastEdited: 'lastEdited',

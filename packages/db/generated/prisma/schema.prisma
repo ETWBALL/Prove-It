@@ -126,6 +126,7 @@ model Document {
   proofType       ProofType
   privateCourseId Int?
   course          Course?   @relation(fields: [privateCourseId], references: [privateId], onDelete: SetNull)
+  numErrors       Int       @default(0)
 
   // Soft delete and editor/compiler bookkeeping.
   deletedAt    DateTime?

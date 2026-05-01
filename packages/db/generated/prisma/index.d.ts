@@ -6421,12 +6421,14 @@ export namespace Prisma {
     privateId: number | null
     privateOwnerId: number | null
     privateCourseId: number | null
+    numErrors: number | null
   }
 
   export type DocumentSumAggregateOutputType = {
     privateId: number | null
     privateOwnerId: number | null
     privateCourseId: number | null
+    numErrors: number | null
   }
 
   export type DocumentMinAggregateOutputType = {
@@ -6436,6 +6438,7 @@ export namespace Prisma {
     privateOwnerId: number | null
     proofType: $Enums.ProofType | null
     privateCourseId: number | null
+    numErrors: number | null
     deletedAt: Date | null
     lastCompiled: Date | null
     lastEdited: Date | null
@@ -6449,6 +6452,7 @@ export namespace Prisma {
     privateOwnerId: number | null
     proofType: $Enums.ProofType | null
     privateCourseId: number | null
+    numErrors: number | null
     deletedAt: Date | null
     lastCompiled: Date | null
     lastEdited: Date | null
@@ -6462,6 +6466,7 @@ export namespace Prisma {
     privateOwnerId: number
     proofType: number
     privateCourseId: number
+    numErrors: number
     deletedAt: number
     lastCompiled: number
     lastEdited: number
@@ -6474,12 +6479,14 @@ export namespace Prisma {
     privateId?: true
     privateOwnerId?: true
     privateCourseId?: true
+    numErrors?: true
   }
 
   export type DocumentSumAggregateInputType = {
     privateId?: true
     privateOwnerId?: true
     privateCourseId?: true
+    numErrors?: true
   }
 
   export type DocumentMinAggregateInputType = {
@@ -6489,6 +6496,7 @@ export namespace Prisma {
     privateOwnerId?: true
     proofType?: true
     privateCourseId?: true
+    numErrors?: true
     deletedAt?: true
     lastCompiled?: true
     lastEdited?: true
@@ -6502,6 +6510,7 @@ export namespace Prisma {
     privateOwnerId?: true
     proofType?: true
     privateCourseId?: true
+    numErrors?: true
     deletedAt?: true
     lastCompiled?: true
     lastEdited?: true
@@ -6515,6 +6524,7 @@ export namespace Prisma {
     privateOwnerId?: true
     proofType?: true
     privateCourseId?: true
+    numErrors?: true
     deletedAt?: true
     lastCompiled?: true
     lastEdited?: true
@@ -6615,6 +6625,7 @@ export namespace Prisma {
     privateOwnerId: number
     proofType: $Enums.ProofType
     privateCourseId: number | null
+    numErrors: number
     deletedAt: Date | null
     lastCompiled: Date | null
     lastEdited: Date
@@ -6647,6 +6658,7 @@ export namespace Prisma {
     privateOwnerId?: boolean
     proofType?: boolean
     privateCourseId?: boolean
+    numErrors?: boolean
     deletedAt?: boolean
     lastCompiled?: boolean
     lastEdited?: boolean
@@ -6668,6 +6680,7 @@ export namespace Prisma {
     privateOwnerId?: boolean
     proofType?: boolean
     privateCourseId?: boolean
+    numErrors?: boolean
     deletedAt?: boolean
     lastCompiled?: boolean
     lastEdited?: boolean
@@ -6683,6 +6696,7 @@ export namespace Prisma {
     privateOwnerId?: boolean
     proofType?: boolean
     privateCourseId?: boolean
+    numErrors?: boolean
     deletedAt?: boolean
     lastCompiled?: boolean
     lastEdited?: boolean
@@ -6698,13 +6712,14 @@ export namespace Prisma {
     privateOwnerId?: boolean
     proofType?: boolean
     privateCourseId?: boolean
+    numErrors?: boolean
     deletedAt?: boolean
     lastCompiled?: boolean
     lastEdited?: boolean
     createdAt?: boolean
   }
 
-  export type DocumentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"privateId" | "publicId" | "title" | "privateOwnerId" | "proofType" | "privateCourseId" | "deletedAt" | "lastCompiled" | "lastEdited" | "createdAt", ExtArgs["result"]["document"]>
+  export type DocumentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"privateId" | "publicId" | "title" | "privateOwnerId" | "proofType" | "privateCourseId" | "numErrors" | "deletedAt" | "lastCompiled" | "lastEdited" | "createdAt", ExtArgs["result"]["document"]>
   export type DocumentInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     user?: boolean | UserDefaultArgs<ExtArgs>
     course?: boolean | Document$courseArgs<ExtArgs>
@@ -6742,6 +6757,7 @@ export namespace Prisma {
       privateOwnerId: number
       proofType: $Enums.ProofType
       privateCourseId: number | null
+      numErrors: number
       deletedAt: Date | null
       lastCompiled: Date | null
       lastEdited: Date
@@ -7182,6 +7198,7 @@ export namespace Prisma {
     readonly privateOwnerId: FieldRef<"Document", 'Int'>
     readonly proofType: FieldRef<"Document", 'ProofType'>
     readonly privateCourseId: FieldRef<"Document", 'Int'>
+    readonly numErrors: FieldRef<"Document", 'Int'>
     readonly deletedAt: FieldRef<"Document", 'DateTime'>
     readonly lastCompiled: FieldRef<"Document", 'DateTime'>
     readonly lastEdited: FieldRef<"Document", 'DateTime'>
@@ -22765,6 +22782,7 @@ export namespace Prisma {
     privateOwnerId: 'privateOwnerId',
     proofType: 'proofType',
     privateCourseId: 'privateCourseId',
+    numErrors: 'numErrors',
     deletedAt: 'deletedAt',
     lastCompiled: 'lastCompiled',
     lastEdited: 'lastEdited',
@@ -23482,6 +23500,7 @@ export namespace Prisma {
     privateOwnerId?: IntFilter<"Document"> | number
     proofType?: EnumProofTypeFilter<"Document"> | $Enums.ProofType
     privateCourseId?: IntNullableFilter<"Document"> | number | null
+    numErrors?: IntFilter<"Document"> | number
     deletedAt?: DateTimeNullableFilter<"Document"> | Date | string | null
     lastCompiled?: DateTimeNullableFilter<"Document"> | Date | string | null
     lastEdited?: DateTimeFilter<"Document"> | Date | string
@@ -23502,6 +23521,7 @@ export namespace Prisma {
     privateOwnerId?: SortOrder
     proofType?: SortOrder
     privateCourseId?: SortOrderInput | SortOrder
+    numErrors?: SortOrder
     deletedAt?: SortOrderInput | SortOrder
     lastCompiled?: SortOrderInput | SortOrder
     lastEdited?: SortOrder
@@ -23526,6 +23546,7 @@ export namespace Prisma {
     privateOwnerId?: IntFilter<"Document"> | number
     proofType?: EnumProofTypeFilter<"Document"> | $Enums.ProofType
     privateCourseId?: IntNullableFilter<"Document"> | number | null
+    numErrors?: IntFilter<"Document"> | number
     deletedAt?: DateTimeNullableFilter<"Document"> | Date | string | null
     lastCompiled?: DateTimeNullableFilter<"Document"> | Date | string | null
     lastEdited?: DateTimeFilter<"Document"> | Date | string
@@ -23546,6 +23567,7 @@ export namespace Prisma {
     privateOwnerId?: SortOrder
     proofType?: SortOrder
     privateCourseId?: SortOrderInput | SortOrder
+    numErrors?: SortOrder
     deletedAt?: SortOrderInput | SortOrder
     lastCompiled?: SortOrderInput | SortOrder
     lastEdited?: SortOrder
@@ -23567,6 +23589,7 @@ export namespace Prisma {
     privateOwnerId?: IntWithAggregatesFilter<"Document"> | number
     proofType?: EnumProofTypeWithAggregatesFilter<"Document"> | $Enums.ProofType
     privateCourseId?: IntNullableWithAggregatesFilter<"Document"> | number | null
+    numErrors?: IntWithAggregatesFilter<"Document"> | number
     deletedAt?: DateTimeNullableWithAggregatesFilter<"Document"> | Date | string | null
     lastCompiled?: DateTimeNullableWithAggregatesFilter<"Document"> | Date | string | null
     lastEdited?: DateTimeWithAggregatesFilter<"Document"> | Date | string
@@ -24779,6 +24802,7 @@ export namespace Prisma {
     publicId?: string
     title: string
     proofType: $Enums.ProofType
+    numErrors?: number
     deletedAt?: Date | string | null
     lastCompiled?: Date | string | null
     lastEdited?: Date | string
@@ -24799,6 +24823,7 @@ export namespace Prisma {
     privateOwnerId: number
     proofType: $Enums.ProofType
     privateCourseId?: number | null
+    numErrors?: number
     deletedAt?: Date | string | null
     lastCompiled?: Date | string | null
     lastEdited?: Date | string
@@ -24814,6 +24839,7 @@ export namespace Prisma {
     publicId?: StringFieldUpdateOperationsInput | string
     title?: StringFieldUpdateOperationsInput | string
     proofType?: EnumProofTypeFieldUpdateOperationsInput | $Enums.ProofType
+    numErrors?: IntFieldUpdateOperationsInput | number
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastCompiled?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastEdited?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -24834,6 +24860,7 @@ export namespace Prisma {
     privateOwnerId?: IntFieldUpdateOperationsInput | number
     proofType?: EnumProofTypeFieldUpdateOperationsInput | $Enums.ProofType
     privateCourseId?: NullableIntFieldUpdateOperationsInput | number | null
+    numErrors?: IntFieldUpdateOperationsInput | number
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastCompiled?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastEdited?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -24852,6 +24879,7 @@ export namespace Prisma {
     privateOwnerId: number
     proofType: $Enums.ProofType
     privateCourseId?: number | null
+    numErrors?: number
     deletedAt?: Date | string | null
     lastCompiled?: Date | string | null
     lastEdited?: Date | string
@@ -24862,6 +24890,7 @@ export namespace Prisma {
     publicId?: StringFieldUpdateOperationsInput | string
     title?: StringFieldUpdateOperationsInput | string
     proofType?: EnumProofTypeFieldUpdateOperationsInput | $Enums.ProofType
+    numErrors?: IntFieldUpdateOperationsInput | number
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastCompiled?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastEdited?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -24875,6 +24904,7 @@ export namespace Prisma {
     privateOwnerId?: IntFieldUpdateOperationsInput | number
     proofType?: EnumProofTypeFieldUpdateOperationsInput | $Enums.ProofType
     privateCourseId?: NullableIntFieldUpdateOperationsInput | number | null
+    numErrors?: IntFieldUpdateOperationsInput | number
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastCompiled?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastEdited?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -26273,6 +26303,7 @@ export namespace Prisma {
     privateOwnerId?: SortOrder
     proofType?: SortOrder
     privateCourseId?: SortOrder
+    numErrors?: SortOrder
     deletedAt?: SortOrder
     lastCompiled?: SortOrder
     lastEdited?: SortOrder
@@ -26283,6 +26314,7 @@ export namespace Prisma {
     privateId?: SortOrder
     privateOwnerId?: SortOrder
     privateCourseId?: SortOrder
+    numErrors?: SortOrder
   }
 
   export type DocumentMaxOrderByAggregateInput = {
@@ -26292,6 +26324,7 @@ export namespace Prisma {
     privateOwnerId?: SortOrder
     proofType?: SortOrder
     privateCourseId?: SortOrder
+    numErrors?: SortOrder
     deletedAt?: SortOrder
     lastCompiled?: SortOrder
     lastEdited?: SortOrder
@@ -26305,6 +26338,7 @@ export namespace Prisma {
     privateOwnerId?: SortOrder
     proofType?: SortOrder
     privateCourseId?: SortOrder
+    numErrors?: SortOrder
     deletedAt?: SortOrder
     lastCompiled?: SortOrder
     lastEdited?: SortOrder
@@ -26315,6 +26349,7 @@ export namespace Prisma {
     privateId?: SortOrder
     privateOwnerId?: SortOrder
     privateCourseId?: SortOrder
+    numErrors?: SortOrder
   }
 
   export type EnumProofTypeWithAggregatesFilter<$PrismaModel = never> = {
@@ -28951,6 +28986,7 @@ export namespace Prisma {
     publicId?: string
     title: string
     proofType: $Enums.ProofType
+    numErrors?: number
     deletedAt?: Date | string | null
     lastCompiled?: Date | string | null
     lastEdited?: Date | string
@@ -28969,6 +29005,7 @@ export namespace Prisma {
     title: string
     proofType: $Enums.ProofType
     privateCourseId?: number | null
+    numErrors?: number
     deletedAt?: Date | string | null
     lastCompiled?: Date | string | null
     lastEdited?: Date | string
@@ -29180,6 +29217,7 @@ export namespace Prisma {
     privateOwnerId?: IntFilter<"Document"> | number
     proofType?: EnumProofTypeFilter<"Document"> | $Enums.ProofType
     privateCourseId?: IntNullableFilter<"Document"> | number | null
+    numErrors?: IntFilter<"Document"> | number
     deletedAt?: DateTimeNullableFilter<"Document"> | Date | string | null
     lastCompiled?: DateTimeNullableFilter<"Document"> | Date | string | null
     lastEdited?: DateTimeFilter<"Document"> | Date | string
@@ -29913,6 +29951,7 @@ export namespace Prisma {
     publicId?: string
     title: string
     proofType: $Enums.ProofType
+    numErrors?: number
     deletedAt?: Date | string | null
     lastCompiled?: Date | string | null
     lastEdited?: Date | string
@@ -29932,6 +29971,7 @@ export namespace Prisma {
     privateOwnerId: number
     proofType: $Enums.ProofType
     privateCourseId?: number | null
+    numErrors?: number
     deletedAt?: Date | string | null
     lastCompiled?: Date | string | null
     lastEdited?: Date | string
@@ -29962,6 +30002,7 @@ export namespace Prisma {
     publicId?: StringFieldUpdateOperationsInput | string
     title?: StringFieldUpdateOperationsInput | string
     proofType?: EnumProofTypeFieldUpdateOperationsInput | $Enums.ProofType
+    numErrors?: IntFieldUpdateOperationsInput | number
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastCompiled?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastEdited?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -29981,6 +30022,7 @@ export namespace Prisma {
     privateOwnerId?: IntFieldUpdateOperationsInput | number
     proofType?: EnumProofTypeFieldUpdateOperationsInput | $Enums.ProofType
     privateCourseId?: NullableIntFieldUpdateOperationsInput | number | null
+    numErrors?: IntFieldUpdateOperationsInput | number
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastCompiled?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastEdited?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -29995,6 +30037,7 @@ export namespace Prisma {
     publicId?: string
     title: string
     proofType: $Enums.ProofType
+    numErrors?: number
     deletedAt?: Date | string | null
     lastCompiled?: Date | string | null
     lastEdited?: Date | string
@@ -30014,6 +30057,7 @@ export namespace Prisma {
     privateOwnerId: number
     proofType: $Enums.ProofType
     privateCourseId?: number | null
+    numErrors?: number
     deletedAt?: Date | string | null
     lastCompiled?: Date | string | null
     lastEdited?: Date | string
@@ -30044,6 +30088,7 @@ export namespace Prisma {
     publicId?: StringFieldUpdateOperationsInput | string
     title?: StringFieldUpdateOperationsInput | string
     proofType?: EnumProofTypeFieldUpdateOperationsInput | $Enums.ProofType
+    numErrors?: IntFieldUpdateOperationsInput | number
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastCompiled?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastEdited?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -30063,6 +30108,7 @@ export namespace Prisma {
     privateOwnerId?: IntFieldUpdateOperationsInput | number
     proofType?: EnumProofTypeFieldUpdateOperationsInput | $Enums.ProofType
     privateCourseId?: NullableIntFieldUpdateOperationsInput | number | null
+    numErrors?: IntFieldUpdateOperationsInput | number
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastCompiled?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastEdited?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -30077,6 +30123,7 @@ export namespace Prisma {
     publicId?: string
     title: string
     proofType: $Enums.ProofType
+    numErrors?: number
     deletedAt?: Date | string | null
     lastCompiled?: Date | string | null
     lastEdited?: Date | string
@@ -30096,6 +30143,7 @@ export namespace Prisma {
     privateOwnerId: number
     proofType: $Enums.ProofType
     privateCourseId?: number | null
+    numErrors?: number
     deletedAt?: Date | string | null
     lastCompiled?: Date | string | null
     lastEdited?: Date | string
@@ -30154,6 +30202,7 @@ export namespace Prisma {
     publicId?: StringFieldUpdateOperationsInput | string
     title?: StringFieldUpdateOperationsInput | string
     proofType?: EnumProofTypeFieldUpdateOperationsInput | $Enums.ProofType
+    numErrors?: IntFieldUpdateOperationsInput | number
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastCompiled?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastEdited?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -30173,6 +30222,7 @@ export namespace Prisma {
     privateOwnerId?: IntFieldUpdateOperationsInput | number
     proofType?: EnumProofTypeFieldUpdateOperationsInput | $Enums.ProofType
     privateCourseId?: NullableIntFieldUpdateOperationsInput | number | null
+    numErrors?: IntFieldUpdateOperationsInput | number
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastCompiled?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastEdited?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -30203,6 +30253,7 @@ export namespace Prisma {
     publicId?: string
     title: string
     proofType: $Enums.ProofType
+    numErrors?: number
     deletedAt?: Date | string | null
     lastCompiled?: Date | string | null
     lastEdited?: Date | string
@@ -30222,6 +30273,7 @@ export namespace Prisma {
     privateOwnerId: number
     proofType: $Enums.ProofType
     privateCourseId?: number | null
+    numErrors?: number
     deletedAt?: Date | string | null
     lastCompiled?: Date | string | null
     lastEdited?: Date | string
@@ -30252,6 +30304,7 @@ export namespace Prisma {
     publicId?: StringFieldUpdateOperationsInput | string
     title?: StringFieldUpdateOperationsInput | string
     proofType?: EnumProofTypeFieldUpdateOperationsInput | $Enums.ProofType
+    numErrors?: IntFieldUpdateOperationsInput | number
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastCompiled?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastEdited?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -30271,6 +30324,7 @@ export namespace Prisma {
     privateOwnerId?: IntFieldUpdateOperationsInput | number
     proofType?: EnumProofTypeFieldUpdateOperationsInput | $Enums.ProofType
     privateCourseId?: NullableIntFieldUpdateOperationsInput | number | null
+    numErrors?: IntFieldUpdateOperationsInput | number
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastCompiled?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastEdited?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -30285,6 +30339,7 @@ export namespace Prisma {
     publicId?: string
     title: string
     proofType: $Enums.ProofType
+    numErrors?: number
     deletedAt?: Date | string | null
     lastCompiled?: Date | string | null
     lastEdited?: Date | string
@@ -30304,6 +30359,7 @@ export namespace Prisma {
     privateOwnerId: number
     proofType: $Enums.ProofType
     privateCourseId?: number | null
+    numErrors?: number
     deletedAt?: Date | string | null
     lastCompiled?: Date | string | null
     lastEdited?: Date | string
@@ -30392,6 +30448,7 @@ export namespace Prisma {
     publicId?: StringFieldUpdateOperationsInput | string
     title?: StringFieldUpdateOperationsInput | string
     proofType?: EnumProofTypeFieldUpdateOperationsInput | $Enums.ProofType
+    numErrors?: IntFieldUpdateOperationsInput | number
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastCompiled?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastEdited?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -30411,6 +30468,7 @@ export namespace Prisma {
     privateOwnerId?: IntFieldUpdateOperationsInput | number
     proofType?: EnumProofTypeFieldUpdateOperationsInput | $Enums.ProofType
     privateCourseId?: NullableIntFieldUpdateOperationsInput | number | null
+    numErrors?: IntFieldUpdateOperationsInput | number
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastCompiled?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastEdited?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -30767,6 +30825,7 @@ export namespace Prisma {
     publicId?: string
     title: string
     proofType: $Enums.ProofType
+    numErrors?: number
     deletedAt?: Date | string | null
     lastCompiled?: Date | string | null
     lastEdited?: Date | string
@@ -30785,6 +30844,7 @@ export namespace Prisma {
     title: string
     privateOwnerId: number
     proofType: $Enums.ProofType
+    numErrors?: number
     deletedAt?: Date | string | null
     lastCompiled?: Date | string | null
     lastEdited?: Date | string
@@ -31537,6 +31597,7 @@ export namespace Prisma {
     title: string
     proofType: $Enums.ProofType
     privateCourseId?: number | null
+    numErrors?: number
     deletedAt?: Date | string | null
     lastCompiled?: Date | string | null
     lastEdited?: Date | string
@@ -31617,6 +31678,7 @@ export namespace Prisma {
     publicId?: StringFieldUpdateOperationsInput | string
     title?: StringFieldUpdateOperationsInput | string
     proofType?: EnumProofTypeFieldUpdateOperationsInput | $Enums.ProofType
+    numErrors?: IntFieldUpdateOperationsInput | number
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastCompiled?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastEdited?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -31635,6 +31697,7 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string
     proofType?: EnumProofTypeFieldUpdateOperationsInput | $Enums.ProofType
     privateCourseId?: NullableIntFieldUpdateOperationsInput | number | null
+    numErrors?: IntFieldUpdateOperationsInput | number
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastCompiled?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastEdited?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -31652,6 +31715,7 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string
     proofType?: EnumProofTypeFieldUpdateOperationsInput | $Enums.ProofType
     privateCourseId?: NullableIntFieldUpdateOperationsInput | number | null
+    numErrors?: IntFieldUpdateOperationsInput | number
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastCompiled?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastEdited?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -31967,6 +32031,7 @@ export namespace Prisma {
     title: string
     privateOwnerId: number
     proofType: $Enums.ProofType
+    numErrors?: number
     deletedAt?: Date | string | null
     lastCompiled?: Date | string | null
     lastEdited?: Date | string
@@ -31994,6 +32059,7 @@ export namespace Prisma {
     publicId?: StringFieldUpdateOperationsInput | string
     title?: StringFieldUpdateOperationsInput | string
     proofType?: EnumProofTypeFieldUpdateOperationsInput | $Enums.ProofType
+    numErrors?: IntFieldUpdateOperationsInput | number
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastCompiled?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastEdited?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -32012,6 +32078,7 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string
     privateOwnerId?: IntFieldUpdateOperationsInput | number
     proofType?: EnumProofTypeFieldUpdateOperationsInput | $Enums.ProofType
+    numErrors?: IntFieldUpdateOperationsInput | number
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastCompiled?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastEdited?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -32029,6 +32096,7 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string
     privateOwnerId?: IntFieldUpdateOperationsInput | number
     proofType?: EnumProofTypeFieldUpdateOperationsInput | $Enums.ProofType
+    numErrors?: IntFieldUpdateOperationsInput | number
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastCompiled?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastEdited?: DateTimeFieldUpdateOperationsInput | Date | string
