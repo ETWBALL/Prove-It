@@ -7776,6 +7776,7 @@ export namespace Prisma {
   export type DocumentBodyMinAggregateOutputType = {
     privateId: number | null
     publicId: string | null
+    content: string | null
     privateDocumentId: number | null
     createdAt: Date | null
   }
@@ -7783,6 +7784,7 @@ export namespace Prisma {
   export type DocumentBodyMaxAggregateOutputType = {
     privateId: number | null
     publicId: string | null
+    content: string | null
     privateDocumentId: number | null
     createdAt: Date | null
   }
@@ -7810,6 +7812,7 @@ export namespace Prisma {
   export type DocumentBodyMinAggregateInputType = {
     privateId?: true
     publicId?: true
+    content?: true
     privateDocumentId?: true
     createdAt?: true
   }
@@ -7817,6 +7820,7 @@ export namespace Prisma {
   export type DocumentBodyMaxAggregateInputType = {
     privateId?: true
     publicId?: true
+    content?: true
     privateDocumentId?: true
     createdAt?: true
   }
@@ -7919,7 +7923,7 @@ export namespace Prisma {
   export type DocumentBodyGroupByOutputType = {
     privateId: number
     publicId: string
-    content: JsonValue
+    content: string
     privateDocumentId: number
     createdAt: Date
     _count: DocumentBodyCountAggregateOutputType | null
@@ -7997,7 +8001,7 @@ export namespace Prisma {
     scalars: $Extensions.GetPayloadResult<{
       privateId: number
       publicId: string
-      content: Prisma.JsonValue
+      content: string
       privateDocumentId: number
       createdAt: Date
     }, ExtArgs["result"]["documentBody"]>
@@ -8426,7 +8430,7 @@ export namespace Prisma {
   interface DocumentBodyFieldRefs {
     readonly privateId: FieldRef<"DocumentBody", 'Int'>
     readonly publicId: FieldRef<"DocumentBody", 'String'>
-    readonly content: FieldRef<"DocumentBody", 'Json'>
+    readonly content: FieldRef<"DocumentBody", 'String'>
     readonly privateDocumentId: FieldRef<"DocumentBody", 'Int'>
     readonly createdAt: FieldRef<"DocumentBody", 'DateTime'>
   }
@@ -23602,7 +23606,7 @@ export namespace Prisma {
     NOT?: DocumentBodyWhereInput | DocumentBodyWhereInput[]
     privateId?: IntFilter<"DocumentBody"> | number
     publicId?: StringFilter<"DocumentBody"> | string
-    content?: JsonFilter<"DocumentBody">
+    content?: StringFilter<"DocumentBody"> | string
     privateDocumentId?: IntFilter<"DocumentBody"> | number
     createdAt?: DateTimeFilter<"DocumentBody"> | Date | string
     document?: XOR<DocumentScalarRelationFilter, DocumentWhereInput>
@@ -23624,7 +23628,7 @@ export namespace Prisma {
     AND?: DocumentBodyWhereInput | DocumentBodyWhereInput[]
     OR?: DocumentBodyWhereInput[]
     NOT?: DocumentBodyWhereInput | DocumentBodyWhereInput[]
-    content?: JsonFilter<"DocumentBody">
+    content?: StringFilter<"DocumentBody"> | string
     createdAt?: DateTimeFilter<"DocumentBody"> | Date | string
     document?: XOR<DocumentScalarRelationFilter, DocumentWhereInput>
   }, "privateId" | "publicId" | "privateDocumentId">
@@ -23648,7 +23652,7 @@ export namespace Prisma {
     NOT?: DocumentBodyScalarWhereWithAggregatesInput | DocumentBodyScalarWhereWithAggregatesInput[]
     privateId?: IntWithAggregatesFilter<"DocumentBody"> | number
     publicId?: StringWithAggregatesFilter<"DocumentBody"> | string
-    content?: JsonWithAggregatesFilter<"DocumentBody">
+    content?: StringWithAggregatesFilter<"DocumentBody"> | string
     privateDocumentId?: IntWithAggregatesFilter<"DocumentBody"> | number
     createdAt?: DateTimeWithAggregatesFilter<"DocumentBody"> | Date | string
   }
@@ -24913,7 +24917,7 @@ export namespace Prisma {
 
   export type DocumentBodyCreateInput = {
     publicId?: string
-    content: JsonNullValueInput | InputJsonValue
+    content: string
     createdAt?: Date | string
     document: DocumentCreateNestedOneWithoutDocumentBodyInput
   }
@@ -24921,14 +24925,14 @@ export namespace Prisma {
   export type DocumentBodyUncheckedCreateInput = {
     privateId?: number
     publicId?: string
-    content: JsonNullValueInput | InputJsonValue
+    content: string
     privateDocumentId: number
     createdAt?: Date | string
   }
 
   export type DocumentBodyUpdateInput = {
     publicId?: StringFieldUpdateOperationsInput | string
-    content?: JsonNullValueInput | InputJsonValue
+    content?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     document?: DocumentUpdateOneRequiredWithoutDocumentBodyNestedInput
   }
@@ -24936,7 +24940,7 @@ export namespace Prisma {
   export type DocumentBodyUncheckedUpdateInput = {
     privateId?: IntFieldUpdateOperationsInput | number
     publicId?: StringFieldUpdateOperationsInput | string
-    content?: JsonNullValueInput | InputJsonValue
+    content?: StringFieldUpdateOperationsInput | string
     privateDocumentId?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -24944,21 +24948,21 @@ export namespace Prisma {
   export type DocumentBodyCreateManyInput = {
     privateId?: number
     publicId?: string
-    content: JsonNullValueInput | InputJsonValue
+    content: string
     privateDocumentId: number
     createdAt?: Date | string
   }
 
   export type DocumentBodyUpdateManyMutationInput = {
     publicId?: StringFieldUpdateOperationsInput | string
-    content?: JsonNullValueInput | InputJsonValue
+    content?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type DocumentBodyUncheckedUpdateManyInput = {
     privateId?: IntFieldUpdateOperationsInput | number
     publicId?: StringFieldUpdateOperationsInput | string
-    content?: JsonNullValueInput | InputJsonValue
+    content?: StringFieldUpdateOperationsInput | string
     privateDocumentId?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -26361,29 +26365,6 @@ export namespace Prisma {
     _min?: NestedEnumProofTypeFilter<$PrismaModel>
     _max?: NestedEnumProofTypeFilter<$PrismaModel>
   }
-  export type JsonFilter<$PrismaModel = never> =
-    | PatchUndefined<
-        Either<Required<JsonFilterBase<$PrismaModel>>, Exclude<keyof Required<JsonFilterBase<$PrismaModel>>, 'path'>>,
-        Required<JsonFilterBase<$PrismaModel>>
-      >
-    | OptionalFlat<Omit<Required<JsonFilterBase<$PrismaModel>>, 'path'>>
-
-  export type JsonFilterBase<$PrismaModel = never> = {
-    equals?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
-    path?: string[]
-    mode?: QueryMode | EnumQueryModeFieldRefInput<$PrismaModel>
-    string_contains?: string | StringFieldRefInput<$PrismaModel>
-    string_starts_with?: string | StringFieldRefInput<$PrismaModel>
-    string_ends_with?: string | StringFieldRefInput<$PrismaModel>
-    array_starts_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
-    array_ends_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
-    array_contains?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
-    lt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
-    lte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
-    gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
-    gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
-    not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
-  }
 
   export type DocumentScalarRelationFilter = {
     is?: DocumentWhereInput
@@ -26406,6 +26387,7 @@ export namespace Prisma {
   export type DocumentBodyMaxOrderByAggregateInput = {
     privateId?: SortOrder
     publicId?: SortOrder
+    content?: SortOrder
     privateDocumentId?: SortOrder
     createdAt?: SortOrder
   }
@@ -26413,6 +26395,7 @@ export namespace Prisma {
   export type DocumentBodyMinOrderByAggregateInput = {
     privateId?: SortOrder
     publicId?: SortOrder
+    content?: SortOrder
     privateDocumentId?: SortOrder
     createdAt?: SortOrder
   }
@@ -26421,14 +26404,14 @@ export namespace Prisma {
     privateId?: SortOrder
     privateDocumentId?: SortOrder
   }
-  export type JsonWithAggregatesFilter<$PrismaModel = never> =
+  export type JsonFilter<$PrismaModel = never> =
     | PatchUndefined<
-        Either<Required<JsonWithAggregatesFilterBase<$PrismaModel>>, Exclude<keyof Required<JsonWithAggregatesFilterBase<$PrismaModel>>, 'path'>>,
-        Required<JsonWithAggregatesFilterBase<$PrismaModel>>
+        Either<Required<JsonFilterBase<$PrismaModel>>, Exclude<keyof Required<JsonFilterBase<$PrismaModel>>, 'path'>>,
+        Required<JsonFilterBase<$PrismaModel>>
       >
-    | OptionalFlat<Omit<Required<JsonWithAggregatesFilterBase<$PrismaModel>>, 'path'>>
+    | OptionalFlat<Omit<Required<JsonFilterBase<$PrismaModel>>, 'path'>>
 
-  export type JsonWithAggregatesFilterBase<$PrismaModel = never> = {
+  export type JsonFilterBase<$PrismaModel = never> = {
     equals?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
     path?: string[]
     mode?: QueryMode | EnumQueryModeFieldRefInput<$PrismaModel>
@@ -26443,9 +26426,6 @@ export namespace Prisma {
     gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
     gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
     not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
-    _count?: NestedIntFilter<$PrismaModel>
-    _min?: NestedJsonFilter<$PrismaModel>
-    _max?: NestedJsonFilter<$PrismaModel>
   }
 
   export type BoolFilter<$PrismaModel = never> = {
@@ -26518,6 +26498,32 @@ export namespace Prisma {
     privateId?: SortOrder
     privateDocumentId?: SortOrder
     errorCount?: SortOrder
+  }
+  export type JsonWithAggregatesFilter<$PrismaModel = never> =
+    | PatchUndefined<
+        Either<Required<JsonWithAggregatesFilterBase<$PrismaModel>>, Exclude<keyof Required<JsonWithAggregatesFilterBase<$PrismaModel>>, 'path'>>,
+        Required<JsonWithAggregatesFilterBase<$PrismaModel>>
+      >
+    | OptionalFlat<Omit<Required<JsonWithAggregatesFilterBase<$PrismaModel>>, 'path'>>
+
+  export type JsonWithAggregatesFilterBase<$PrismaModel = never> = {
+    equals?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
+    path?: string[]
+    mode?: QueryMode | EnumQueryModeFieldRefInput<$PrismaModel>
+    string_contains?: string | StringFieldRefInput<$PrismaModel>
+    string_starts_with?: string | StringFieldRefInput<$PrismaModel>
+    string_ends_with?: string | StringFieldRefInput<$PrismaModel>
+    array_starts_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    array_ends_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    array_contains?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    lt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    lte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedJsonFilter<$PrismaModel>
+    _max?: NestedJsonFilter<$PrismaModel>
   }
 
   export type BoolWithAggregatesFilter<$PrismaModel = never> = {
@@ -28677,6 +28683,11 @@ export namespace Prisma {
     _min?: NestedEnumProofTypeFilter<$PrismaModel>
     _max?: NestedEnumProofTypeFilter<$PrismaModel>
   }
+
+  export type NestedBoolFilter<$PrismaModel = never> = {
+    equals?: boolean | BooleanFieldRefInput<$PrismaModel>
+    not?: NestedBoolFilter<$PrismaModel> | boolean
+  }
   export type NestedJsonFilter<$PrismaModel = never> =
     | PatchUndefined<
         Either<Required<NestedJsonFilterBase<$PrismaModel>>, Exclude<keyof Required<NestedJsonFilterBase<$PrismaModel>>, 'path'>>,
@@ -28699,11 +28710,6 @@ export namespace Prisma {
     gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
     gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
     not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
-  }
-
-  export type NestedBoolFilter<$PrismaModel = never> = {
-    equals?: boolean | BooleanFieldRefInput<$PrismaModel>
-    not?: NestedBoolFilter<$PrismaModel> | boolean
   }
 
   export type NestedBoolWithAggregatesFilter<$PrismaModel = never> = {
@@ -29567,14 +29573,14 @@ export namespace Prisma {
 
   export type DocumentBodyCreateWithoutDocumentInput = {
     publicId?: string
-    content: JsonNullValueInput | InputJsonValue
+    content: string
     createdAt?: Date | string
   }
 
   export type DocumentBodyUncheckedCreateWithoutDocumentInput = {
     privateId?: number
     publicId?: string
-    content: JsonNullValueInput | InputJsonValue
+    content: string
     createdAt?: Date | string
   }
 
@@ -29809,14 +29815,14 @@ export namespace Prisma {
 
   export type DocumentBodyUpdateWithoutDocumentInput = {
     publicId?: StringFieldUpdateOperationsInput | string
-    content?: JsonNullValueInput | InputJsonValue
+    content?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type DocumentBodyUncheckedUpdateWithoutDocumentInput = {
     privateId?: IntFieldUpdateOperationsInput | number
     publicId?: StringFieldUpdateOperationsInput | string
-    content?: JsonNullValueInput | InputJsonValue
+    content?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 

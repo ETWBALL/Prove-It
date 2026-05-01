@@ -151,7 +151,7 @@ model DocumentBody {
   publicId  String @unique @default(cuid())
 
   // Serialized editor/proof content (structure defined by the application layer).
-  content Json
+  content String
 
   // Parent document this body belongs to.
   privateDocumentId Int      @unique
