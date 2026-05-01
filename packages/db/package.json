@@ -1,0 +1,6 @@
+{
+  "name": "@prove-it/db",
+  "version": "1.0.0",
+  "main": "./generated/prisma/index.js",
+  "types": "./generated/prisma/index.d.ts"
+}
