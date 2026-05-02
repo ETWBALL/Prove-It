@@ -11200,23 +11200,31 @@ export namespace Prisma {
 
   export type ErrorAvgAggregateOutputType = {
     privateId: number | null
-    startIndex: number | null
-    endIndex: number | null
+    startIndexError: number | null
+    endIndexError: number | null
+    startIndexSuggestion: number | null
+    endIndexSuggestion: number | null
     privateDocumentId: number | null
   }
 
   export type ErrorSumAggregateOutputType = {
     privateId: number | null
-    startIndex: number | null
-    endIndex: number | null
+    startIndexError: number | null
+    endIndexError: number | null
+    startIndexSuggestion: number | null
+    endIndexSuggestion: number | null
     privateDocumentId: number | null
   }
 
   export type ErrorMinAggregateOutputType = {
     privateId: number | null
     publicId: string | null
-    startIndex: number | null
-    endIndex: number | null
+    startIndexError: number | null
+    endIndexError: number | null
+    errorContent: string | null
+    suggestionContent: string | null
+    startIndexSuggestion: number | null
+    endIndexSuggestion: number | null
     privateDocumentId: number | null
     type: $Enums.ErrorType | null
     severity: $Enums.Severity | null
@@ -11230,8 +11238,12 @@ export namespace Prisma {
   export type ErrorMaxAggregateOutputType = {
     privateId: number | null
     publicId: string | null
-    startIndex: number | null
-    endIndex: number | null
+    startIndexError: number | null
+    endIndexError: number | null
+    errorContent: string | null
+    suggestionContent: string | null
+    startIndexSuggestion: number | null
+    endIndexSuggestion: number | null
     privateDocumentId: number | null
     type: $Enums.ErrorType | null
     severity: $Enums.Severity | null
@@ -11245,9 +11257,12 @@ export namespace Prisma {
   export type ErrorCountAggregateOutputType = {
     privateId: number
     publicId: number
-    startIndex: number
-    endIndex: number
-    suggestedFix: number
+    startIndexError: number
+    endIndexError: number
+    errorContent: number
+    suggestionContent: number
+    startIndexSuggestion: number
+    endIndexSuggestion: number
     privateDocumentId: number
     type: number
     severity: number
@@ -11262,23 +11277,31 @@ export namespace Prisma {
 
   export type ErrorAvgAggregateInputType = {
     privateId?: true
-    startIndex?: true
-    endIndex?: true
+    startIndexError?: true
+    endIndexError?: true
+    startIndexSuggestion?: true
+    endIndexSuggestion?: true
     privateDocumentId?: true
   }
 
   export type ErrorSumAggregateInputType = {
     privateId?: true
-    startIndex?: true
-    endIndex?: true
+    startIndexError?: true
+    endIndexError?: true
+    startIndexSuggestion?: true
+    endIndexSuggestion?: true
     privateDocumentId?: true
   }
 
   export type ErrorMinAggregateInputType = {
     privateId?: true
     publicId?: true
-    startIndex?: true
-    endIndex?: true
+    startIndexError?: true
+    endIndexError?: true
+    errorContent?: true
+    suggestionContent?: true
+    startIndexSuggestion?: true
+    endIndexSuggestion?: true
     privateDocumentId?: true
     type?: true
     severity?: true
@@ -11292,8 +11315,12 @@ export namespace Prisma {
   export type ErrorMaxAggregateInputType = {
     privateId?: true
     publicId?: true
-    startIndex?: true
-    endIndex?: true
+    startIndexError?: true
+    endIndexError?: true
+    errorContent?: true
+    suggestionContent?: true
+    startIndexSuggestion?: true
+    endIndexSuggestion?: true
     privateDocumentId?: true
     type?: true
     severity?: true
@@ -11307,9 +11334,12 @@ export namespace Prisma {
   export type ErrorCountAggregateInputType = {
     privateId?: true
     publicId?: true
-    startIndex?: true
-    endIndex?: true
-    suggestedFix?: true
+    startIndexError?: true
+    endIndexError?: true
+    errorContent?: true
+    suggestionContent?: true
+    startIndexSuggestion?: true
+    endIndexSuggestion?: true
     privateDocumentId?: true
     type?: true
     severity?: true
@@ -11410,9 +11440,12 @@ export namespace Prisma {
   export type ErrorGroupByOutputType = {
     privateId: number
     publicId: string
-    startIndex: number
-    endIndex: number
-    suggestedFix: JsonValue | null
+    startIndexError: number
+    endIndexError: number
+    errorContent: string
+    suggestionContent: string | null
+    startIndexSuggestion: number
+    endIndexSuggestion: number
     privateDocumentId: number
     type: $Enums.ErrorType
     severity: $Enums.Severity
@@ -11445,9 +11478,12 @@ export namespace Prisma {
   export type ErrorSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     privateId?: boolean
     publicId?: boolean
-    startIndex?: boolean
-    endIndex?: boolean
-    suggestedFix?: boolean
+    startIndexError?: boolean
+    endIndexError?: boolean
+    errorContent?: boolean
+    suggestionContent?: boolean
+    startIndexSuggestion?: boolean
+    endIndexSuggestion?: boolean
     privateDocumentId?: boolean
     type?: boolean
     severity?: boolean
@@ -11462,9 +11498,12 @@ export namespace Prisma {
   export type ErrorSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     privateId?: boolean
     publicId?: boolean
-    startIndex?: boolean
-    endIndex?: boolean
-    suggestedFix?: boolean
+    startIndexError?: boolean
+    endIndexError?: boolean
+    errorContent?: boolean
+    suggestionContent?: boolean
+    startIndexSuggestion?: boolean
+    endIndexSuggestion?: boolean
     privateDocumentId?: boolean
     type?: boolean
     severity?: boolean
@@ -11479,9 +11518,12 @@ export namespace Prisma {
   export type ErrorSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     privateId?: boolean
     publicId?: boolean
-    startIndex?: boolean
-    endIndex?: boolean
-    suggestedFix?: boolean
+    startIndexError?: boolean
+    endIndexError?: boolean
+    errorContent?: boolean
+    suggestionContent?: boolean
+    startIndexSuggestion?: boolean
+    endIndexSuggestion?: boolean
     privateDocumentId?: boolean
     type?: boolean
     severity?: boolean
@@ -11496,9 +11538,12 @@ export namespace Prisma {
   export type ErrorSelectScalar = {
     privateId?: boolean
     publicId?: boolean
-    startIndex?: boolean
-    endIndex?: boolean
-    suggestedFix?: boolean
+    startIndexError?: boolean
+    endIndexError?: boolean
+    errorContent?: boolean
+    suggestionContent?: boolean
+    startIndexSuggestion?: boolean
+    endIndexSuggestion?: boolean
     privateDocumentId?: boolean
     type?: boolean
     severity?: boolean
@@ -11509,7 +11554,7 @@ export namespace Prisma {
     createdAt?: boolean
   }
 
-  export type ErrorOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"privateId" | "publicId" | "startIndex" | "endIndex" | "suggestedFix" | "privateDocumentId" | "type" | "severity" | "layer" | "model" | "resolvedAt" | "dismissedAt" | "createdAt", ExtArgs["result"]["error"]>
+  export type ErrorOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"privateId" | "publicId" | "startIndexError" | "endIndexError" | "errorContent" | "suggestionContent" | "startIndexSuggestion" | "endIndexSuggestion" | "privateDocumentId" | "type" | "severity" | "layer" | "model" | "resolvedAt" | "dismissedAt" | "createdAt", ExtArgs["result"]["error"]>
   export type ErrorInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     document?: boolean | DocumentDefaultArgs<ExtArgs>
   }
@@ -11528,9 +11573,12 @@ export namespace Prisma {
     scalars: $Extensions.GetPayloadResult<{
       privateId: number
       publicId: string
-      startIndex: number
-      endIndex: number
-      suggestedFix: Prisma.JsonValue | null
+      startIndexError: number
+      endIndexError: number
+      errorContent: string
+      suggestionContent: string | null
+      startIndexSuggestion: number
+      endIndexSuggestion: number
       privateDocumentId: number
       type: $Enums.ErrorType
       severity: $Enums.Severity
@@ -11965,9 +12013,12 @@ export namespace Prisma {
   interface ErrorFieldRefs {
     readonly privateId: FieldRef<"Error", 'Int'>
     readonly publicId: FieldRef<"Error", 'String'>
-    readonly startIndex: FieldRef<"Error", 'Int'>
-    readonly endIndex: FieldRef<"Error", 'Int'>
-    readonly suggestedFix: FieldRef<"Error", 'Json'>
+    readonly startIndexError: FieldRef<"Error", 'Int'>
+    readonly endIndexError: FieldRef<"Error", 'Int'>
+    readonly errorContent: FieldRef<"Error", 'String'>
+    readonly suggestionContent: FieldRef<"Error", 'String'>
+    readonly startIndexSuggestion: FieldRef<"Error", 'Int'>
+    readonly endIndexSuggestion: FieldRef<"Error", 'Int'>
     readonly privateDocumentId: FieldRef<"Error", 'Int'>
     readonly type: FieldRef<"Error", 'ErrorType'>
     readonly severity: FieldRef<"Error", 'Severity'>
@@ -22841,9 +22892,12 @@ export namespace Prisma {
   export const ErrorScalarFieldEnum: {
     privateId: 'privateId',
     publicId: 'publicId',
-    startIndex: 'startIndex',
-    endIndex: 'endIndex',
-    suggestedFix: 'suggestedFix',
+    startIndexError: 'startIndexError',
+    endIndexError: 'endIndexError',
+    errorContent: 'errorContent',
+    suggestionContent: 'suggestionContent',
+    startIndexSuggestion: 'startIndexSuggestion',
+    endIndexSuggestion: 'endIndexSuggestion',
     privateDocumentId: 'privateDocumentId',
     type: 'type',
     severity: 'severity',
@@ -23825,9 +23879,12 @@ export namespace Prisma {
     NOT?: ErrorWhereInput | ErrorWhereInput[]
     privateId?: IntFilter<"Error"> | number
     publicId?: StringFilter<"Error"> | string
-    startIndex?: IntFilter<"Error"> | number
-    endIndex?: IntFilter<"Error"> | number
-    suggestedFix?: JsonNullableFilter<"Error">
+    startIndexError?: IntFilter<"Error"> | number
+    endIndexError?: IntFilter<"Error"> | number
+    errorContent?: StringFilter<"Error"> | string
+    suggestionContent?: StringNullableFilter<"Error"> | string | null
+    startIndexSuggestion?: IntFilter<"Error"> | number
+    endIndexSuggestion?: IntFilter<"Error"> | number
     privateDocumentId?: IntFilter<"Error"> | number
     type?: EnumErrorTypeFilter<"Error"> | $Enums.ErrorType
     severity?: EnumSeverityFilter<"Error"> | $Enums.Severity
@@ -23842,9 +23899,12 @@ export namespace Prisma {
   export type ErrorOrderByWithRelationInput = {
     privateId?: SortOrder
     publicId?: SortOrder
-    startIndex?: SortOrder
-    endIndex?: SortOrder
-    suggestedFix?: SortOrderInput | SortOrder
+    startIndexError?: SortOrder
+    endIndexError?: SortOrder
+    errorContent?: SortOrder
+    suggestionContent?: SortOrderInput | SortOrder
+    startIndexSuggestion?: SortOrder
+    endIndexSuggestion?: SortOrder
     privateDocumentId?: SortOrder
     type?: SortOrder
     severity?: SortOrder
@@ -23862,9 +23922,12 @@ export namespace Prisma {
     AND?: ErrorWhereInput | ErrorWhereInput[]
     OR?: ErrorWhereInput[]
     NOT?: ErrorWhereInput | ErrorWhereInput[]
-    startIndex?: IntFilter<"Error"> | number
-    endIndex?: IntFilter<"Error"> | number
-    suggestedFix?: JsonNullableFilter<"Error">
+    startIndexError?: IntFilter<"Error"> | number
+    endIndexError?: IntFilter<"Error"> | number
+    errorContent?: StringFilter<"Error"> | string
+    suggestionContent?: StringNullableFilter<"Error"> | string | null
+    startIndexSuggestion?: IntFilter<"Error"> | number
+    endIndexSuggestion?: IntFilter<"Error"> | number
     privateDocumentId?: IntFilter<"Error"> | number
     type?: EnumErrorTypeFilter<"Error"> | $Enums.ErrorType
     severity?: EnumSeverityFilter<"Error"> | $Enums.Severity
@@ -23879,9 +23942,12 @@ export namespace Prisma {
   export type ErrorOrderByWithAggregationInput = {
     privateId?: SortOrder
     publicId?: SortOrder
-    startIndex?: SortOrder
-    endIndex?: SortOrder
-    suggestedFix?: SortOrderInput | SortOrder
+    startIndexError?: SortOrder
+    endIndexError?: SortOrder
+    errorContent?: SortOrder
+    suggestionContent?: SortOrderInput | SortOrder
+    startIndexSuggestion?: SortOrder
+    endIndexSuggestion?: SortOrder
     privateDocumentId?: SortOrder
     type?: SortOrder
     severity?: SortOrder
@@ -23903,9 +23969,12 @@ export namespace Prisma {
     NOT?: ErrorScalarWhereWithAggregatesInput | ErrorScalarWhereWithAggregatesInput[]
     privateId?: IntWithAggregatesFilter<"Error"> | number
     publicId?: StringWithAggregatesFilter<"Error"> | string
-    startIndex?: IntWithAggregatesFilter<"Error"> | number
-    endIndex?: IntWithAggregatesFilter<"Error"> | number
-    suggestedFix?: JsonNullableWithAggregatesFilter<"Error">
+    startIndexError?: IntWithAggregatesFilter<"Error"> | number
+    endIndexError?: IntWithAggregatesFilter<"Error"> | number
+    errorContent?: StringWithAggregatesFilter<"Error"> | string
+    suggestionContent?: StringNullableWithAggregatesFilter<"Error"> | string | null
+    startIndexSuggestion?: IntWithAggregatesFilter<"Error"> | number
+    endIndexSuggestion?: IntWithAggregatesFilter<"Error"> | number
     privateDocumentId?: IntWithAggregatesFilter<"Error"> | number
     type?: EnumErrorTypeWithAggregatesFilter<"Error"> | $Enums.ErrorType
     severity?: EnumSeverityWithAggregatesFilter<"Error"> | $Enums.Severity
@@ -25140,9 +25209,12 @@ export namespace Prisma {
 
   export type ErrorCreateInput = {
     publicId?: string
-    startIndex: number
-    endIndex: number
-    suggestedFix?: NullableJsonNullValueInput | InputJsonValue
+    startIndexError: number
+    endIndexError: number
+    errorContent: string
+    suggestionContent?: string | null
+    startIndexSuggestion: number
+    endIndexSuggestion: number
     type: $Enums.ErrorType
     severity: $Enums.Severity
     layer: $Enums.ValidationLayer
@@ -25156,9 +25228,12 @@ export namespace Prisma {
   export type ErrorUncheckedCreateInput = {
     privateId?: number
     publicId?: string
-    startIndex: number
-    endIndex: number
-    suggestedFix?: NullableJsonNullValueInput | InputJsonValue
+    startIndexError: number
+    endIndexError: number
+    errorContent: string
+    suggestionContent?: string | null
+    startIndexSuggestion: number
+    endIndexSuggestion: number
     privateDocumentId: number
     type: $Enums.ErrorType
     severity: $Enums.Severity
@@ -25171,9 +25246,12 @@ export namespace Prisma {
 
   export type ErrorUpdateInput = {
     publicId?: StringFieldUpdateOperationsInput | string
-    startIndex?: IntFieldUpdateOperationsInput | number
-    endIndex?: IntFieldUpdateOperationsInput | number
-    suggestedFix?: NullableJsonNullValueInput | InputJsonValue
+    startIndexError?: IntFieldUpdateOperationsInput | number
+    endIndexError?: IntFieldUpdateOperationsInput | number
+    errorContent?: StringFieldUpdateOperationsInput | string
+    suggestionContent?: NullableStringFieldUpdateOperationsInput | string | null
+    startIndexSuggestion?: IntFieldUpdateOperationsInput | number
+    endIndexSuggestion?: IntFieldUpdateOperationsInput | number
     type?: EnumErrorTypeFieldUpdateOperationsInput | $Enums.ErrorType
     severity?: EnumSeverityFieldUpdateOperationsInput | $Enums.Severity
     layer?: EnumValidationLayerFieldUpdateOperationsInput | $Enums.ValidationLayer
@@ -25187,9 +25265,12 @@ export namespace Prisma {
   export type ErrorUncheckedUpdateInput = {
     privateId?: IntFieldUpdateOperationsInput | number
     publicId?: StringFieldUpdateOperationsInput | string
-    startIndex?: IntFieldUpdateOperationsInput | number
-    endIndex?: IntFieldUpdateOperationsInput | number
-    suggestedFix?: NullableJsonNullValueInput | InputJsonValue
+    startIndexError?: IntFieldUpdateOperationsInput | number
+    endIndexError?: IntFieldUpdateOperationsInput | number
+    errorContent?: StringFieldUpdateOperationsInput | string
+    suggestionContent?: NullableStringFieldUpdateOperationsInput | string | null
+    startIndexSuggestion?: IntFieldUpdateOperationsInput | number
+    endIndexSuggestion?: IntFieldUpdateOperationsInput | number
     privateDocumentId?: IntFieldUpdateOperationsInput | number
     type?: EnumErrorTypeFieldUpdateOperationsInput | $Enums.ErrorType
     severity?: EnumSeverityFieldUpdateOperationsInput | $Enums.Severity
@@ -25203,9 +25284,12 @@ export namespace Prisma {
   export type ErrorCreateManyInput = {
     privateId?: number
     publicId?: string
-    startIndex: number
-    endIndex: number
-    suggestedFix?: NullableJsonNullValueInput | InputJsonValue
+    startIndexError: number
+    endIndexError: number
+    errorContent: string
+    suggestionContent?: string | null
+    startIndexSuggestion: number
+    endIndexSuggestion: number
     privateDocumentId: number
     type: $Enums.ErrorType
     severity: $Enums.Severity
@@ -25218,9 +25302,12 @@ export namespace Prisma {
 
   export type ErrorUpdateManyMutationInput = {
     publicId?: StringFieldUpdateOperationsInput | string
-    startIndex?: IntFieldUpdateOperationsInput | number
-    endIndex?: IntFieldUpdateOperationsInput | number
-    suggestedFix?: NullableJsonNullValueInput | InputJsonValue
+    startIndexError?: IntFieldUpdateOperationsInput | number
+    endIndexError?: IntFieldUpdateOperationsInput | number
+    errorContent?: StringFieldUpdateOperationsInput | string
+    suggestionContent?: NullableStringFieldUpdateOperationsInput | string | null
+    startIndexSuggestion?: IntFieldUpdateOperationsInput | number
+    endIndexSuggestion?: IntFieldUpdateOperationsInput | number
     type?: EnumErrorTypeFieldUpdateOperationsInput | $Enums.ErrorType
     severity?: EnumSeverityFieldUpdateOperationsInput | $Enums.Severity
     layer?: EnumValidationLayerFieldUpdateOperationsInput | $Enums.ValidationLayer
@@ -25233,9 +25320,12 @@ export namespace Prisma {
   export type ErrorUncheckedUpdateManyInput = {
     privateId?: IntFieldUpdateOperationsInput | number
     publicId?: StringFieldUpdateOperationsInput | string
-    startIndex?: IntFieldUpdateOperationsInput | number
-    endIndex?: IntFieldUpdateOperationsInput | number
-    suggestedFix?: NullableJsonNullValueInput | InputJsonValue
+    startIndexError?: IntFieldUpdateOperationsInput | number
+    endIndexError?: IntFieldUpdateOperationsInput | number
+    errorContent?: StringFieldUpdateOperationsInput | string
+    suggestionContent?: NullableStringFieldUpdateOperationsInput | string | null
+    startIndexSuggestion?: IntFieldUpdateOperationsInput | number
+    endIndexSuggestion?: IntFieldUpdateOperationsInput | number
     privateDocumentId?: IntFieldUpdateOperationsInput | number
     type?: EnumErrorTypeFieldUpdateOperationsInput | $Enums.ErrorType
     severity?: EnumSeverityFieldUpdateOperationsInput | $Enums.Severity
@@ -26635,9 +26725,12 @@ export namespace Prisma {
   export type ErrorCountOrderByAggregateInput = {
     privateId?: SortOrder
     publicId?: SortOrder
-    startIndex?: SortOrder
-    endIndex?: SortOrder
-    suggestedFix?: SortOrder
+    startIndexError?: SortOrder
+    endIndexError?: SortOrder
+    errorContent?: SortOrder
+    suggestionContent?: SortOrder
+    startIndexSuggestion?: SortOrder
+    endIndexSuggestion?: SortOrder
     privateDocumentId?: SortOrder
     type?: SortOrder
     severity?: SortOrder
@@ -26650,16 +26743,22 @@ export namespace Prisma {
 
   export type ErrorAvgOrderByAggregateInput = {
     privateId?: SortOrder
-    startIndex?: SortOrder
-    endIndex?: SortOrder
+    startIndexError?: SortOrder
+    endIndexError?: SortOrder
+    startIndexSuggestion?: SortOrder
+    endIndexSuggestion?: SortOrder
     privateDocumentId?: SortOrder
   }
 
   export type ErrorMaxOrderByAggregateInput = {
     privateId?: SortOrder
     publicId?: SortOrder
-    startIndex?: SortOrder
-    endIndex?: SortOrder
+    startIndexError?: SortOrder
+    endIndexError?: SortOrder
+    errorContent?: SortOrder
+    suggestionContent?: SortOrder
+    startIndexSuggestion?: SortOrder
+    endIndexSuggestion?: SortOrder
     privateDocumentId?: SortOrder
     type?: SortOrder
     severity?: SortOrder
@@ -26673,8 +26772,12 @@ export namespace Prisma {
   export type ErrorMinOrderByAggregateInput = {
     privateId?: SortOrder
     publicId?: SortOrder
-    startIndex?: SortOrder
-    endIndex?: SortOrder
+    startIndexError?: SortOrder
+    endIndexError?: SortOrder
+    errorContent?: SortOrder
+    suggestionContent?: SortOrder
+    startIndexSuggestion?: SortOrder
+    endIndexSuggestion?: SortOrder
     privateDocumentId?: SortOrder
     type?: SortOrder
     severity?: SortOrder
@@ -26687,8 +26790,10 @@ export namespace Prisma {
 
   export type ErrorSumOrderByAggregateInput = {
     privateId?: SortOrder
-    startIndex?: SortOrder
-    endIndex?: SortOrder
+    startIndexError?: SortOrder
+    endIndexError?: SortOrder
+    startIndexSuggestion?: SortOrder
+    endIndexSuggestion?: SortOrder
     privateDocumentId?: SortOrder
   }
 
@@ -29622,9 +29727,12 @@ export namespace Prisma {
 
   export type ErrorCreateWithoutDocumentInput = {
     publicId?: string
-    startIndex: number
-    endIndex: number
-    suggestedFix?: NullableJsonNullValueInput | InputJsonValue
+    startIndexError: number
+    endIndexError: number
+    errorContent: string
+    suggestionContent?: string | null
+    startIndexSuggestion: number
+    endIndexSuggestion: number
     type: $Enums.ErrorType
     severity: $Enums.Severity
     layer: $Enums.ValidationLayer
@@ -29637,9 +29745,12 @@ export namespace Prisma {
   export type ErrorUncheckedCreateWithoutDocumentInput = {
     privateId?: number
     publicId?: string
-    startIndex: number
-    endIndex: number
-    suggestedFix?: NullableJsonNullValueInput | InputJsonValue
+    startIndexError: number
+    endIndexError: number
+    errorContent: string
+    suggestionContent?: string | null
+    startIndexSuggestion: number
+    endIndexSuggestion: number
     type: $Enums.ErrorType
     severity: $Enums.Severity
     layer: $Enums.ValidationLayer
@@ -29879,9 +29990,12 @@ export namespace Prisma {
     NOT?: ErrorScalarWhereInput | ErrorScalarWhereInput[]
     privateId?: IntFilter<"Error"> | number
     publicId?: StringFilter<"Error"> | string
-    startIndex?: IntFilter<"Error"> | number
-    endIndex?: IntFilter<"Error"> | number
-    suggestedFix?: JsonNullableFilter<"Error">
+    startIndexError?: IntFilter<"Error"> | number
+    endIndexError?: IntFilter<"Error"> | number
+    errorContent?: StringFilter<"Error"> | string
+    suggestionContent?: StringNullableFilter<"Error"> | string | null
+    startIndexSuggestion?: IntFilter<"Error"> | number
+    endIndexSuggestion?: IntFilter<"Error"> | number
     privateDocumentId?: IntFilter<"Error"> | number
     type?: EnumErrorTypeFilter<"Error"> | $Enums.ErrorType
     severity?: EnumSeverityFilter<"Error"> | $Enums.Severity
@@ -31786,9 +31900,12 @@ export namespace Prisma {
   export type ErrorCreateManyDocumentInput = {
     privateId?: number
     publicId?: string
-    startIndex: number
-    endIndex: number
-    suggestedFix?: NullableJsonNullValueInput | InputJsonValue
+    startIndexError: number
+    endIndexError: number
+    errorContent: string
+    suggestionContent?: string | null
+    startIndexSuggestion: number
+    endIndexSuggestion: number
     type: $Enums.ErrorType
     severity: $Enums.Severity
     layer: $Enums.ValidationLayer
@@ -31853,9 +31970,12 @@ export namespace Prisma {
 
   export type ErrorUpdateWithoutDocumentInput = {
     publicId?: StringFieldUpdateOperationsInput | string
-    startIndex?: IntFieldUpdateOperationsInput | number
-    endIndex?: IntFieldUpdateOperationsInput | number
-    suggestedFix?: NullableJsonNullValueInput | InputJsonValue
+    startIndexError?: IntFieldUpdateOperationsInput | number
+    endIndexError?: IntFieldUpdateOperationsInput | number
+    errorContent?: StringFieldUpdateOperationsInput | string
+    suggestionContent?: NullableStringFieldUpdateOperationsInput | string | null
+    startIndexSuggestion?: IntFieldUpdateOperationsInput | number
+    endIndexSuggestion?: IntFieldUpdateOperationsInput | number
     type?: EnumErrorTypeFieldUpdateOperationsInput | $Enums.ErrorType
     severity?: EnumSeverityFieldUpdateOperationsInput | $Enums.Severity
     layer?: EnumValidationLayerFieldUpdateOperationsInput | $Enums.ValidationLayer
@@ -31868,9 +31988,12 @@ export namespace Prisma {
   export type ErrorUncheckedUpdateWithoutDocumentInput = {
     privateId?: IntFieldUpdateOperationsInput | number
     publicId?: StringFieldUpdateOperationsInput | string
-    startIndex?: IntFieldUpdateOperationsInput | number
-    endIndex?: IntFieldUpdateOperationsInput | number
-    suggestedFix?: NullableJsonNullValueInput | InputJsonValue
+    startIndexError?: IntFieldUpdateOperationsInput | number
+    endIndexError?: IntFieldUpdateOperationsInput | number
+    errorContent?: StringFieldUpdateOperationsInput | string
+    suggestionContent?: NullableStringFieldUpdateOperationsInput | string | null
+    startIndexSuggestion?: IntFieldUpdateOperationsInput | number
+    endIndexSuggestion?: IntFieldUpdateOperationsInput | number
     type?: EnumErrorTypeFieldUpdateOperationsInput | $Enums.ErrorType
     severity?: EnumSeverityFieldUpdateOperationsInput | $Enums.Severity
     layer?: EnumValidationLayerFieldUpdateOperationsInput | $Enums.ValidationLayer
@@ -31883,9 +32006,12 @@ export namespace Prisma {
   export type ErrorUncheckedUpdateManyWithoutDocumentInput = {
     privateId?: IntFieldUpdateOperationsInput | number
     publicId?: StringFieldUpdateOperationsInput | string
-    startIndex?: IntFieldUpdateOperationsInput | number
-    endIndex?: IntFieldUpdateOperationsInput | number
-    suggestedFix?: NullableJsonNullValueInput | InputJsonValue
+    startIndexError?: IntFieldUpdateOperationsInput | number
+    endIndexError?: IntFieldUpdateOperationsInput | number
+    errorContent?: StringFieldUpdateOperationsInput | string
+    suggestionContent?: NullableStringFieldUpdateOperationsInput | string | null
+    startIndexSuggestion?: IntFieldUpdateOperationsInput | number
+    endIndexSuggestion?: IntFieldUpdateOperationsInput | number
     type?: EnumErrorTypeFieldUpdateOperationsInput | $Enums.ErrorType
     severity?: EnumSeverityFieldUpdateOperationsInput | $Enums.Severity
     layer?: EnumValidationLayerFieldUpdateOperationsInput | $Enums.ValidationLayer

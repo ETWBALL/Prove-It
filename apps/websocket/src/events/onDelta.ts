@@ -1,6 +1,6 @@
 import { Socket } from "socket.io";
 import { Delta, DocumentState } from '@/lib/types'
-import { updateDatabase, applyDelta} from '@/lib/helpers'
+import { updateDatabase, applyDelta, updateErrorAndHintsForDocument} from '@/lib/helpers'
 
 
 export async function onDelta(socket: Socket, documentStates: Map<string, DocumentState>, delta: Delta) {
@@ -25,7 +25,7 @@ export async function onDelta(socket: Socket, documentStates: Map<string, Docume
         contentId: docState.contentId,
         revision: delta.revision, // Increment revision
         buffer: [...docState.buffer, delta],
-        errorCount: docState.errorCount
+        errors: docState.errors,
     })
 
     const updatedDocState = documentStates.get(delta.documentId)
@@ -39,13 +39,15 @@ export async function onDelta(socket: Socket, documentStates: Map<string, Docume
     socket.emit('document:delta:ack', { revision: delta.revision })
 
     // If buffer length exceeds threshold, persist to DB and clear buffer
+
+    // TODO: There should also be a save if someone copy and pasted a huge delta. We can add a size property to the delta and if it exceeds a certain size, we persist to DB immediately. For now, we will just rely on the buffer length.
     if (updatedDocState.buffer.length >= 30) {
 
         // Update documentBody, Document, proofAttempt
         await updateDatabase(delta.documentId, updatedDocState, documentStates) // persist document function
-        
+
         // Reindex Error, Hint based on new document state.
-        await updateErrorAndHintsForDocument(delta.documentId, updatedDocState.content) 
+        await updateErrorAndHintsForDocument(delta.documentId, updatedDocState.content, documentStates) 
 
         socket.emit('document:delta:persisted', { message: 'Document changes persisted to database.' })
 

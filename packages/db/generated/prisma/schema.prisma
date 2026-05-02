@@ -250,9 +250,14 @@ model Error {
   publicId  String @unique @default(cuid())
 
   // Character range inside the proof JSON/content that this error refers to; suggestedFix is structured guidance.
-  startIndex   Int
-  endIndex     Int
-  suggestedFix Json?
+  startIndexError Int
+  endIndexError   Int
+  errorContent    String
+
+  // Suggestion Info
+  suggestionContent    String?
+  startIndexSuggestion Int
+  endIndexSuggestion   Int
 
   // Owning document for navigation and permissions.
   privateDocumentId Int
