@@ -1,6 +1,6 @@
 import { Socket } from "socket.io";
 import { Delta, DocumentState } from '@/lib/types'
-import { updateDatabase, applyDelta, updateErrorAndHintsForDocument} from '@/lib/helpers'
+import { updateDatabase, applyDelta, updateErrorAndHintsForDocument, applyDeltatoErrors} from '@/lib/helpers'
 
 
 export async function onDelta(socket: Socket, documentStates: Map<string, DocumentState>, delta: Delta) {
@@ -25,7 +25,7 @@ export async function onDelta(socket: Socket, documentStates: Map<string, Docume
         contentId: docState.contentId,
         revision: delta.revision, // Increment revision
         buffer: [...docState.buffer, delta],
-        errors: docState.errors,
+        errors: applyDeltatoErrors(docState.errors, delta),
     })
 
     const updatedDocState = documentStates.get(delta.documentId)

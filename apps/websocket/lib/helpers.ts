@@ -1,5 +1,7 @@
 import { Delta, DocumentState, ErrorState } from '@/lib/types'
 import { prisma } from '@/lib/prisma'
+import { nextTick } from 'process'
+import { start } from 'repl'
 
 
 // Update the database with the current document state, clear buffer. 
@@ -66,50 +68,58 @@ export function applyDelta(content: string, delta: Delta): string {
 }
 
 export function applyDeltatoErrors(errors: ErrorState[], delta: Delta): ErrorState[] {
+
     return errors.map(error => {
         // if the error is resolved or dismissed, we don't need to update its position
         if (error.resolvedAt || error.dismissedAt) {
             return error
         }
 
+        let startIndexError = error.startIndexError
+        let endIndexError = error.endIndexError
+        let resolvedAt: Date | null = error.resolvedAt
+
         if (delta.type === 'insert') {
             // Case 1: If inserting delta before error, shift error to the right
             if (delta.startIndex <= error.startIndexError){
-                error.startIndexError += delta.content.length
-                error.endIndexError += delta.content.length
+                startIndexError += delta.content.length
+                endIndexError += delta.content.length
             }
+
             // Case 2: If inserting delta in the middle, shift error end index to the right
             else if (delta.startIndex > error.startIndexError && delta.startIndex < error.endIndexError){
-                error.endIndexError += (delta.content.length)
+                endIndexError += (delta.content.length)
             }
         }
 
         else if (delta.type === 'delete') {
             // Case 1: If delta start and end is way before the error, shift error to the left
             if (delta.endIndex <= error.startIndexError){
-                error.startIndexError -= (delta.endIndex - delta.startIndex)
-                error.endIndexError -= (delta.endIndex - delta.startIndex)
+                startIndexError -= (delta.endIndex - delta.startIndex)
+                endIndexError -= (delta.endIndex - delta.startIndex)
             }
             // Case 2: If delta is completely after the error, do nothing
             // Case 3: If the error is inside the delta's deletion range, mark error as resolved
             else if (delta.startIndex <= error.startIndexError && delta.endIndex >= error.endIndexError){
-                error.resolvedAt = new Date()
+                resolvedAt = new Date()
             }
 
             // TODO These cases will need another revaluation by the ML pipeline
             // Case 4: Deletion is in the range of the error, but doesn't cover the entire error. Shift the end index to the left.
             else if (error.startIndexError < delta.startIndex  && delta.endIndex < error.endIndexError) {
-                error.endIndexError -= (delta.endIndex - delta.startIndex)
+                endIndexError -= (delta.endIndex - delta.startIndex)
             }
 
             // Case 5: Deletion starts in the middle of the error and extends beyond it. Shift the end index to the left. 
             else if (delta.startIndex > error.startIndexError && delta.startIndex < error.endIndexError && delta.endIndex >= error.endIndexError) {
-                error.endIndexError -= (delta.endIndex - delta.startIndex)
+                endIndexError = delta.startIndex
             }
 
             // Case 6: Deletion starts before the error and ends in the middle of the error. Shift the start index to the right"
             else if (delta.startIndex <= error.startIndexError && delta.endIndex > error.startIndexError && delta.endIndex < error.endIndexError) {
-                error.startIndexError += (delta.endIndex - delta.startIndex)
+                const originalStartIndexError = error.startIndexError
+                startIndexError = delta.startIndex
+                endIndexError -= (delta.endIndex - originalStartIndexError)
             }
 
         }
@@ -119,8 +129,8 @@ export function applyDeltatoErrors(errors: ErrorState[], delta: Delta): ErrorSta
 
             // Case 1: delta starts before the error, shift error by netChange
             if (delta.endIndex <= error.startIndexError) {
-                error.startIndexError += netChange
-                error.endIndexError += netChange
+                startIndexError += netChange
+                endIndexError += netChange
             }
 
             // Case 2: delta starts after the error, do nothing
@@ -128,29 +138,42 @@ export function applyDeltatoErrors(errors: ErrorState[], delta: Delta): ErrorSta
             // TODO: These cases will need another revaluation by the ML pipeline. 
             // Case 3: delta is in the middle of the error, shift error end index by netChange
             else if (delta.startIndex > error.startIndexError && delta.endIndex < error.endIndexError) {
-                error.endIndexError += netChange
+                endIndexError += netChange
             }
 
             // Case 4: delta overlaps start of error
             else if (delta.startIndex <= error.startIndexError && delta.endIndex < error.endIndexError) {
-                error.startIndexError = delta.startIndex + delta.content.length
-                error.endIndexError += netChange
+                startIndexError = delta.startIndex + delta.content.length
+                endIndexError += netChange
             }
 
             // Case 5: delta overlaps end of error
             else if (delta.startIndex > error.startIndexError && delta.startIndex < error.endIndexError && delta.endIndex >= error.endIndexError) {
-                error.endIndexError = delta.startIndex + delta.content.length
+                endIndexError = delta.startIndex + delta.content.length
             }
 
 
             // Case 6: delta completely covers error
             else if (delta.startIndex <= error.startIndexError && delta.endIndex >= error.endIndexError) {
-                error.resolvedAt = new Date()
+                resolvedAt = new Date()
             }
 
         }
 
-        return error
+        // Guard against negative indices
+        startIndexError = Math.max(0, startIndexError)
+        endIndexError = Math.max(0, endIndexError)
+
+        if (endIndexError <= startIndexError) {
+            resolvedAt = new Date()
+        }
+
+        return {
+            ...error,
+            startIndexError, 
+            endIndexError, 
+            resolvedAt, 
+        }
     })
 }
 
