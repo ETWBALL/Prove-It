@@ -8,6 +8,21 @@ export async function onJoin(socket: AuthenticatedSocket, documentStates: Map<st
         socket.emit('document:join:error', { code: 'UNAUTHORIZED' })
         return
     }
+    // Check if the user is already in a document
+    const currentDocumentId = socketDocumentMap.get(socket.id)
+    if (currentDocumentId && currentDocumentId !== documentId) {
+        socket.emit('document:join:error', { code: 'ALREADY_IN_DOCUMENT' })
+        return
+    }
+    // Check if another user is already in the document
+    const otherSocketOnDocument = Array.from(socketDocumentMap.entries()).some(
+        ([socketId, joinedDocumentId]) => socketId !== socket.id && joinedDocumentId === documentId
+    )
+    // If another user is already in the document, emit an error
+    if (otherSocketOnDocument) {
+        socket.emit('document:join:error', { code: 'DOCUMENT_LOCKED' })
+        return
+    }
 
     // Enforce ownership before joining the room.
     const document = await prisma.document.findFirst({

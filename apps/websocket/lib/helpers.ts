@@ -15,13 +15,9 @@ export async function updateDatabase(documentPublicId: string, updatedDocState: 
             })
 
             // Update the document body with the new content
-            await tx.documentBody.upsert({
+            await tx.documentBody.update({
                 where: { publicId: updatedDocState.contentId },
-                update: { content: updatedDocState.content },
-                create: {
-                    content: updatedDocState.content,
-                    privateDocumentId: updatedDocument.privateId
-                }
+                data: { content: updatedDocState.content }
             })
 
             // Add a new row to the proofAttempt table with the updated content and a reference to the document

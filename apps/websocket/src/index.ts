@@ -62,7 +62,7 @@ io.on('connection', (socket) => {
     socket.on('document:join', async (documentId: string) => onJoin(socket, documentStates, documentId, socketDocumentMap))
 
     // Event 2: User types (insert, delete, replace) (IMPORTANT)
-    socket.on('document:delta', async (delta: Delta) => onDelta(socket, documentStates, delta))
+    socket.on('document:delta', async (delta: Delta) => onDelta(socket, documentStates, delta, socketDocumentMap))
 
     // Event 3: User leaves document
     socket.on('document:leave', async (documentId: string) => onLeave(socket, documentStates, documentId, socketDocumentMap))

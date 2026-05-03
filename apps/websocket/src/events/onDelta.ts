@@ -1,21 +1,33 @@
-import { Socket } from "socket.io";
-import { Delta, DocumentState } from '@/lib/types'
-import { updateDatabase, applyDelta, applyDeltatoErrors} from '@/lib/helpers'
+import { Delta, DocumentState, AuthenticatedSocket } from '../../lib/types'
+import { updateDatabase, applyDelta, applyDeltatoErrors} from '../../lib/helpers'
 
 
-export async function onDelta(socket: Socket, documentStates: Map<string, DocumentState>, delta: Delta) {
-    console.log(`User typed in document ${delta.documentId}`)
+export async function onDelta(socket: AuthenticatedSocket, documentStates: Map<string, DocumentState>, delta: Delta, socketDocumentMap: Map<string, string>) {
+    const joinedDocumentId = socketDocumentMap.get(socket.id)
+    
+    // Check if the user is authorized to send the delta
+    if (!socket.data.user || !joinedDocumentId) {
+        socket.emit('document:delta:error', { code: 'UNAUTHORIZED' })
+        return
+    }
+    // Check if the document ID is the same as the one in the delta
+    if (delta.documentId !== joinedDocumentId) {
+        socket.emit('document:delta:error', { code: 'FORBIDDEN' })
+        return
+    }
+
+    console.log(`User typed in document ${joinedDocumentId}`)
 
 
     // Validate revision number for that specific documentID
-    const docState = documentStates.get(delta.documentId)
+    const docState = documentStates.get(joinedDocumentId)
     if (!docState) {
-        console.error(`Document with id ${delta.documentId} not found in memory during type event.`)
+        console.error(`Document with id ${joinedDocumentId} not found in memory during type event.`)
         return
     }
 
     if (docState.revision + 1 !== delta.revision) {
-        console.error(`Revision mismatch for document ${delta.documentId}. Expected ${docState.revision + 1}, got ${delta.revision}`)
+        console.error(`Revision mismatch for document ${joinedDocumentId}. Expected ${docState.revision + 1}, got ${delta.revision}`)
         return
     }
 
@@ -28,7 +40,7 @@ export async function onDelta(socket: Socket, documentStates: Map<string, Docume
     }
 
     // Store the delta in the buffer and update the document state
-    documentStates.set(delta.documentId, {
+    documentStates.set(joinedDocumentId, {
         content: applyDelta(docState.content, delta), // Call function
         contentId: docState.contentId,
         revision: delta.revision, // Increment revision
@@ -36,10 +48,10 @@ export async function onDelta(socket: Socket, documentStates: Map<string, Docume
         errors: updatedErrors,
     })
 
-    const updatedDocState = documentStates.get(delta.documentId)
+    const updatedDocState = documentStates.get(joinedDocumentId)
 
     if (!updatedDocState) {
-        console.error(`Document with id ${delta.documentId} not found in memory after applying delta.`)
+        console.error(`Document with id ${joinedDocumentId} not found in memory after applying delta.`)
         return
     }
     
@@ -52,7 +64,7 @@ export async function onDelta(socket: Socket, documentStates: Map<string, Docume
     if (updatedDocState.buffer.length >= 30) {
 
         // Update documentBody, Document, proofAttempt, Errors and suggestions
-        await updateDatabase(delta.documentId, updatedDocState, documentStates, ) // persist document function
+        await updateDatabase(joinedDocumentId, updatedDocState, documentStates, ) // persist document function
 
         socket.emit('document:delta:persisted', { message: 'Document changes persisted to database.' })
 
