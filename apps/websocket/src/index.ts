@@ -1,9 +1,9 @@
-import {verifyAccessToken, TokenPayloadSchema} from '@prove-it/auth'
+import { verifyAccessToken } from '@prove-it/auth'
 
 // Local Imports
 import { createServer } from 'http'
 import { Server } from 'socket.io'
-import { Delta, DocumentState } from '../lib/types'
+import { Delta, DocumentState, Timers } from '../lib/types'
 import { onDelta } from '../src/events/onDelta'
 import { onJoin } from '../src/events/onJoin'
 import { onLeave } from '../src/events/onLeave'
@@ -14,9 +14,10 @@ import { onDisconnect } from '../src/events/onDisconnect'
 // Store all user's document states, deltas here (RAM)
 const documentStates = new Map<string, DocumentState>() 
 
-// Store socketID to joined documentIDs (supports multiple joined docs per socket).
-const socketDocumentMap = new Map<string, Set<string>>() // socketId -> Set<documentId>
+// Store socketID to active documentID (single active document per socket).
+const socketDocumentMap = new Map<string, string>() // socketId -> documentId
 const documentConnectionCounts = new Map<string, number>() // documentId -> active socket count
+const timers = new Map<string, Timers>() // two timers per document
 
 // (1) Create a new HTTP server provided by Node.js
 const httpServer = createServer()
@@ -65,16 +66,16 @@ io.on('connection', (socket) => {
     )
 
     // Event 2: User types (insert, delete, replace) (IMPORTANT)
-    socket.on('document:delta', async (delta: Delta) => onDelta(socket, documentStates, delta, socketDocumentMap))
+    socket.on('document:delta', async (delta: Delta) => onDelta(socket, documentStates, delta, socketDocumentMap, timers))
 
     // Event 3: User leaves document
     socket.on('document:leave', async (documentId: string) =>
-        onLeave(socket, documentStates, documentId, socketDocumentMap, documentConnectionCounts)
+        onLeave(socket, documentStates, documentId, socketDocumentMap, documentConnectionCounts, timers)
     )
 
     // Event 4: Listen for sudden disconnects
     socket.on('disconnect', async () =>
-        onDisconnect(socket, documentStates, socketDocumentMap, documentConnectionCounts)
+        onDisconnect(socket, documentStates, socketDocumentMap, documentConnectionCounts, timers)
     )
 
     // Event 5: Listen for save document event from client, persist to DB immediately

@@ -1,4 +1,4 @@
-import { Delta, DocumentState, ErrorState } from '../lib/types'
+import { AuthenticatedSocket, Delta, DocumentState, ErrorState, Timers } from '../lib/types'
 import { prisma } from '@prove-it/db'
 
 const MAX_DELTA_CONTENT_LENGTH = 50_000
@@ -69,7 +69,6 @@ export async function updateDatabase(documentPublicId: string, updatedDocState: 
 
         const updatedDocumentBody = await prisma.$transaction(async (tx) => {
              // Update the document's lastEdited timestamp
-             // TODO: is there a way to update the docbody and that updates the document automatically?
             const updatedDocument = await tx.document.update({
                 where: { publicId: documentPublicId },
                 data: { lastEdited: new Date() }
@@ -327,5 +326,81 @@ export function applyDeltatoErrors(errors: ErrorState[], delta: Delta, documentC
     }
 
     return {updatedErrors, mlErrors}
+}
+
+
+export function triggered(error: ErrorState, delta: Delta){
+
+}
+
+export function setUpTimers(documentId: string, timers: Map<string, Timers>, documentStates: Map<string, DocumentState>, socket: AuthenticatedSocket) {
+    const existingTimers = timers.get(documentId)
+
+    // Clear existing timers for this document. Timers may not initially exist    
+    if (existingTimers) {
+        if (existingTimers.databaseTimeout) clearTimeout(existingTimers.databaseTimeout)
+        if (existingTimers.mlTimeout) clearTimeout(existingTimers.mlTimeout)
+    }
+
+    // Set new timers
+    timers.set(documentId, {
+        databaseTimeout: setTimeout(async () => {
+            console.log(`Database timeout for document ${documentId}`)
+
+            // Try to update the database
+            const updatedDocState = documentStates.get(documentId)
+            if (!updatedDocState) {
+                console.error(`Document state not found for document ${documentId}`)
+                socket.emit('document:delta:error', { code: 'DOCUMENT_STATE_MISSING' })
+                return
+            }
+            try {
+                await updateDatabase(documentId, updatedDocState, documentStates)
+            } catch (error) {
+                console.error(`Persist failed for document ${documentId}:`, error)
+                socket.emit('document:delta:error', { code: 'PERSIST_FAILED' })
+                return
+            }
+
+            socket.emit('document:delta:persisted', { message: 'Document changes persisted to database.' })
+
+        }, 60000), // 1 minute
+        mlTimeout: setTimeout(() => {
+            console.log(`ML timeout for document ${documentId}`)
+            
+            // TODO ML trigger logic here
+
+
+
+        }, 15000) // 15 seconds
+    })
+
+}
+
+export function characterTriggered(delta: Delta): boolean {
+
+    if (delta.type === 'insert' && delta.content.length >= 1) {
+
+        if (delta.content === '\\') {
+            return false
+        }
+
+        // Check for Standard Linguistic Triggers
+        const trigger1 = ['.', '?', '!', '\n', '\n\n', ':', ';']
+
+        // Check for Latex Triggers
+        const trigger2 = ['$$', '\]', '\therefore', '\qed', '\square']
+
+        if (trigger1.includes(delta.content) || trigger2.includes(delta.content)) {
+            return true
+        }
+
+        // Check for \end{...} cases
+        if (/\\end\{[^}]+\}/.test(delta.content)) {
+            return true
+        }
+
+    }
+    return false
 }
 
