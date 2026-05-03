@@ -44,7 +44,9 @@ export async function onJoin(socket: Socket, documentStates: Map<string, Documen
                 errorContent: error.errorContent,
                 suggestion: suggestion,
                 resolvedAt: error.resolvedAt,
-                dismissedAt: error.dismissedAt
+                dismissedAt: error.dismissedAt,
+                problematicContent: document.documentBody?.content.slice(error.startIndexError, error.endIndexError) ?? '', // Extract the problematic content from the document body using the error's start and end indices
+                MLTriggered: false
             }
         })
            

@@ -1,6 +1,6 @@
 import { Socket } from "socket.io";
 import { Delta, DocumentState } from '@/lib/types'
-import { updateDatabase, applyDelta, updateErrorAndHintsForDocument, applyDeltatoErrors} from '@/lib/helpers'
+import { updateDatabase, applyDelta, applyDeltatoErrors} from '@/lib/helpers'
 
 
 export async function onDelta(socket: Socket, documentStates: Map<string, DocumentState>, delta: Delta) {
@@ -19,13 +19,21 @@ export async function onDelta(socket: Socket, documentStates: Map<string, Docume
         return
     }
 
+    // Might contain triggers for ML, need to get the previous content first before applyDelta changes docbody.
+    const {updatedErrors, mlErrors} = applyDeltatoErrors(docState.errors, delta, docState.content) // Get the updated error states after applying the delta. This is important to do before we apply the delta to the document content.
+
+    // If we detect even one error changed, trigger ML pipeline and send a message to the client to remove error from frontend
+    if (mlErrors.length > 0){
+        socket.emit('document:errors:removed', {errorIds: mlErrors.map(e => e.publicId)})
+    }
+
     // Store the delta in the buffer and update the document state
     documentStates.set(delta.documentId, {
         content: applyDelta(docState.content, delta), // Call function
         contentId: docState.contentId,
         revision: delta.revision, // Increment revision
         buffer: [...docState.buffer, delta],
-        errors: applyDeltatoErrors(docState.errors, delta),
+        errors: updatedErrors,
     })
 
     const updatedDocState = documentStates.get(delta.documentId)
@@ -43,11 +51,8 @@ export async function onDelta(socket: Socket, documentStates: Map<string, Docume
     // TODO: There should also be a save if someone copy and pasted a huge delta. We can add a size property to the delta and if it exceeds a certain size, we persist to DB immediately. For now, we will just rely on the buffer length.
     if (updatedDocState.buffer.length >= 30) {
 
-        // Update documentBody, Document, proofAttempt
-        await updateDatabase(delta.documentId, updatedDocState, documentStates) // persist document function
-
-        // Reindex Error, Hint based on new document state.
-        await updateErrorAndHintsForDocument(delta.documentId, updatedDocState.content, documentStates) 
+        // Update documentBody, Document, proofAttempt, Errors and suggestions
+        await updateDatabase(delta.documentId, updatedDocState, documentStates, ) // persist document function
 
         socket.emit('document:delta:persisted', { message: 'Document changes persisted to database.' })
 

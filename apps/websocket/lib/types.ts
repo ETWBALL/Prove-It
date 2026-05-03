@@ -15,6 +15,8 @@ export interface ErrorState {
     suggestion: Suggestion | null
     resolvedAt: Date | null,
     dismissedAt: Date | null,
+    problematicContent?: string, // Needed for ML trigger
+    MLTriggered?: boolean, 
 }
 
 
