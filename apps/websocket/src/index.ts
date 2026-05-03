@@ -1,10 +1,10 @@
 import { createServer } from 'http'
 import { Server } from 'socket.io'
-import { Delta, DocumentState } from '@/lib/types'
-import { onDelta } from '@/src/events/onDelta'
-import { onJoin } from '@/src/events/onJoin'
-import { onLeave } from '@/src/events/onLeave'
-import { onDisconnect } from '@/src/events/onDisconnect'
+import { Delta, DocumentState } from '../lib/types'
+import { onDelta } from '../src/events/onDelta'
+import { onJoin } from '../src/events/onJoin'
+import { onLeave } from '../src/events/onLeave'
+import { onDisconnect } from '../src/events/onDisconnect'
 
 
 // Store all user's document states, deltas here (RAM)
