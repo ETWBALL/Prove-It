@@ -1,0 +1,485 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  // Application user: profile, credentials, and optional university affiliation.
+  //
+  // Primary identifiers:
+  // - privateId is the internal surrogate key (never expose in public APIs).
+  // - publicId is an immutable, opaque id safe to share in URLs and responses.
+  privateId Int    @id @default(autoincrement())
+  publicId  String @unique @default(cuid())
+
+  // Profile and sign-in:
+  // Display name; username (unique URL slug); unique email; bcrypt-hashed password;
+  // optional bio and avatar image URL.
+  name      String?
+  username  String? @unique
+  email     String  @unique
+  password  String?
+  bio       String?
+  avatarUrl String?
+
+  // Optional link to the university the user is associated with (tenant context).
+  privateUniversityId Int?
+  university          University? @relation(fields: [privateUniversityId], references: [privateId], onDelete: SetNull)
+
+  // Lifecycle: last successful login; record creation time; soft-delete timestamp when set.
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  deletedAt   DateTime?
+
+  // Inverse relations: rows in other tables whose foreign keys reference this user’s privateId. Prisma Needs this to work. Not columns in the database
+  oauthAccounts OAuthAccount[]
+  sessions      Sessions[]
+  documents     Document[]
+  enrollments   userCourse[]
+  dailyUsages   DailyUsage[]
+  // At most one Subscription row per user (enforced by @@unique on Subscription.privateUserId).
+  subscription  Subscription?
+}
+
+model OAuthAccount {
+  // Links a User to a third-party OAuth identity (e.g. Google): tokens and provider ids.
+  privateId Int @id @default(autoincrement())
+
+  // User linked to this OAuth account; deleting the user cascades and removes linked OAuth rows.
+  privateUserId Int
+  user          User @relation(fields: [privateUserId], references: [privateId], onDelete: Cascade)
+
+  // Provider identity: stable ids from the OAuth vendor (e.g. provider + subject).
+  providerName String
+  providerId   String
+
+  // OAuth tokens for API calls; refresh is optional depending on provider.
+  accessToken  String  @unique
+  refreshToken String? @unique
+
+  createdAt DateTime @default(now())
+
+  // One OAuth identity per provider account globally (same Google account cannot bind twice).
+  @@unique([providerName, providerId])
+}
+
+model Sessions {
+  // Authenticated session for a user: tokens, device fingerprint, and expiry tracking.
+  //
+  // Performance: updating lastActiveAt on every request causes write churn. Mitigations to consider
+  // in application code: throttle updates (e.g. at most once per 1–5 minutes), or store activity in
+  // Redis; only persist to DB on session create/refresh/revoke.
+  privateId Int    @id @default(autoincrement())
+  publicId  String @unique @default(cuid())
+
+  // Session belongs to exactly one user; removed when user is deleted.
+  privateUserId Int
+  user          User @relation(fields: [privateUserId], references: [privateId], onDelete: Cascade)
+
+  // Bearer-style secrets used to validate requests for this session.
+  refreshToken String? @unique
+
+  // Short label for the client (browser name, OS, etc.) for auditing and revoke UX.
+  device String
+
+  // Token validity window and last activity for idle-timeout policies.
+  tokenExpiresAt DateTime
+  lastActiveAt   DateTime
+  createdAt      DateTime @default(now())
+}
+
+enum ProofType {
+  DIRECT
+  CONTRADICTION
+  CONTRAPOSITIVE
+  WEAK_INDUCTION
+  STRONG_INDUCTION
+  COUNTEREXAMPLE
+  STRUCTURAL_INDUCTION
+  BICONDITIONAL
+  CONDITIONAL
+  CASE_ANALYSIS
+}
+
+model Document {
+  // A proof document owned by a user: metadata, course scope, and compile/edit timestamps.
+  //
+  // Same dual-id pattern as User: internal key plus stable publicId for sharing links safely.
+  privateId Int    @id @default(autoincrement())
+  publicId  String @unique @default(cuid())
+
+  // Title and ownership; proof strategy type; optional course context when relevant.
+  title           String
+  privateOwnerId  Int
+  user            User      @relation(fields: [privateOwnerId], references: [privateId], onDelete: Cascade)
+  proofType       ProofType
+  privateCourseId Int?
+  course          Course?   @relation(fields: [privateCourseId], references: [privateId], onDelete: SetNull)
+  numErrors       Int       @default(0)
+
+  // Soft delete and editor/compiler bookkeeping.
+  deletedAt    DateTime?
+  lastCompiled DateTime?
+  lastEdited   DateTime  @updatedAt
+  createdAt    DateTime  @default(now())
+
+  // Inverse relations: rows that reference this document’s privateId (bodies, attempts, errors, junction links).
+  documentBody           DocumentBody? // One-to-one
+  proofAttempts          ProofAttempt[]
+  errors                 Error[]
+  hints                  Hint[]
+  documentMathStatements DocumentMathStatements[]
+
+  // Each owner may not reuse the same document title (per-user uniqueness).
+  @@unique([privateOwnerId, title])
+}
+
+model DocumentBody {
+  // Versioned body content for a Document: JSON payload keyed by internal ids.
+  privateId Int    @id @default(autoincrement())
+  publicId  String @unique @default(cuid())
+
+  // Serialized editor/proof content (structure defined by the application layer).
+  content String
+
+  // Parent document this body belongs to.
+  privateDocumentId Int      @unique
+  document          Document @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+model ProofAttempt {
+  // One saved snapshot of work on a document: content blob, optional version label, analytics.
+  //
+  // Identifiers mirror other entities: internal id plus share-safe publicId.
+  privateId Int    @id @default(autoincrement())
+  publicId  String @unique @default(cuid())
+
+  // Parent document. Deletes do not cascade so attempts can be retained for analytics or ML.
+  privateDocumentId Int
+  document          Document @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
+
+  // Proof payload and optional named version; manualSave distinguishes autosave vs explicit save.
+  content     Json
+  versionName String?
+  manualSave  Boolean @default(false)
+
+  // Diagnostics captured with this snapshot (e.g. error counts and opaque analytics Json).
+  errorCount         Int   @default(0)
+  historicalMetadata Json?
+
+  createdAt DateTime @default(now())
+}
+
+model Hint {
+  // A hint anchored to a slice of proof content: indices, model id, resolution state.
+  privateId Int    @id @default(autoincrement())
+  publicId  String @unique @default(cuid())
+
+  // Document this hint belongs to.
+  privateDocumentId Int
+  document          Document @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
+
+  // Hint body and span inside the proof text; model identifies which assistant/model produced it.
+  content    Json?
+  startIndex Int
+  endIndex   Int
+  model      String
+
+  // User dismissed or resolved the hint; createdAt for ordering and audits.
+  resolvedAt  DateTime?
+  dismissedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  // Populated from the junction table when this hint is tied to documents/math statements.
+  usageRecords DocumentMathStatements[]
+}
+
+enum ErrorType {
+  INCORRECTLY_NEGATING_A_STATEMENT
+  ASSUMING_THE_CONVERSE
+  EQUIVOCATION
+  FALSE_DICHOTOMY_IN_CASE_ANALYSIS
+  UNJUSTIFIED_REVERSIBILITY
+  MISAPPLYING_A_THEOREM
+  MISAPPLYING_A_DEFINITION
+  MISAPPLYING_A_LEMMA
+  MISAPPLYING_A_PROPERTY
+  MISAPPLYING_AN_AXIOM
+  MISAPPLYING_A_COROLLARY
+  MISAPPLYING_A_CONJECTURE
+  MISAPPLYING_A_PROPOSITION
+  AFFIRMING_THE_CONSEQUENT
+  CIRCULAR_REASONING
+  JUMPING_TO_CONCLUSIONS
+  IMPROPER_GENERALIZATION
+}
+
+enum Severity {
+  LOW
+  MODERATE
+  CRITICAL
+}
+
+enum ValidationLayer {
+  // Latex Parser
+  LATEX_PARSER
+  // Surface-level grammar and wording checks only.
+  PROOF_GRAMMER
+  // Grammar plus computational step validation (e.g. arithmetic).
+  COMPUTATION
+  // Full pipeline including logical consistency of the proof chain.
+  LOGIC_CHAIN
+}
+
+model Error {
+  // A detected issue in a document’s proof: location, classification, severity, and lifecycle.
+  privateId Int    @id @default(autoincrement())
+  publicId  String @unique @default(cuid())
+
+  // Character range inside the proof JSON/content that this error refers to; suggestedFix is structured guidance.
+  startIndexError Int
+  endIndexError   Int
+  errorContent    String
+
+  // Suggestion Info
+  suggestionContent    String?
+  startIndexSuggestion Int
+  endIndexSuggestion   Int
+
+  // Owning document for navigation and permissions.
+  privateDocumentId Int
+  document          Document @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
+
+  // Taxonomy: kind of mistake, severity band, validation pipeline stage, and originating model id.
+  type     ErrorType
+  severity Severity
+  layer    ValidationLayer
+  model    String
+
+  resolvedAt  DateTime?
+  dismissedAt DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+enum Library {
+  DEFINITION
+  THEOREM
+  LEMMA
+  PROPERTY
+  AXIOM
+  COROLLARY
+  CONJECTURE
+  PROPOSITION
+}
+
+enum Textbook {
+  Fuchs_102
+}
+
+model DocumentMathStatements {
+  // Junction: connects a Document, a MathStatement, and an optional Hint with usage metadata.
+  privateDocumentId Int
+  document          Document @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
+
+  privateMathStatementId Int
+  mathstatement          MathStatement @relation(fields: [privateMathStatementId], references: [privateId], onDelete: Cascade)
+
+  privateHintId Int
+  hint          Hint @relation(fields: [privateHintId], references: [privateId], onDelete: Cascade)
+
+  // Whether the hint was acted on and when it was cleared or ignored.
+  wasUsed     Boolean   @default(false)
+  resolvedAt  DateTime?
+  dismissedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  // Composite primary key over the three foreign keys.
+  @@id([privateDocumentId, privateMathStatementId, privateHintId])
+}
+
+model MathStatement {
+  // Reusable mathematical statement (definition, theorem, …) scoped to a course and textbook ordering.
+  privateId Int    @id @default(autoincrement())
+  publicId  String @unique @default(cuid())
+
+  // Classification, display name, formal content; course ties statements to a curriculum; textbook and order for sorting.
+  type            Library
+  name            String
+  content         Json
+  privateCourseId Int
+  course          Course   @relation(fields: [privateCourseId], references: [privateId], onDelete: Cascade)
+  textbook        Textbook
+  orderIndex      Int
+
+  // Reverse relation: where this statement appears across documents (via junction table).
+  usageInDocs DocumentMathStatements[]
+
+  createdAt DateTime @default(now())
+}
+
+model userCourse {
+  // Enrollment of a User in a Course; supports soft unenroll via timestamp.
+  privateUserId Int
+  user          User @relation(fields: [privateUserId], references: [privateId], onDelete: Cascade)
+
+  privateCourseId Int
+  course          Course @relation(fields: [privateCourseId], references: [privateId], onDelete: Cascade)
+
+  unenrolledAt DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@id([privateUserId, privateCourseId])
+}
+
+enum Country {
+  CANADA
+}
+
+model Course {
+  // Course offering under one university: documents and statements hang off this row.
+  privateId Int    @id @default(autoincrement())
+  publicId  String @unique @default(cuid())
+
+  // Human-readable name; belongs to exactly one university for multi-tenant isolation.
+  name         String
+  universityId Int
+  university   University @relation(fields: [universityId], references: [privateId], onDelete: Cascade)
+
+  // Inverse relations for Prisma navigation (not extra columns).
+  documents      Document[]
+  mathStatements MathStatement[]
+  enrollments    userCourse[]
+
+  createdAt DateTime @default(now())
+
+  // Course titles need only be unique within a university (not globally).
+  @@unique([universityId, name])
+}
+
+model University {
+  // Tenant root: branding and geography; aggregates users and courses for that institution.
+  privateId Int    @id @default(autoincrement())
+  publicId  String @unique @default(cuid())
+
+  name    String
+  logoUrl String?
+  country Country
+
+  // All users and courses that belong to this university (multi-tenant boundaries).
+  users   User[]
+  courses Course[]
+
+  // Reverse relation: Many domains to one university
+  emailDomains UniversityDomain[]
+
+  createdAt DateTime @default(now())
+}
+
+model UniversityDomain {
+  // A table of domains belonging to universities. Easily add multiple email domains
+  privateId Int    @id @default(autoincrement())
+  publicId  String @unique @default(cuid())
+
+  domain String @unique
+
+  // University Information
+  privateUniversityId Int
+  university          University @relation(fields: [privateUniversityId], references: [privateId], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+enum PlanTier {
+  FREE
+  PRO
+  ULTIMATE
+}
+
+model Plan {
+  // Sellable subscription tier: pricing flags and per-day limits surfaced to the product.
+  id           Int      @id @default(autoincrement())
+  name         PlanTier @unique
+  monthlyPrice Decimal  @default(0.0)
+  isActive     Boolean  @default(true)
+
+  // Usage caps enforced by the app: documents per day, hints per definition, suggestions per proof,
+  // and which class of proof errors the user is allowed to see (tier-gated feedback).
+  dailyDocLimit    Int
+  hintsPerDefLimit Int
+  suggestionLimit  Int
+  errorVisibility  ValidationLayer
+
+  createdAt DateTime @default(now())
+
+  // Inverse relation: subscriptions that reference this plan row.
+  subscriptions Subscription[]
+}
+
+model DailyUsage {
+  // Per-user daily counters for quota enforcement (resets per calendar rules in application code).
+  privateId Int    @id @default(autoincrement())
+  publicId  String @unique @default(cuid())
+
+  // Which user’s usage row this is; cascades with user deletion.
+  privateUserId Int
+  user          User @relation(fields: [privateUserId], references: [privateId], onDelete: Cascade)
+
+  // Rolling counters within the row’s logical “day” (document creates, suggestion consumption).
+  docsCreatedToday     Int @default(0)
+  suggestionsUsedToday Int @default(0)
+
+  // Calendar day in UTC only (PostgreSQL DATE via @db.Date). Matches @@unique with privateUserId (one row per user per UTC day).
+  // Default uses UTC so “today” is consistent regardless of client timezone; see lib/dailyUsageDate.ts for app-side upserts.
+  date DateTime @default(dbgenerated("(now() AT TIME ZONE 'utc')::date")) @db.Date
+
+  createdAt DateTime @default(now())
+
+  @@unique([privateUserId, date])
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  PAST_DUE
+}
+
+model Subscription {
+  // Links a user to a billing Plan with processor ids and renewal window.
+  privateId Int    @id @default(autoincrement())
+  publicId  String @unique @default(cuid())
+
+  // Subscriber and chosen plan; plan delete sets FK null so subscription history can remain.
+  privateUserId Int
+  user          User @relation(fields: [privateUserId], references: [privateId], onDelete: Cascade)
+
+  planId Int?
+  plan   Plan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+
+  // Billing lifecycle flags from your provider integration.
+  status            SubscriptionStatus
+  cancelAtPeriodEnd Boolean            @default(false)
+
+  // Set when the payment provider creates the subscription (can lag row creation).
+  processorSubscriptionId String?
+
+  // Null until the current period end is known from the provider.
+  currentPeriodEnd DateTime?
+
+  // One subscription record per user at the database level.
+  // If you later need multiple rows per user (e.g. full billing history), drop this and use a
+  // partial unique index in SQL (e.g. one ACTIVE subscription per user) or enforce in application code.
+  @@unique([privateUserId])
+}

@@ -1,0 +1,13 @@
+{
+    "compilerOptions": {
+      "strict": true,
+      "esModuleInterop": true,
+      "skipLibCheck": true,
+      "resolveJsonModule": true,
+      "paths": {
+        "@prove-it/db": ["./packages/db/index.ts"],
+        "@prove-it/auth": ["./packages/auth/index.ts"]
+      }
+    }
+  }
+  
