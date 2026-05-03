@@ -1,3 +1,6 @@
+import {verifyAccessToken, TokenPayloadSchema} from '@prove-it/auth'
+
+// Local Imports
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import { Delta, DocumentState } from '../lib/types'
@@ -5,6 +8,7 @@ import { onDelta } from '../src/events/onDelta'
 import { onJoin } from '../src/events/onJoin'
 import { onLeave } from '../src/events/onLeave'
 import { onDisconnect } from '../src/events/onDisconnect'
+
 
 
 // Store all user's document states, deltas here (RAM)
@@ -22,7 +26,35 @@ const io = new Server(httpServer, {
     pingTimeout: 5000,    // wait 5 seconds for pong before disconnecting
 })
 
-// (3) Listen for connections. Turn this connection into a socket
+// (3) Middleware to verify access token
+io.use(async (socket, next) => {
+    try {
+        // Check if their access token exists
+        const accessToken = socket.handshake.auth.accessToken
+        if (!accessToken) {
+            return next(new Error('Unauthorized'))
+        }
+
+        // Verify the access token
+        const { valid, expired, invalid, payload } = await verifyAccessToken(accessToken)
+
+        if (expired){
+            return next(new Error('Unauthorized: TOKEN_EXPIRED'))
+        }
+
+        if (!valid || invalid ) {
+            return next(new Error('Unauthorized'))
+        }
+
+        socket.data.user = payload as { publicId: string, sessionPublicId: string }
+        next()
+    } catch (error) {
+        console.error(error)
+        return next(new Error('Unauthorized'))
+    }
+})
+
+// (4) Listen for connections. Turn this connection into a socket
 io.on('connection', (socket) => {
     console.log('A user connected with socket id:', socket.id);
 
@@ -44,7 +76,7 @@ io.on('connection', (socket) => {
 })
 
 
-// (4) start listening for connections on port 3001
+// (5) start listening for connections on port 3001
 httpServer.listen(3001, () => {
     console.log('WebSocket server is running on port 3001')
 })

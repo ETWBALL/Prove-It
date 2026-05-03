@@ -1,3 +1,5 @@
+import { Socket } from "socket.io"
+
 // Type definitions here
 export type DeltaType = 'insert' | 'delete' | 'replace'
 
@@ -35,4 +37,10 @@ export interface DocumentState {
     revision: number, // The current revision (or at the end of the buffer array). Helps for syncing server side document and the client side document
     buffer: Delta[],
     errors: ErrorState[],
+}
+
+export type AuthenticatedSocket = Socket & {
+  data: {
+    user?: { publicId: string; sessionPublicId: string }
+  }
 }

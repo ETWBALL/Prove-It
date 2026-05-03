@@ -1,33 +1,43 @@
-import { Socket } from "socket.io";
-import { DocumentState, ErrorState, Suggestion } from '@/lib/types'
-import { prisma } from '@/lib/prisma'
+import { DocumentState, ErrorState, Suggestion, AuthenticatedSocket} from '../../lib/types'
+import { prisma } from '@prove-it/db'
 
 
-export async function onJoin(socket: Socket, documentStates: Map<string, DocumentState>, documentId: string, socketDocumentMap: Map<string, string>) {
-    // Join the document with the given documentId
+export async function onJoin(socket: AuthenticatedSocket, documentStates: Map<string, DocumentState>, documentId: string, socketDocumentMap: Map<string, string>) {
+    const userPublicId = socket.data.user?.publicId
+    if (!userPublicId) {
+        socket.emit('document:join:error', { code: 'UNAUTHORIZED' })
+        return
+    }
+
+    // Enforce ownership before joining the room.
+    const document = await prisma.document.findFirst({
+        where: {
+            publicId: documentId,
+            deletedAt: null,
+            user: { is: { publicId: userPublicId } },
+        },
+        include: { 
+            documentBody: true,
+            errors: {
+                where: {
+                    resolvedAt: null,
+                    dismissedAt: null
+                }
+            }
+        }
+    })
+
+    if (!document) {
+        socket.emit('document:join:error', { code: 'FORBIDDEN' })
+        return
+    }
+
+    // User is authorized, now join.
     socket.join(documentId)
     console.log(`User joined document ${documentId}`)
 
-    // Check if the document is in the map. If not, fetch from DB
+    // Check if the document is in the map. If not, hydrate from DB.
     if (!documentStates.has(documentId)) {
-        const document = await prisma.document.findUnique({
-            where: { publicId: documentId },
-            include: { 
-                documentBody: true,
-                errors: {
-                    where: {
-                        resolvedAt: null,
-                        dismissedAt: null
-                    }
-                }
-            }
-        })
-
-        if (!document) {
-            console.error(`Document with id ${documentId} not found.`)
-            return
-        }
-
         const errorStates: ErrorState[] = document.errors.map(error => {
             // Create the suggestion state
             const suggestion: Suggestion | null = error && error.suggestionContent ? {
