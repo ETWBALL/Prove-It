@@ -2,28 +2,57 @@ import { AuthenticatedSocket, DocumentState } from '../../lib/types'
 import { updateDatabase } from '../../lib/helpers'
 
 
-export async function onLeave(socket: AuthenticatedSocket, documentStates: Map<string, DocumentState>, documentId: string, socketDocumentMap: Map<string, string>) {
-    const joinedDocumentId = socketDocumentMap.get(socket.id)
-    if (!socket.data.user || !joinedDocumentId) {
+export async function onLeave(
+    socket: AuthenticatedSocket,
+    documentStates: Map<string, DocumentState>,
+    documentId: string,
+    socketDocumentMap: Map<string, Set<string>>,
+    documentConnectionCounts: Map<string, number>
+) {
+    const joinedDocuments = socketDocumentMap.get(socket.id)
+    if (!socket.data.user || !joinedDocuments) {
         socket.emit('document:leave:error', { code: 'UNAUTHORIZED' })
         return
     }
-    if (joinedDocumentId !== documentId) {
+    if (!joinedDocuments.has(documentId)) {
         socket.emit('document:leave:error', { code: 'FORBIDDEN' })
         return
     }
 
-    // Update the database with what you have
-    const docState = documentStates.get(joinedDocumentId)
-    if (docState && docState.buffer.length > 0) {
-        await updateDatabase(joinedDocumentId, docState, documentStates) // persist document function
+    const currentCount = documentConnectionCounts.get(documentId) ?? 0
+    const nextCount = Math.max(0, currentCount - 1)
+    if (nextCount === 0) {
+        // Last editor left: flush in-memory buffer before cleanup.
+        const docState = documentStates.get(documentId)
+        if (docState && docState.buffer.length > 0) {
+            try {
+                await updateDatabase(documentId, docState, documentStates) // persist document function
+            } catch (error) {
+                console.error(`Leave aborted: failed to persist document ${documentId}`, error)
+                socket.emit('document:leave:error', { code: 'PERSIST_FAILED' })
+                return
+            }
+        }
+
+        joinedDocuments.delete(documentId)
+        if (joinedDocuments.size === 0) {
+            socketDocumentMap.delete(socket.id)
+        } else {
+            socketDocumentMap.set(socket.id, joinedDocuments)
+        }
+        documentConnectionCounts.delete(documentId)
+        documentStates.delete(documentId)
+    } else {
+        joinedDocuments.delete(documentId)
+        if (joinedDocuments.size === 0) {
+            socketDocumentMap.delete(socket.id)
+        } else {
+            socketDocumentMap.set(socket.id, joinedDocuments)
+        }
+        documentConnectionCounts.set(documentId, nextCount)
     }
 
-    // Clean up
-    documentStates.delete(joinedDocumentId) 
-    socketDocumentMap.delete(socket.id)
-
     // Send message
-    socket.leave(joinedDocumentId)
-    console.log(`User left document ${joinedDocumentId}`)
+    socket.leave(documentId)
+    console.log(`User left document ${documentId}`)
 }

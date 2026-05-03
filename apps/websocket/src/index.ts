@@ -14,8 +14,9 @@ import { onDisconnect } from '../src/events/onDisconnect'
 // Store all user's document states, deltas here (RAM)
 const documentStates = new Map<string, DocumentState>() 
 
-// Store socketID to documentID (useful for sudden disconnects)
-const socketDocumentMap = new Map<string, string>() // socketId → documentId
+// Store socketID to joined documentIDs (supports multiple joined docs per socket).
+const socketDocumentMap = new Map<string, Set<string>>() // socketId -> Set<documentId>
+const documentConnectionCounts = new Map<string, number>() // documentId -> active socket count
 
 // (1) Create a new HTTP server provided by Node.js
 const httpServer = createServer()
@@ -59,16 +60,22 @@ io.on('connection', (socket) => {
     console.log('A user connected with socket id:', socket.id);
 
     // Event 1: User opens document
-    socket.on('document:join', async (documentId: string) => onJoin(socket, documentStates, documentId, socketDocumentMap))
+    socket.on('document:join', async (documentId: string) =>
+        onJoin(socket, documentStates, documentId, socketDocumentMap, documentConnectionCounts)
+    )
 
     // Event 2: User types (insert, delete, replace) (IMPORTANT)
     socket.on('document:delta', async (delta: Delta) => onDelta(socket, documentStates, delta, socketDocumentMap))
 
     // Event 3: User leaves document
-    socket.on('document:leave', async (documentId: string) => onLeave(socket, documentStates, documentId, socketDocumentMap))
+    socket.on('document:leave', async (documentId: string) =>
+        onLeave(socket, documentStates, documentId, socketDocumentMap, documentConnectionCounts)
+    )
 
     // Event 4: Listen for sudden disconnects
-    socket.on('disconnect', async () => onDisconnect(socket, documentStates, socketDocumentMap))
+    socket.on('disconnect', async () =>
+        onDisconnect(socket, documentStates, socketDocumentMap, documentConnectionCounts)
+    )
 
     // Event 5: Listen for save document event from client, persist to DB immediately
     // Event 6: Listen for lastCompiled to update document state in memory, persist to DB immediately (proofAttempt and update old documentbody)

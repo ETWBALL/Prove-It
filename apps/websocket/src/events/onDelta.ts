@@ -1,17 +1,22 @@
 import { Delta, DocumentState, AuthenticatedSocket } from '../../lib/types'
-import { updateDatabase, applyDelta, applyDeltatoErrors} from '../../lib/helpers'
+import { updateDatabase, applyDelta, applyDeltatoErrors, validateDeltaForContent} from '../../lib/helpers'
 
 
-export async function onDelta(socket: AuthenticatedSocket, documentStates: Map<string, DocumentState>, delta: Delta, socketDocumentMap: Map<string, string>) {
-    const joinedDocumentId = socketDocumentMap.get(socket.id)
+export async function onDelta(
+    socket: AuthenticatedSocket,
+    documentStates: Map<string, DocumentState>,
+    delta: Delta,
+    socketDocumentMap: Map<string, Set<string>>
+) {
+    const joinedDocuments = socketDocumentMap.get(socket.id)
+    const joinedDocumentId = delta.documentId
     
     // Check if the user is authorized to send the delta
-    if (!socket.data.user || !joinedDocumentId) {
+    if (!socket.data.user || !joinedDocuments) {
         socket.emit('document:delta:error', { code: 'UNAUTHORIZED' })
         return
     }
-    // Check if the document ID is the same as the one in the delta
-    if (delta.documentId !== joinedDocumentId) {
+    if (!joinedDocuments.has(joinedDocumentId)) {
         socket.emit('document:delta:error', { code: 'FORBIDDEN' })
         return
     }
@@ -31,6 +36,13 @@ export async function onDelta(socket: AuthenticatedSocket, documentStates: Map<s
         return
     }
 
+    // Validate the delta
+    const deltaValidationError = validateDeltaForContent(delta, docState.content.length)
+    if (deltaValidationError) {
+        socket.emit('document:delta:error', { code: deltaValidationError })
+        return
+    }
+
     // Might contain triggers for ML, need to get the previous content first before applyDelta changes docbody.
     const {updatedErrors, mlErrors} = applyDeltatoErrors(docState.errors, delta, docState.content) // Get the updated error states after applying the delta. This is important to do before we apply the delta to the document content.
 
@@ -40,13 +52,19 @@ export async function onDelta(socket: AuthenticatedSocket, documentStates: Map<s
     }
 
     // Store the delta in the buffer and update the document state
-    documentStates.set(joinedDocumentId, {
-        content: applyDelta(docState.content, delta), // Call function
-        contentId: docState.contentId,
-        revision: delta.revision, // Increment revision
-        buffer: [...docState.buffer, delta],
-        errors: updatedErrors,
-    })
+    try {
+        documentStates.set(joinedDocumentId, {
+            content: applyDelta(docState.content, delta), // Call function
+            contentId: docState.contentId,
+            revision: delta.revision, // Increment revision
+            buffer: [...docState.buffer, delta],
+            errors: updatedErrors,
+        })
+    } catch (error) {
+        console.error(`Failed to apply delta for document ${joinedDocumentId}:`, error)
+        socket.emit('document:delta:error', { code: 'INVALID_DELTA' })
+        return
+    }
 
     const updatedDocState = documentStates.get(joinedDocumentId)
 

@@ -1,12 +1,73 @@
-import { Delta, DocumentState, ErrorState } from '@/lib/types'
-import { prisma } from '@/lib/prisma'
+import { Delta, DocumentState, ErrorState } from '../lib/types'
+import { prisma } from '@prove-it/db'
+
+const MAX_DELTA_CONTENT_LENGTH = 50_000
+const MAX_DOCUMENT_LENGTH = 1_000_000
+
+function isSafeInteger(value: number): boolean {
+    return Number.isSafeInteger(value)
+}
+
+// This function validates the delta before applying it to the document content.
+export function validateDeltaForContent(delta: Delta, contentLength: number): string | null {
+    
+    // Check if the delta is a safe integer
+    if (!isSafeInteger(delta.startIndex) || !isSafeInteger(delta.endIndex) || !isSafeInteger(delta.revision)) {
+        return 'INVALID_DELTA_SHAPE'
+    }
+
+    // Check if the revision is a positive integer
+    if (delta.revision <= 0) {
+        return 'INVALID_REVISION'
+    }
+
+    // Check if the start index and end index are positive integers
+    if (delta.startIndex < 0 || delta.endIndex < 0) {
+        return 'INVALID_INDEX'
+    }
+
+    // Check if the start index is greater than the end index
+    if (delta.startIndex > delta.endIndex) {
+        return 'INVALID_RANGE'
+    }
+
+    // Check if the start index and end index are within the content length
+    if (delta.startIndex > contentLength || delta.endIndex > contentLength) {
+        return 'INDEX_OUT_OF_BOUNDS'
+    }
+
+    // Check if the content is a string
+    if (typeof delta.content !== 'string') {
+        return 'INVALID_CONTENT'
+    }
+
+    // Check if the content length is greater than the max delta content length
+    if (delta.content.length > MAX_DELTA_CONTENT_LENGTH) {
+        return 'DELTA_TOO_LARGE'
+    }
+
+    // Check if the insert range is valid
+    if (delta.type === 'insert' && delta.startIndex !== delta.endIndex) {
+        return 'INVALID_INSERT_RANGE'
+    }
+
+    // Check if the document size is within the limit
+    const removedLength = delta.endIndex - delta.startIndex
+    const insertedLength = delta.type === 'delete' ? 0 : delta.content.length
+    const nextLength = contentLength - removedLength + insertedLength
+    if (nextLength < 0 || nextLength > MAX_DOCUMENT_LENGTH) {
+        return 'DOCUMENT_SIZE_LIMIT'
+    }
+
+    return null
+}
 
 
 // Update the database with the current document state, clear buffer. 
 export async function updateDatabase(documentPublicId: string, updatedDocState: DocumentState, documentStates: Map<string, DocumentState>, clearBuffer: boolean = true) {
     try {
 
-        await prisma.$transaction(async (tx) => {
+        const updatedDocumentBody = await prisma.$transaction(async (tx) => {
              // Update the document's lastEdited timestamp
              // TODO: is there a way to update the docbody and that updates the document automatically?
             const updatedDocument = await tx.document.update({
@@ -14,10 +75,14 @@ export async function updateDatabase(documentPublicId: string, updatedDocState: 
                 data: { lastEdited: new Date() }
             })
 
-            // Update the document body with the new content
-            await tx.documentBody.update({
-                where: { publicId: updatedDocState.contentId },
-                data: { content: updatedDocState.content }
+            // DocumentBody is unique by privateDocumentId, so upsert by that key.
+            const persistedDocumentBody = await tx.documentBody.upsert({
+                where: { privateDocumentId: updatedDocument.privateId },
+                update: { content: updatedDocState.content },
+                create: {
+                    content: updatedDocState.content,
+                    privateDocumentId: updatedDocument.privateId
+                }
             })
 
             // Add a new row to the proofAttempt table with the updated content and a reference to the document
@@ -45,12 +110,14 @@ export async function updateDatabase(documentPublicId: string, updatedDocState: 
                     }
                 })
             }))
+
+            return persistedDocumentBody
         })
 
         // If db succeeds: Update the document state in memory with the new content and clear the buffer
         documentStates.set(documentPublicId, {
                 content: updatedDocState.content,
-                contentId: updatedDocState.contentId,
+                contentId: updatedDocumentBody.publicId,
                 revision: updatedDocState.revision,
                 buffer: clearBuffer ? [] : updatedDocState.buffer,
                 errors: updatedDocState.errors
@@ -58,12 +125,20 @@ export async function updateDatabase(documentPublicId: string, updatedDocState: 
 
     }catch(error){
         console.error(`Error updating database for document ${documentPublicId}:`, error)
+        throw error
     }
     
 }
 
 // Apply the delta changes to the current document hot state
 export function applyDelta(content: string, delta: Delta): string {
+    // Validate the delta
+    const validationError = validateDeltaForContent(delta, content.length)
+    if (validationError) {
+        throw new Error(`Invalid delta: ${validationError}`)
+    }
+
+    // Apply the delta to the content
     switch (delta.type) {
         case 'insert':
             return content.slice(0, delta.startIndex) + delta.content + content.slice(delta.startIndex)

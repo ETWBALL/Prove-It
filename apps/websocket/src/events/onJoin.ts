@@ -2,21 +2,27 @@ import { DocumentState, ErrorState, Suggestion, AuthenticatedSocket} from '../..
 import { prisma } from '@prove-it/db'
 
 
-export async function onJoin(socket: AuthenticatedSocket, documentStates: Map<string, DocumentState>, documentId: string, socketDocumentMap: Map<string, string>) {
+export async function onJoin(
+    socket: AuthenticatedSocket,
+    documentStates: Map<string, DocumentState>,
+    documentId: string,
+    socketDocumentMap: Map<string, Set<string>>,
+    documentConnectionCounts: Map<string, number>
+) {
     const userPublicId = socket.data.user?.publicId
     if (!userPublicId) {
         socket.emit('document:join:error', { code: 'UNAUTHORIZED' })
         return
     }
-    // Check if the user is already in a document
-    const currentDocumentId = socketDocumentMap.get(socket.id)
-    if (currentDocumentId && currentDocumentId !== documentId) {
-        socket.emit('document:join:error', { code: 'ALREADY_IN_DOCUMENT' })
+    // Check if this socket has already joined this document.
+    const joinedDocuments = socketDocumentMap.get(socket.id) ?? new Set<string>()
+    if (joinedDocuments.has(documentId)) {
         return
     }
+
     // Check if another user is already in the document
     const otherSocketOnDocument = Array.from(socketDocumentMap.entries()).some(
-        ([socketId, joinedDocumentId]) => socketId !== socket.id && joinedDocumentId === documentId
+        ([socketId, socketDocs]) => socketId !== socket.id && socketDocs.has(documentId)
     )
     // If another user is already in the document, emit an error
     if (otherSocketOnDocument) {
@@ -83,5 +89,7 @@ export async function onJoin(socket: AuthenticatedSocket, documentStates: Map<st
             errors: errorStates,
         })
     }
-    socketDocumentMap.set(socket.id, documentId)
+    joinedDocuments.add(documentId)
+    socketDocumentMap.set(socket.id, joinedDocuments)
+    documentConnectionCounts.set(documentId, (documentConnectionCounts.get(documentId) ?? 0) + 1)
 }
