@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@prove-it/db'
+import { verifyPassword, hashOpaqueToken } from '@prove-it/auth';
+import { generateAccessToken, generateRefreshToken } from '@prove-it/auth';
+
+// Local imports
 import { ProveItRateLimit } from '@/lib/rateLimiter'
 import { getClientIpForRateLimit } from '@/lib/requestIp'
-import { LoginSchema } from '@/lib/Validation/zodSchemas';
-import { verifyPassword, hashOpaqueToken } from '@/lib/AuthUtility/passwordHashing';
-import { generateAccessToken, generateRefreshToken } from '@/lib/AuthUtility/auth-utility';
-import { env } from '@/lib/Validation/zodSchemas';
+import { LoginSchema, env } from '@/lib/Validation/zodSchemas';
 import { cookieMaxAgeSeconds, expiresAtFromSpan } from '@/lib/date-utility';
+
 
 function cookieSecure(request: Request): boolean {
     if (process.env.NODE_ENV === 'production') return true

@@ -1,4 +1,7 @@
-import { PrismaClient } from '@prove-it/db'
+// packages/db/index.ts
+export * from './generated/prisma'
+export { PrismaClientKnownRequestError } from './generated/prisma/runtime/library'
+import { PrismaClient } from './generated/prisma'
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
 

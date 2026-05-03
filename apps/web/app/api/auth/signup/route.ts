@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
-import type { UniversityDomainModel } from '@/app/generated/prisma/models/UniversityDomain'
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library'
+import type { UniversityDomain } from '@prove-it/db'
+import { PrismaClientKnownRequestError, prisma} from '@prove-it/db'
+import { hashPassword } from '@prove-it/auth'
+
+// Local imports
 import { SignupSchema } from '@/lib/Validation/zodSchemas'
-import { hashPassword } from '@/lib/AuthUtility/passwordHashing'
-import { prisma } from '@/lib/prisma'
 import { ProveItRateLimit } from '@/lib/rateLimiter'
 import { getClientIpForRateLimit } from '@/lib/requestIp'
 
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
 
         // Check if the email domain is valid. They must use their student email.
         const emailDomain = email.split('@')[1].toLowerCase()
-        if (!universityDomain.some((domain: UniversityDomainModel) => domain.domain.toLowerCase() === emailDomain)) {
+        if (!universityDomain.some((domain: UniversityDomain) => domain.domain.toLowerCase() === emailDomain)) {
             return NextResponse.json({ error: 'Invalid email domain. Please use your student email when signing up.' }, { status: 400 })
         }
         privateUniversityId = universityDomain[0].privateUniversityId

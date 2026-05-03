@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import { generateAccessToken, generateRefreshToken, verifyAccessToken, verifyRefreshToken } from "@/lib/AuthUtility/auth-utility"
-import { TokenPayloadSchema } from "@/lib/Validation/zodSchemas"
-import { prisma } from '@/lib/prisma'
-import { env } from '@/lib/Validation/zodSchemas';
+import { generateAccessToken, generateRefreshToken, verifyAccessToken, verifyRefreshToken, hashOpaqueToken, verifyOpaqueToken} from "@prove-it/auth"
+import { prisma } from '@prove-it/db'
+
+
+// Local imports
+import { TokenPayloadSchema, env } from "@/lib/Validation/zodSchemas"
 import { cookieMaxAgeSeconds, expiresAtFromSpan } from '@/lib/date-utility';
-import { hashOpaqueToken, verifyOpaqueToken } from "@/lib/AuthUtility/passwordHashing"
 import { refreshRatelimit } from "@/lib/rateLimiter";
 
 function cookieSecure(request: Request): boolean {

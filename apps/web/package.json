@@ -1,18 +1,19 @@
 {
-  "name": "prove",
+  "name": "@prove-it/web",
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": "20.x"
+    "node": "22.x"
   },
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate --schema=../../packages/db/schema.prisma && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.3",
+    "@prove-it/auth": "workspace:*",
+    "@prove-it/db": "workspace:*",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.37.0",
     "bcrypt": "^6.0.0",
@@ -36,11 +37,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
-    "prisma": "^6.19.3",
     "tailwindcss": "^4",
     "typescript": "^5"
-  },
-  "prisma": {
-    "schema": "/prisma/schema.prisma"
   }
 }

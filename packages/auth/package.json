@@ -1,0 +1,20 @@
+{
+  "name": "@prove-it/auth",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "jose": "^6.2.3",
+    "ms": "^2.1.3",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/ms": "^2.1.0"
+  }
+}
