@@ -225,6 +225,17 @@ enum ErrorType {
   CIRCULAR_REASONING
   JUMPING_TO_CONCLUSIONS
   IMPROPER_GENERALIZATION
+  INFORMAL_LANGUAGE
+  AMBIGUOUS_PRONOUN
+  MISSING_PUNCTUATION
+  INCOMPLETE_SENTENCE
+  MISSING_DEFINITION_UNFOLD
+  UNEXPANDED_ACRONYM
+  INCONSISTENT_NOTATION
+  UNDEFINED_TERM_USED
+  MISSING_QUANTIFIER
+  IMPLICIT_ASSUMPTION
+  MISSING_JUSTIFICATION
 }
 
 enum Severity {
@@ -234,12 +245,9 @@ enum Severity {
 }
 
 enum ValidationLayer {
-  // Latex Parser
-  LATEX_PARSER
   // Surface-level grammar and wording checks only.
   PROOF_GRAMMER
-  // Grammar plus computational step validation (e.g. arithmetic).
-  COMPUTATION
+
   // Full pipeline including logical consistency of the proof chain.
   LOGIC_CHAIN
 }
