@@ -1,77 +1,73 @@
-from src.schemas import AnalyzeRequest, ErrorType
+import textwrap
+from src.schemas import AnalyzeRequest, logic_chain_errors
 
+def constructPrompt(request: AnalyzeRequest) -> str:
+    if not request.currentSentence:
+        return ""
 
-def get_prompt(request: AnalyzeRequest) -> str:
-
-    content_block = (
-        f"""
-FULL PROOF (for context):
-{request.content}
-
-CURRENT SENTENCE (focus here):
-{request.currentSentence}
-""".strip()
-        if request.context
-        else f"""
-SENTENCE TO ANALYZE:
-{request.currentSentence}
-""".strip()
-    )
-
+    # 1. Format Context Blocks
     math_block = "\n".join(
-        f"- [{s.type}] {s.name}: {s.content}"
-        for s in request.mathStatements
+        f"- [{s.type}] {s.name}: {s.content}" for s in request.mathStatements
     ) if request.mathStatements else "None"
 
-    existing_block = "\n".join(
-        f"- {e.startIndexError}-{e.endIndexError}: {e.errorContent}"
-        for e in request.currentErrors
+    existing_errors = "\n".join(
+        f"- {e.errorContent} (at '{e.errorSnippet}')" for e in request.currentErrors
     ) if request.currentErrors else "None"
 
-
-
-
+    # 2. Build the Prompt
     prompt = f"""
-You are a mathematical proof grader specializing in PROOF GRAMMAR — the clarity, wording, and notation of mathematical proofs written by first-year university students.
+    ### ROLE
+    You are a formal mathematical proof validator for a strict first-year Discrete Math course.
 
-Your job is to flag issues that would make a proof hard to understand for another first-year student.
+    ### OBJECTIVE
+    Analyze the "CURRENT SENTENCE" for logical fallacies. You must be pedantic.
 
----
+    ---
+    STATEMENT TO PROVE: 
+    {request.provingStatement}
 
-STATEMENT BEING PROVED:
-{request.provingStatement}
+    FULL PROOF CONTEXT: 
+    {request.content}
+    
+    CURRENT SENTENCE: 
+    {request.currentSentence}
 
-{content_block}
+    AVAILABLE THEOREMS/DEFINITIONS:
+    {math_block}
 
-AVAILABLE MATH STATEMENTS STUDENTS HAVE ACCESS TO (theorems, definitions, lemmas):
-{math_block}
+    ALREADY FLAGGED ERRORS (Do not re-flag these):
+    {existing_errors}
 
-ALREADY FLAGGED ERRORS (do NOT re-flag these):
-{existing_block}
+    VALID LOGIC ERROR TYPES (CODE FROM TAXONOMY FOR ERROR TYPE):
+    {logic_chain_errors}
 
----
+    ---
+    ### EVALUATION PROTOCOL:
+    1. Mechanical Justification: Every claim must follow from definitions or Prior Steps.
+    2. Variable Integrity: Check for VARIABLE_SHADOWING (e.g., reusing 'k' for different integers).
+    3. Implicit Assumptions: Flag ILLEGAL_OPERATION for unstated properties (e.g., division by zero).
+    4. Structure: Check for STRUCTURE_ERROR if the proof method isn't declared at the start.
 
-SEVERITY GUIDE:
-- LOW: stylistic issues (e.g. informal language, minor phrasing)
-- MODERATE: could confuse a reader (e.g. ambiguous pronoun, unexpanded acronym)
-- CRITICAL: makes the proof hard or impossible to follow (e.g. undefined term, missing quantifier, missing justification)
-
-VALID ERROR TYPES (use exactly as written):
-{valid_error_types}
----
-
-Return ONLY a valid JSON array. No explanation, no markdown, no backticks.
-
-Each object must have:
-- startIndexError: integer (character index in the full proof where the error starts)
-- endIndexError: integer (character index where it ends)
-- errorContent: string (brief description of the error)
-- type: one of the valid error types above
-- severity: LOW | MODERATE | CRITICAL
-- layer: "PROOF_GRAMMER"
-- suggestion: {{ suggestionContent: string, startIndexSuggestion: integer, endIndexSuggestion: integer }} or null
-
-If no errors found, return an empty array: []
-""".strip()
-
-    return prompt
+    ### PHASE 1: ANALYSIS & PHASE 2: CRITIQUE
+    - Trace the logic from prior steps.
+    - SKEPTICAL CRITIQUE: Ask "Am I being too lenient?" or "Did I miss a subtle jump in logic?"
+    
+    ---
+    RETURN ONLY A JSON ARRAY. No markdown, no backticks.
+    Format:
+    [
+      {{
+        "errorSnippet": "the exact string of text that is wrong",
+        "errorMessage": "brief description",
+        "errorType": "CODE_FROM_TAXONOMY",
+        "internalReasoning": "Your step-by-step logic",
+        "suggestedFix": {{ 
+            "suggestionContent": "correct phrasing",
+            "suggestionSnippet": "what text should be replaced" 
+        }}
+      }}
+    ]
+    If no errors, return [].
+    """
+    
+    return textwrap.dedent(prompt).strip()

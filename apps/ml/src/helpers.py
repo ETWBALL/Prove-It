@@ -86,24 +86,36 @@ class MathStatement(BaseModel):
 
 # What the websocket sends to the ML service
 class AnalyzeRequest(BaseModel):
+    mathStatements: list[MathStatement] # all math statements in the document
     provingStatement: str # The statement being proven.
+    content: str # The content of the document
+
     documentId: str
     layer: ValidationLayer
-    content: str
-    currentSentence: str
-    allErrors: list[ErrorState] # all errors in the document
-    currentErrors: list[ErrorState]  # existing errors so ML doesn't re-flag them
-    mathStatements: list[MathStatement] # all math statements in the document
     context: bool # Does the ML need context to understand the current sentence?
+
+    
+    currentSentence: str
+    currentErrors: list[ErrorState]  # existing errors so ML doesn't re-flag them
+
+    allErrors: list[ErrorState] # all errors in the document
+    mathStatements: list[MathStatement] # all math statements in the document
+
 
 
 # What the ML service sends back
 class DetectedError(BaseModel):
+
+    # Location of the error in the document
     startIndexError: int
     endIndexError: int
-    errorContent: str
-    type: ErrorType
-    suggestion: Optional[Suggestion] = None
+    problematicContent: str
+
+    # Message to the user
+    errorMessage: str
+    errortype: ErrorType
+    layer: ValidationLayer
+    suggestedFix: Optional[Suggestion] = None
 
 # The full response back to websocket
 class AnalyzeResponse(BaseModel):
@@ -111,5 +123,10 @@ class AnalyzeResponse(BaseModel):
     errors: list[DetectedError]
 
 
-VALID_ERROR_TYPES = [error_type.value for error_type in ErrorType]  # Convert ErrorType enum to list of strings
-VALID_LOW_ERROR_TYPES
+logic_chain_errors = "\n".join(
+    f"- {k}: {v}" for k, v in LOGIC_CHAIN_ERRORS.items()
+)
+
+proof_grammar_errors = "\n".join(
+    f"- {k}: {v}" for k, v in PROOF_GRAMMAR_ERRORS.items()
+)

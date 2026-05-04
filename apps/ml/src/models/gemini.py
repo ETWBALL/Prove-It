@@ -2,7 +2,7 @@ import json
 import google.generativeai as genai
 from src.schemas import AnalyzeRequest, AnalyzeResponse, DetectedError, Suggestion, ErrorType, Severity, ValidationLayer
 from src.config import settings
-from src.AIprompts import get_prompt
+from src.AIprompts import constructPrompt
 
 genai.configure(api_key=settings.GEMINI_API_KEY)
 
@@ -13,7 +13,8 @@ async def analyze_with_gemini(request: AnalyzeRequest) -> AnalyzeResponse:
     """
     Analyze the request with Gemini.
     """
-    prompt = get_prompt(request)
+
+    prompt = constructPrompt(request)
 
     try:
         response = await model.generate_content_async(prompt)
@@ -30,18 +31,26 @@ async def analyze_with_gemini(request: AnalyzeRequest) -> AnalyzeResponse:
         parsed = json.loads(raw)
 
         # Collect all errors from gemini's response
-        errors = [
-            DetectedError(
-                startIndexError=item["startIndexError"],
-                endIndexError=item["endIndexError"],
-                errorContent=item["errorContent"],
-                type=ErrorType(item["type"]),
-                severity=Severity(item["severity"]),
+        errors = []
+
+
+        for item in parsed:
+            eStart, eEnd = getIndices(item["errorSnippet"])
+            sStart, sEnd = getIndices(item["suggestionSnippet"])
+
+            detectedErrors = DetectedError(
+                startIndexError=eStart,
+                endIndexError=eEnd,
+                problematicContent=item["errorSnippet"],
+
+                errorMessage=item["errorMessage"],
+                errorType=ErrorType(item["errorType"]),
                 layer=ValidationLayer(request.layer),
-                suggestion=Suggestion(**item["suggestion"]) if item.get("suggestion") else None     #Checks if the suggestion is present and if so, parses it into a Suggestion object
+                suggestion=Suggestion(suggestionContent=item["suggestionContent"], startIndexSuggestion=sStart, endIndexSuggestion=sEnd) if item.get("suggestion") else None     #Checks if the suggestion is present and if so, parses it into a Suggestion object
             )
-            for item in parsed
-        ]
+
+
+            errors.append(detectedErrors)
 
         return AnalyzeResponse(documentId=request.documentId, errors=errors)
 
