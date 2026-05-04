@@ -2,6 +2,9 @@ import { AuthenticatedSocket, Delta, DocumentState, ErrorState, Timers } from '.
 import { Redis } from '@upstash/redis'
 import { prisma } from '@prove-it/db'
 
+const DATABASE_TIMEOUT_MS = 60000 // 1 minute
+const ML_TIMEOUT_MS = 35000 // 35 seconds
+
 const MAX_DELTA_CONTENT_LENGTH = 50_000
 const MAX_DOCUMENT_LENGTH = 1_000_000
 const redis = new Redis({
@@ -383,6 +386,13 @@ export function getErrorsForSentence(errors: ErrorState[], sentences: string): E
     );
 }   
 
+/**
+ * Set up the timers for the document. If the timers already exist, clear them.
+ * @param documentId - document's public id
+ * @param timers - All of timers associated with this document
+ * @param documentStates - The document states map
+ * @param socket - The socket for this document
+ */
 export function setUpTimers(documentId: string, timers: Map<string, Timers>, documentStates: Map<string, DocumentState>, socket: AuthenticatedSocket) {
     const existingTimers = timers.get(documentId)
 
@@ -422,7 +432,6 @@ export function setUpTimers(documentId: string, timers: Map<string, Timers>, doc
             console.log(`Database timeout for document ${documentId}`)
 
             // Try to update the database
-
             try {
                 await updateDatabase(documentId, updatedDocState, documentStates)
             } catch (error) {
@@ -433,7 +442,7 @@ export function setUpTimers(documentId: string, timers: Map<string, Timers>, doc
 
             socket.emit('document:delta:persisted', { message: 'Document changes persisted to database.' })
 
-        }, 60000), // 1 minute
+        }, DATABASE_TIMEOUT_MS),
         mlTimeout: setTimeout(async () => {
             console.log(`ML timeout for document ${documentId}`)
 
@@ -443,12 +452,18 @@ export function setUpTimers(documentId: string, timers: Map<string, Timers>, doc
                 content: currentSentence,
                 errors: errorsForSentence
             }))
+            socket.emit('document:ml:triggered', { message: 'ML pipeline triggered.' })
 
-        }, 15000) // 15 seconds
+        }, ML_TIMEOUT_MS)
     })
 
 }
 
+/**
+ * Check if the delta is a character trigger. If it is, we need to trigger the ML pipeline.
+ * @param delta - The delta to check
+ * @returns True if the delta is a character trigger, false otherwise
+ */
 export function characterTriggered(delta: Delta): boolean {
 
     if (delta.type === 'insert' && delta.content.length >= 1) {

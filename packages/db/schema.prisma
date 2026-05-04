@@ -243,12 +243,9 @@ enum Severity {
 }
 
 enum ValidationLayer {
-  // Latex Parser
-  LATEX_PARSER
   // Surface-level grammar and wording checks only.
   PROOF_GRAMMER
-  // Grammar plus computational step validation (e.g. arithmetic).
-  COMPUTATION
+  
   // Full pipeline including logical consistency of the proof chain.
   LOGIC_CHAIN
 }
