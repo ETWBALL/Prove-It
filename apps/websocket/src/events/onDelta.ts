@@ -1,90 +1,121 @@
-import { Delta, DocumentState, AuthenticatedSocket } from '../../lib/types'
-import { updateDatabase, applyDelta, applyDeltatoErrors, validateDeltaForContent} from '../../lib/helpers'
+import { Delta, DocumentState, AuthenticatedSocket, Timers } from '../../lib/types'
+import { updateDatabase, applyDelta, applyDeltatoErrors, validateDeltaForContent, setUpTimers, characterTriggered} from '../../lib/helpers'
 
 
 export async function onDelta(
     socket: AuthenticatedSocket,
     documentStates: Map<string, DocumentState>,
     delta: Delta,
-    socketDocumentMap: Map<string, Set<string>>
+    socketDocumentMap: Map<string, string>,
+    timers: Map<string, Timers>
 ) {
-    const joinedDocuments = socketDocumentMap.get(socket.id)
-    const joinedDocumentId = delta.documentId
-    
-    // Check if the user is authorized to send the delta
-    if (!socket.data.user || !joinedDocuments) {
-        socket.emit('document:delta:error', { code: 'UNAUTHORIZED' })
-        return
-    }
-    if (!joinedDocuments.has(joinedDocumentId)) {
-        socket.emit('document:delta:error', { code: 'FORBIDDEN' })
-        return
-    }
 
-    console.log(`User typed in document ${joinedDocumentId}`)
-
-
-    // Validate revision number for that specific documentID
-    const docState = documentStates.get(joinedDocumentId)
-    if (!docState) {
-        console.error(`Document with id ${joinedDocumentId} not found in memory during type event.`)
-        return
-    }
-
-    if (docState.revision + 1 !== delta.revision) {
-        console.error(`Revision mismatch for document ${joinedDocumentId}. Expected ${docState.revision + 1}, got ${delta.revision}`)
-        return
-    }
-
-    // Validate the delta
-    const deltaValidationError = validateDeltaForContent(delta, docState.content.length)
-    if (deltaValidationError) {
-        socket.emit('document:delta:error', { code: deltaValidationError })
-        return
-    }
-
-    // Might contain triggers for ML, need to get the previous content first before applyDelta changes docbody.
-    const {updatedErrors, mlErrors} = applyDeltatoErrors(docState.errors, delta, docState.content) // Get the updated error states after applying the delta. This is important to do before we apply the delta to the document content.
-
-    // If we detect even one error changed, trigger ML pipeline and send a message to the client to remove error from frontend
-    if (mlErrors.length > 0){
-        socket.emit('document:errors:removed', {errorIds: mlErrors.map(e => e.publicId)})
-    }
-
-    // Store the delta in the buffer and update the document state
+    // Try to apply the delta
     try {
+
+        // (1) Basic checks
+        // Get the joined document ID
+        const joinedDocumentId = socketDocumentMap.get(socket.id)
+
+        // Check if the user is authorized to send the delta
+        if (!socket.data.user || !joinedDocumentId) {
+            socket.emit('document:delta:error', { code: 'UNAUTHORIZED' })
+            return
+        }
+        // Check if the document ID is the same as the one in the delta
+        if (delta.documentId !== joinedDocumentId) {
+            socket.emit('document:delta:error', { code: 'FORBIDDEN' })
+            return
+        }
+
+        // Log the user typing in the document
+        console.log(`User typed in document ${joinedDocumentId}`)
+
+
+
+        // (2) Precautionary steps
+        // Get the document state
+        const docState = documentStates.get(joinedDocumentId)
+        if (!docState) {
+            socket.emit('document:delta:error', { code: 'DOCUMENT_STATE_MISSING' })
+            return
+        }
+
+        // Check if the revision is correct
+        if (docState.revision + 1 !== delta.revision) {
+            socket.emit('document:delta:error', { code: 'REVISION_MISMATCH', expectedRevision: docState.revision + 1 })
+            return
+        }
+
+        // Validate the delta
+        const deltaValidationError = validateDeltaForContent(delta, docState.content.length)
+        if (deltaValidationError) {
+            socket.emit('document:delta:error', { code: deltaValidationError })
+            return
+        }
+
+
+
+        // (3) Begin storing delta in memory
+        // Apply the delta to the errors
+        const { updatedErrors, mlErrors } = applyDeltatoErrors(docState.errors, delta, docState.content)
+        if (mlErrors.length > 0) {
+            socket.emit('document:errors:removed', { errorIds: mlErrors.map(e => e.publicId) })
+        }
+
+        // Set the document state
         documentStates.set(joinedDocumentId, {
-            content: applyDelta(docState.content, delta), // Call function
+            content: applyDelta(docState.content, delta),
             contentId: docState.contentId,
-            revision: delta.revision, // Increment revision
+            revision: delta.revision,
             buffer: [...docState.buffer, delta],
             errors: updatedErrors,
         })
+
+
+        // Get the updated document state
+        const updatedDocState = documentStates.get(joinedDocumentId)
+        if (!updatedDocState) {
+            socket.emit('document:delta:error', { code: 'DOCUMENT_STATE_MISSING' })
+            return
+        }
+
+        // Emit the delta ack. 
+        socket.emit('document:delta:ack', { revision: delta.revision })
+
+        // (4) Timer setup
+        setUpTimers(joinedDocumentId, timers, documentStates, socket)
+        
+
+        // (5) Check for additional ML triggers
+        if (characterTriggered(delta)) {
+            socket.emit('document:delta:ml:trigger', { message: 'ML trigger detected.' })
+        }
+
+
+
+        // (6) Persist to database to save everything the user typed in RAM
+        // Check if the buffer is greater than 30
+        if (updatedDocState.buffer.length >= 30) {
+
+            // Try to update the database
+            try {
+                await updateDatabase(joinedDocumentId, updatedDocState, documentStates)
+
+                // Clear the persistent timer
+                clearTimeout(timers.get(joinedDocumentId)?.databaseTimeout)
+                
+            } catch (error) {
+                console.error(`Persist failed for document ${joinedDocumentId}:`, error)
+                socket.emit('document:delta:error', { code: 'PERSIST_FAILED' })
+                return
+            }
+
+            socket.emit('document:delta:persisted', { message: 'Document changes persisted to database.' })
+        }
+
     } catch (error) {
-        console.error(`Failed to apply delta for document ${joinedDocumentId}:`, error)
-        socket.emit('document:delta:error', { code: 'INVALID_DELTA' })
-        return
-    }
-
-    const updatedDocState = documentStates.get(joinedDocumentId)
-
-    if (!updatedDocState) {
-        console.error(`Document with id ${joinedDocumentId} not found in memory after applying delta.`)
-        return
-    }
-    
-    // Send acknowledgement back to the client that sent the delta
-    socket.emit('document:delta:ack', { revision: delta.revision })
-
-    // If buffer length exceeds threshold, persist to DB and clear buffer
-
-    // TODO: There should also be a save if someone copy and pasted a huge delta. We can add a size property to the delta and if it exceeds a certain size, we persist to DB immediately. For now, we will just rely on the buffer length.
-    if (updatedDocState.buffer.length >= 30) {
-
-        // Update documentBody, Document, proofAttempt, Errors and suggestions
-        await updateDatabase(joinedDocumentId, updatedDocState, documentStates, ) // persist document function
-
-        socket.emit('document:delta:persisted', { message: 'Document changes persisted to database.' })
-
+        console.error('Unhandled delta error:', error)
+        socket.emit('document:delta:error', { code: 'INTERNAL_ERROR' })
     }
 }

@@ -225,27 +225,29 @@ enum ErrorType {
   CIRCULAR_REASONING
   JUMPING_TO_CONCLUSIONS
   IMPROPER_GENERALIZATION
-}
-
-enum Severity {
-  LOW
-  MODERATE
-  CRITICAL
+  INFORMAL_LANGUAGE
+  AMBIGUOUS_PRONOUN
+  MISSING_PUNCTUATION
+  INCOMPLETE_SENTENCE
+  MISSING_DEFINITION_UNFOLD
+  UNEXPANDED_ACRONYM
+  INCONSISTENT_NOTATION
+  UNDEFINED_TERM_USED
+  MISSING_QUANTIFIER
+  IMPLICIT_ASSUMPTION
+  MISSING_JUSTIFICATION
 }
 
 enum ValidationLayer {
-  // Latex Parser
-  LATEX_PARSER
   // Surface-level grammar and wording checks only.
   PROOF_GRAMMER
-  // Grammar plus computational step validation (e.g. arithmetic).
-  COMPUTATION
+
   // Full pipeline including logical consistency of the proof chain.
   LOGIC_CHAIN
 }
 
 model Error {
-  // A detected issue in a document’s proof: location, classification, severity, and lifecycle.
+  // A detected issue in a document’s proof: location, classification, and lifecycle.
   privateId Int    @id @default(autoincrement())
   publicId  String @unique @default(cuid())
 
@@ -263,11 +265,9 @@ model Error {
   privateDocumentId Int
   document          Document @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
 
-  // Taxonomy: kind of mistake, severity band, validation pipeline stage, and originating model id.
-  type     ErrorType
-  severity Severity
-  layer    ValidationLayer
-  model    String
+  // Taxonomy: kind of mistake, band, validation pipeline stage, and originating model id.
+  type  ErrorType
+  layer ValidationLayer
 
   resolvedAt  DateTime?
   dismissedAt DateTime?

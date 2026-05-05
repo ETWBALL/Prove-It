@@ -1,8 +1,21 @@
-import { Delta, DocumentState, ErrorState } from '../lib/types'
+import { AuthenticatedSocket, Delta, DocumentState, ErrorState, Timers } from '../lib/types'
+import { Redis } from '@upstash/redis'
 import { prisma } from '@prove-it/db'
+
+const DATABASE_TIMEOUT_MS = 60000 // 1 minute
+const ML_TIMEOUT_MS = 35000 // 35 seconds
 
 const MAX_DELTA_CONTENT_LENGTH = 50_000
 const MAX_DOCUMENT_LENGTH = 1_000_000
+const redis = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN
+})
+// Check for Standard Linguistic Triggers
+const trigger1 = ['.', '?', '!', '\n', '\n\n', ':', ';']
+
+// Check for Latex Triggers
+const trigger2 = ['$$', '\]', '\therefore', '\qed', '\square']
 
 function isSafeInteger(value: number): boolean {
     return Number.isSafeInteger(value)
@@ -69,7 +82,6 @@ export async function updateDatabase(documentPublicId: string, updatedDocState: 
 
         const updatedDocumentBody = await prisma.$transaction(async (tx) => {
              // Update the document's lastEdited timestamp
-             // TODO: is there a way to update the docbody and that updates the document automatically?
             const updatedDocument = await tx.document.update({
                 where: { publicId: documentPublicId },
                 data: { lastEdited: new Date() }
@@ -327,5 +339,149 @@ export function applyDeltatoErrors(errors: ErrorState[], delta: Delta, documentC
     }
 
     return {updatedErrors, mlErrors}
+}
+
+
+/**
+ * Get the current sentence(s) the user is currently working on. Pack it in one "current" content.
+ * @param content - The current hot state of the document in RAM
+ * @param startIndex - The latest delta's start index
+ * @param endIndex - The latest delta's end index
+ */
+
+export function getCurrentSentence(content: string, startIndex: number, endIndex: number): string {
+    let newStartIndex;
+    let newEndIndex;
+
+    // From startIndex, go backwards and find the beginning of the sentence
+    for (let i = startIndex; i >= 0; i--) {
+        if (trigger1.includes(content[i]) || trigger2.includes(content[i])) {
+            newStartIndex = i + 1
+            break
+        }
+    }
+
+    // From endIndex, go forwards and find the end of the sentence
+    for (let i = endIndex; i < content.length; i++) {
+        if (trigger1.includes(content[i]) || trigger2.includes(content[i])) {
+            newEndIndex = i
+            break
+        }
+    }
+
+    return content.slice(newStartIndex, newEndIndex)
+}
+
+/**
+ * Get the errors that are associated with the given sentence(s).
+ * @param errors - The errors to filter
+ * @param sentences - A string that contains 1 or more sentences
+ * @returns The errors that are associated with the given sentence(s)
+ */
+export function getErrorsForSentence(errors: ErrorState[], sentences: string): ErrorState[] {
+
+    // Just extract those errors if the sentences include the problematic content
+    return errors.filter(error => 
+        !!error.problematicContent && sentences.includes(error.problematicContent)
+    );
+}   
+
+/**
+ * Set up the timers for the document. If the timers already exist, clear them.
+ * @param documentId - document's public id
+ * @param timers - All of timers associated with this document
+ * @param documentStates - The document states map
+ * @param socket - The socket for this document
+ */
+export function setUpTimers(documentId: string, timers: Map<string, Timers>, documentStates: Map<string, DocumentState>, socket: AuthenticatedSocket) {
+    const existingTimers = timers.get(documentId)
+
+    // Clear existing timers for this document. Timers may not initially exist    
+    if (existingTimers) {
+        if (existingTimers.databaseTimeout) clearTimeout(existingTimers.databaseTimeout)
+        if (existingTimers.mlTimeout) clearTimeout(existingTimers.mlTimeout)
+    }
+
+    // Get the current hot state of the document in RAM
+    const updatedDocState = documentStates.get(documentId)
+
+    if (!updatedDocState) {
+        console.error(`Document state not found for document ${documentId}`)
+        socket.emit('document:delta:error', { code: 'DOCUMENT_STATE_MISSING' })
+        return
+    }
+
+    // Get the latest delta
+    const latestDelta = updatedDocState.buffer.at(-1)
+
+    if (!latestDelta) {
+        console.error(`No delta found for document ${documentId}`)
+        socket.emit('document:delta:error', { code: 'NO_DELTA_FOUND' })
+        return
+    }
+
+    // Get the current sentence(s) the user is currently working on
+    const currentSentence = getCurrentSentence(updatedDocState.content, latestDelta.startIndex, latestDelta.endIndex)
+
+    // Get the errors that are associated with the current sentence(s)
+    const errorsForSentence = getErrorsForSentence(updatedDocState.errors, currentSentence)
+
+    // Set new timers
+    timers.set(documentId, {
+        databaseTimeout: setTimeout(async () => {
+            console.log(`Database timeout for document ${documentId}`)
+
+            // Try to update the database
+            try {
+                await updateDatabase(documentId, updatedDocState, documentStates)
+            } catch (error) {
+                console.error(`Persist failed for document ${documentId}:`, error)
+                socket.emit('document:delta:error', { code: 'PERSIST_FAILED' })
+                return
+            }
+
+            socket.emit('document:delta:persisted', { message: 'Document changes persisted to database.' })
+
+        }, DATABASE_TIMEOUT_MS),
+        mlTimeout: setTimeout(async () => {
+            console.log(`ML timeout for document ${documentId}`)
+
+            // Trigger ML pipeline to redis.
+            await redis.lpush('ml:queue:analyze', JSON.stringify({
+                documentId,
+                content: currentSentence,
+                errors: errorsForSentence
+            }))
+            socket.emit('document:ml:triggered', { message: 'ML pipeline triggered.' })
+
+        }, ML_TIMEOUT_MS)
+    })
+
+}
+
+/**
+ * Check if the delta is a character trigger. If it is, we need to trigger the ML pipeline.
+ * @param delta - The delta to check
+ * @returns True if the delta is a character trigger, false otherwise
+ */
+export function characterTriggered(delta: Delta): boolean {
+
+    if (delta.type === 'insert' && delta.content.length >= 1) {
+
+        if (delta.content === '\\') {
+            return false
+        }
+
+        if (trigger1.includes(delta.content) || trigger2.includes(delta.content)) {
+            return true
+        }
+
+        // Check for \end{...} cases
+        if (/\\end\{[^}]+\}/.test(delta.content)) {
+            return true
+        }
+
+    }
+    return false
 }
 

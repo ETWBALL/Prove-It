@@ -44,3 +44,9 @@ export type AuthenticatedSocket = Socket & {
     user?: { publicId: string; sessionPublicId: string }
   }
 }
+
+
+export interface Timers{
+    databaseTimeout: NodeJS.Timeout,
+    mlTimeout: NodeJS.Timeout
+}
