@@ -24,7 +24,23 @@ export async function onJoin(
 
             // Skip if the other socket is not mapped to the same document or is the same socket
             if (mappedDocId !== documentId || otherId === socket.id) continue
+
+            // Get the other socket. Could be underined
             const other = socket.nsp.sockets.get(otherId) as AuthenticatedSocket | undefined
+
+            // Stale map entry: socket no longer exists in namespace map. Clean it up now.
+            if (!other) {
+                socketDocumentMap.delete(otherId)
+                const prevCount = documentConnectionCounts.get(documentId) ?? 1
+                const nextCount = Math.max(0, prevCount - 1)
+                if (nextCount === 0) {
+                    documentConnectionCounts.delete(documentId)
+                } else {
+                    documentConnectionCounts.set(documentId, nextCount)
+                }
+                continue
+            }
+
             if (other?.data?.user?.publicId !== userPublicId) continue
 
             // Assume at this point that its the same user, on the same document, not the current socket.
@@ -36,10 +52,12 @@ export async function onJoin(
             } else {
                 documentConnectionCounts.set(documentId, nextCount)
             }
-            other?.disconnect(true) ?? null
+            // Disconnect the other socket
+            other.disconnect(true)
+    
         }
 
-        // Check if the user is already in this document (idempotent join — still acknowledge)
+        // Check if the user's tab already opened this document (idempotent join — still acknowledge)
         const currentDocumentId = socketDocumentMap.get(socket.id)
         if (currentDocumentId === documentId) {
             const state = documentStates.get(documentId)
@@ -52,7 +70,8 @@ export async function onJoin(
             })
             return
         }
-        // Check if the user is already in a different document
+
+        // Check if the user's tab is already in a different document
         if (currentDocumentId && currentDocumentId !== documentId) {
             socket.emit('document:join:error', { code: 'ALREADY_IN_DOCUMENT' })
             return
@@ -80,7 +99,7 @@ export async function onJoin(
             where: {
                 publicId: documentId,
                 deletedAt: null,
-                user: { is: { publicId: userPublicId } },
+                user: { is: { publicId: userPublicId } }, // This verifies if they actually own this document
             },
             include: { 
                 documentBody: true,
@@ -101,7 +120,6 @@ export async function onJoin(
 
         // Join the document
         socket.join(documentId)
-        console.log(`User joined document ${documentId}`)
 
         // Check if the document state exists
         if (!documentStates.has(documentId)) {
@@ -147,6 +165,9 @@ export async function onJoin(
             buffer: documentStates.get(documentId)?.buffer ?? [],
             errors: documentStates.get(documentId)?.errors ?? [],
         })
+
+        console.log(`User joined document ${documentId} successfully!`)
+
 
     } catch (error) {
         console.error(`Unhandled join error for document ${documentId}:`, error)

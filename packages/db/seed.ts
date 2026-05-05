@@ -18,7 +18,8 @@ async function main() {
         const university = await seedUniversity()
         const course = await seedCourse(university?.privateId ?? 1)
         const user = await seedUser('Test User', 'test@utoronto.ca', 'password123')
-        await seedDocuments(user?.privateId ?? 1, course?.privateId ?? 1)
+        await seedDocuments(user?.privateId ?? 1, course?.privateId ?? 1, 'Test Document', 'Let x be an integer. Since x is even, x = 2k')
+        await seedDocuments(user?.privateId ?? 1, course?.privateId ?? 1, 'Test Document 2', 'Let y be an integer. Since y is odd, y = 2k + 1')
         console.log("Seeding completed 🌱 ")
 
     } catch (error) {

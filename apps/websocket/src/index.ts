@@ -63,25 +63,25 @@ io.on('connection', (socket) => {
 
     // Event 1: User opens document
 
-    // socket.on('document:join', async (documentId: string) =>
-    //     onJoin(socket, documentStates, documentId, socketDocumentMap, documentConnectionCounts)
-    // )
+    socket.on('document:join', async (documentId: string) =>
+        onJoin(socket, documentStates, documentId, socketDocumentMap, documentConnectionCounts)
+    )
 
     // Event 2: User types (insert, delete, replace) (IMPORTANT)
 
-    // socket.on('document:delta', async (delta: Delta) => onDelta(socket, documentStates, delta, socketDocumentMap, timers))
+    socket.on('document:delta', async (delta: Delta) => onDelta(socket, documentStates, delta, socketDocumentMap, timers))
 
     // Event 3: User leaves document
 
-    // socket.on('document:leave', async (documentId: string) =>
-    //     onLeave(socket, documentStates, documentId, socketDocumentMap, documentConnectionCounts, timers)
-    // )
+    socket.on('document:leave', async (documentId: string) =>
+        onLeave(socket, documentStates, documentId, socketDocumentMap, documentConnectionCounts, timers)
+    )
 
     // Event 4: Listen for sudden disconnects
 
-    // socket.on('disconnect', async () =>
-    //     onDisconnect(socket, documentStates, socketDocumentMap, documentConnectionCounts, timers)
-    // )
+    socket.on('disconnect', async () =>
+        onDisconnect(socket, documentStates, socketDocumentMap, documentConnectionCounts, timers)
+    )
 
     // Event 5: Listen for save document event from client, persist to DB immediately
     // Event 6: Listen for lastCompiled to update document state in memory, persist to DB immediately (proofAttempt and update old documentbody)

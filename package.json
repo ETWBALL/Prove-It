@@ -6,7 +6,7 @@
     "build": "pnpm -r build",
     "prisma:generate": "prisma generate --schema=./packages/db/schema.prisma",
     "prisma:migrate": "prisma migrate dev --schema=./packages/db/schema.prisma",
-    "prisma:seed": "ts-node ./packages/db/seed.ts",
+    "prisma:seed": "pnpm --filter @prove-it/db seed",
     "prisma:studio": "prisma studio --schema=./packages/db/schema.prisma"
 
   },

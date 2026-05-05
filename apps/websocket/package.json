@@ -5,7 +5,8 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "nodemon --exec \"node --env-file=../../.env -r ts-node/register src/index.ts\"",
-    "test:index": "node --env-file=../../.env -r ts-node/register test/testIndex.ts"
+    "test:index": "node --env-file=../../.env -r ts-node/register test/testIndex.ts",
+    "test:onJoin": "node --env-file=../../.env -r ts-node/register test/testOnJoin.ts"
   },
   "dependencies": {
     "jose": "^6.2.3",

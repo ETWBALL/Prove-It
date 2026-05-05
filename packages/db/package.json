@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "generate": "prisma generate --schema=./schema.prisma",
-    "seed": "ts-node seed.ts",
+    "seed": "node --env-file=../../.env -r ts-node/register seed.ts",
     "dev": "ts-node --env-file=../../.env index.ts",
     "migrate": "prisma migrate dev --schema=./schema.prisma"
   },
@@ -19,7 +19,7 @@
     "typescript": "^5.8.2"
   },
   "prisma": {
-    "seed": "ts-node seed.ts",
+    "seed": "node --env-file=../../.env -r ts-node/register seed.ts",
     "schema": "prisma generate --schema=./schema.prisma"
   }
 
