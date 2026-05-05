@@ -215,9 +215,7 @@ exports.Prisma.ErrorScalarFieldEnum = {
   endIndexSuggestion: 'endIndexSuggestion',
   privateDocumentId: 'privateDocumentId',
   type: 'type',
-  severity: 'severity',
   layer: 'layer',
-  model: 'model',
   resolvedAt: 'resolvedAt',
   dismissedAt: 'dismissedAt',
   createdAt: 'createdAt'
@@ -381,12 +379,6 @@ exports.ErrorType = exports.$Enums.ErrorType = {
   MISSING_QUANTIFIER: 'MISSING_QUANTIFIER',
   IMPLICIT_ASSUMPTION: 'IMPLICIT_ASSUMPTION',
   MISSING_JUSTIFICATION: 'MISSING_JUSTIFICATION'
-};
-
-exports.Severity = exports.$Enums.Severity = {
-  LOW: 'LOW',
-  MODERATE: 'MODERATE',
-  CRITICAL: 'CRITICAL'
 };
 
 exports.ValidationLayer = exports.$Enums.ValidationLayer = {

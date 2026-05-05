@@ -153,15 +153,6 @@ export const ErrorType: {
 export type ErrorType = (typeof ErrorType)[keyof typeof ErrorType]
 
 
-export const Severity: {
-  LOW: 'LOW',
-  MODERATE: 'MODERATE',
-  CRITICAL: 'CRITICAL'
-};
-
-export type Severity = (typeof Severity)[keyof typeof Severity]
-
-
 export const ValidationLayer: {
   PROOF_GRAMMER: 'PROOF_GRAMMER',
   LOGIC_CHAIN: 'LOGIC_CHAIN'
@@ -224,10 +215,6 @@ export const ProofType: typeof $Enums.ProofType
 export type ErrorType = $Enums.ErrorType
 
 export const ErrorType: typeof $Enums.ErrorType
-
-export type Severity = $Enums.Severity
-
-export const Severity: typeof $Enums.Severity
 
 export type ValidationLayer = $Enums.ValidationLayer
 
@@ -11236,9 +11223,7 @@ export namespace Prisma {
     endIndexSuggestion: number | null
     privateDocumentId: number | null
     type: $Enums.ErrorType | null
-    severity: $Enums.Severity | null
     layer: $Enums.ValidationLayer | null
-    model: string | null
     resolvedAt: Date | null
     dismissedAt: Date | null
     createdAt: Date | null
@@ -11255,9 +11240,7 @@ export namespace Prisma {
     endIndexSuggestion: number | null
     privateDocumentId: number | null
     type: $Enums.ErrorType | null
-    severity: $Enums.Severity | null
     layer: $Enums.ValidationLayer | null
-    model: string | null
     resolvedAt: Date | null
     dismissedAt: Date | null
     createdAt: Date | null
@@ -11274,9 +11257,7 @@ export namespace Prisma {
     endIndexSuggestion: number
     privateDocumentId: number
     type: number
-    severity: number
     layer: number
-    model: number
     resolvedAt: number
     dismissedAt: number
     createdAt: number
@@ -11313,9 +11294,7 @@ export namespace Prisma {
     endIndexSuggestion?: true
     privateDocumentId?: true
     type?: true
-    severity?: true
     layer?: true
-    model?: true
     resolvedAt?: true
     dismissedAt?: true
     createdAt?: true
@@ -11332,9 +11311,7 @@ export namespace Prisma {
     endIndexSuggestion?: true
     privateDocumentId?: true
     type?: true
-    severity?: true
     layer?: true
-    model?: true
     resolvedAt?: true
     dismissedAt?: true
     createdAt?: true
@@ -11351,9 +11328,7 @@ export namespace Prisma {
     endIndexSuggestion?: true
     privateDocumentId?: true
     type?: true
-    severity?: true
     layer?: true
-    model?: true
     resolvedAt?: true
     dismissedAt?: true
     createdAt?: true
@@ -11457,9 +11432,7 @@ export namespace Prisma {
     endIndexSuggestion: number
     privateDocumentId: number
     type: $Enums.ErrorType
-    severity: $Enums.Severity
     layer: $Enums.ValidationLayer
-    model: string
     resolvedAt: Date | null
     dismissedAt: Date | null
     createdAt: Date
@@ -11495,9 +11468,7 @@ export namespace Prisma {
     endIndexSuggestion?: boolean
     privateDocumentId?: boolean
     type?: boolean
-    severity?: boolean
     layer?: boolean
-    model?: boolean
     resolvedAt?: boolean
     dismissedAt?: boolean
     createdAt?: boolean
@@ -11515,9 +11486,7 @@ export namespace Prisma {
     endIndexSuggestion?: boolean
     privateDocumentId?: boolean
     type?: boolean
-    severity?: boolean
     layer?: boolean
-    model?: boolean
     resolvedAt?: boolean
     dismissedAt?: boolean
     createdAt?: boolean
@@ -11535,9 +11504,7 @@ export namespace Prisma {
     endIndexSuggestion?: boolean
     privateDocumentId?: boolean
     type?: boolean
-    severity?: boolean
     layer?: boolean
-    model?: boolean
     resolvedAt?: boolean
     dismissedAt?: boolean
     createdAt?: boolean
@@ -11555,15 +11522,13 @@ export namespace Prisma {
     endIndexSuggestion?: boolean
     privateDocumentId?: boolean
     type?: boolean
-    severity?: boolean
     layer?: boolean
-    model?: boolean
     resolvedAt?: boolean
     dismissedAt?: boolean
     createdAt?: boolean
   }
 
-  export type ErrorOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"privateId" | "publicId" | "startIndexError" | "endIndexError" | "errorContent" | "suggestionContent" | "startIndexSuggestion" | "endIndexSuggestion" | "privateDocumentId" | "type" | "severity" | "layer" | "model" | "resolvedAt" | "dismissedAt" | "createdAt", ExtArgs["result"]["error"]>
+  export type ErrorOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"privateId" | "publicId" | "startIndexError" | "endIndexError" | "errorContent" | "suggestionContent" | "startIndexSuggestion" | "endIndexSuggestion" | "privateDocumentId" | "type" | "layer" | "resolvedAt" | "dismissedAt" | "createdAt", ExtArgs["result"]["error"]>
   export type ErrorInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     document?: boolean | DocumentDefaultArgs<ExtArgs>
   }
@@ -11590,9 +11555,7 @@ export namespace Prisma {
       endIndexSuggestion: number
       privateDocumentId: number
       type: $Enums.ErrorType
-      severity: $Enums.Severity
       layer: $Enums.ValidationLayer
-      model: string
       resolvedAt: Date | null
       dismissedAt: Date | null
       createdAt: Date
@@ -12030,9 +11993,7 @@ export namespace Prisma {
     readonly endIndexSuggestion: FieldRef<"Error", 'Int'>
     readonly privateDocumentId: FieldRef<"Error", 'Int'>
     readonly type: FieldRef<"Error", 'ErrorType'>
-    readonly severity: FieldRef<"Error", 'Severity'>
     readonly layer: FieldRef<"Error", 'ValidationLayer'>
-    readonly model: FieldRef<"Error", 'String'>
     readonly resolvedAt: FieldRef<"Error", 'DateTime'>
     readonly dismissedAt: FieldRef<"Error", 'DateTime'>
     readonly createdAt: FieldRef<"Error", 'DateTime'>
@@ -22909,9 +22870,7 @@ export namespace Prisma {
     endIndexSuggestion: 'endIndexSuggestion',
     privateDocumentId: 'privateDocumentId',
     type: 'type',
-    severity: 'severity',
     layer: 'layer',
-    model: 'model',
     resolvedAt: 'resolvedAt',
     dismissedAt: 'dismissedAt',
     createdAt: 'createdAt'
@@ -23175,20 +23134,6 @@ export namespace Prisma {
    * Reference to a field of type 'ErrorType[]'
    */
   export type ListEnumErrorTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ErrorType[]'>
-    
-
-
-  /**
-   * Reference to a field of type 'Severity'
-   */
-  export type EnumSeverityFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Severity'>
-    
-
-
-  /**
-   * Reference to a field of type 'Severity[]'
-   */
-  export type ListEnumSeverityFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Severity[]'>
     
 
 
@@ -23896,9 +23841,7 @@ export namespace Prisma {
     endIndexSuggestion?: IntFilter<"Error"> | number
     privateDocumentId?: IntFilter<"Error"> | number
     type?: EnumErrorTypeFilter<"Error"> | $Enums.ErrorType
-    severity?: EnumSeverityFilter<"Error"> | $Enums.Severity
     layer?: EnumValidationLayerFilter<"Error"> | $Enums.ValidationLayer
-    model?: StringFilter<"Error"> | string
     resolvedAt?: DateTimeNullableFilter<"Error"> | Date | string | null
     dismissedAt?: DateTimeNullableFilter<"Error"> | Date | string | null
     createdAt?: DateTimeFilter<"Error"> | Date | string
@@ -23916,9 +23859,7 @@ export namespace Prisma {
     endIndexSuggestion?: SortOrder
     privateDocumentId?: SortOrder
     type?: SortOrder
-    severity?: SortOrder
     layer?: SortOrder
-    model?: SortOrder
     resolvedAt?: SortOrderInput | SortOrder
     dismissedAt?: SortOrderInput | SortOrder
     createdAt?: SortOrder
@@ -23939,9 +23880,7 @@ export namespace Prisma {
     endIndexSuggestion?: IntFilter<"Error"> | number
     privateDocumentId?: IntFilter<"Error"> | number
     type?: EnumErrorTypeFilter<"Error"> | $Enums.ErrorType
-    severity?: EnumSeverityFilter<"Error"> | $Enums.Severity
     layer?: EnumValidationLayerFilter<"Error"> | $Enums.ValidationLayer
-    model?: StringFilter<"Error"> | string
     resolvedAt?: DateTimeNullableFilter<"Error"> | Date | string | null
     dismissedAt?: DateTimeNullableFilter<"Error"> | Date | string | null
     createdAt?: DateTimeFilter<"Error"> | Date | string
@@ -23959,9 +23898,7 @@ export namespace Prisma {
     endIndexSuggestion?: SortOrder
     privateDocumentId?: SortOrder
     type?: SortOrder
-    severity?: SortOrder
     layer?: SortOrder
-    model?: SortOrder
     resolvedAt?: SortOrderInput | SortOrder
     dismissedAt?: SortOrderInput | SortOrder
     createdAt?: SortOrder
@@ -23986,9 +23923,7 @@ export namespace Prisma {
     endIndexSuggestion?: IntWithAggregatesFilter<"Error"> | number
     privateDocumentId?: IntWithAggregatesFilter<"Error"> | number
     type?: EnumErrorTypeWithAggregatesFilter<"Error"> | $Enums.ErrorType
-    severity?: EnumSeverityWithAggregatesFilter<"Error"> | $Enums.Severity
     layer?: EnumValidationLayerWithAggregatesFilter<"Error"> | $Enums.ValidationLayer
-    model?: StringWithAggregatesFilter<"Error"> | string
     resolvedAt?: DateTimeNullableWithAggregatesFilter<"Error"> | Date | string | null
     dismissedAt?: DateTimeNullableWithAggregatesFilter<"Error"> | Date | string | null
     createdAt?: DateTimeWithAggregatesFilter<"Error"> | Date | string
@@ -25225,9 +25160,7 @@ export namespace Prisma {
     startIndexSuggestion: number
     endIndexSuggestion: number
     type: $Enums.ErrorType
-    severity: $Enums.Severity
     layer: $Enums.ValidationLayer
-    model: string
     resolvedAt?: Date | string | null
     dismissedAt?: Date | string | null
     createdAt?: Date | string
@@ -25245,9 +25178,7 @@ export namespace Prisma {
     endIndexSuggestion: number
     privateDocumentId: number
     type: $Enums.ErrorType
-    severity: $Enums.Severity
     layer: $Enums.ValidationLayer
-    model: string
     resolvedAt?: Date | string | null
     dismissedAt?: Date | string | null
     createdAt?: Date | string
@@ -25262,9 +25193,7 @@ export namespace Prisma {
     startIndexSuggestion?: IntFieldUpdateOperationsInput | number
     endIndexSuggestion?: IntFieldUpdateOperationsInput | number
     type?: EnumErrorTypeFieldUpdateOperationsInput | $Enums.ErrorType
-    severity?: EnumSeverityFieldUpdateOperationsInput | $Enums.Severity
     layer?: EnumValidationLayerFieldUpdateOperationsInput | $Enums.ValidationLayer
-    model?: StringFieldUpdateOperationsInput | string
     resolvedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     dismissedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -25282,9 +25211,7 @@ export namespace Prisma {
     endIndexSuggestion?: IntFieldUpdateOperationsInput | number
     privateDocumentId?: IntFieldUpdateOperationsInput | number
     type?: EnumErrorTypeFieldUpdateOperationsInput | $Enums.ErrorType
-    severity?: EnumSeverityFieldUpdateOperationsInput | $Enums.Severity
     layer?: EnumValidationLayerFieldUpdateOperationsInput | $Enums.ValidationLayer
-    model?: StringFieldUpdateOperationsInput | string
     resolvedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     dismissedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -25301,9 +25228,7 @@ export namespace Prisma {
     endIndexSuggestion: number
     privateDocumentId: number
     type: $Enums.ErrorType
-    severity: $Enums.Severity
     layer: $Enums.ValidationLayer
-    model: string
     resolvedAt?: Date | string | null
     dismissedAt?: Date | string | null
     createdAt?: Date | string
@@ -25318,9 +25243,7 @@ export namespace Prisma {
     startIndexSuggestion?: IntFieldUpdateOperationsInput | number
     endIndexSuggestion?: IntFieldUpdateOperationsInput | number
     type?: EnumErrorTypeFieldUpdateOperationsInput | $Enums.ErrorType
-    severity?: EnumSeverityFieldUpdateOperationsInput | $Enums.Severity
     layer?: EnumValidationLayerFieldUpdateOperationsInput | $Enums.ValidationLayer
-    model?: StringFieldUpdateOperationsInput | string
     resolvedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     dismissedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -25337,9 +25260,7 @@ export namespace Prisma {
     endIndexSuggestion?: IntFieldUpdateOperationsInput | number
     privateDocumentId?: IntFieldUpdateOperationsInput | number
     type?: EnumErrorTypeFieldUpdateOperationsInput | $Enums.ErrorType
-    severity?: EnumSeverityFieldUpdateOperationsInput | $Enums.Severity
     layer?: EnumValidationLayerFieldUpdateOperationsInput | $Enums.ValidationLayer
-    model?: StringFieldUpdateOperationsInput | string
     resolvedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     dismissedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -26717,13 +26638,6 @@ export namespace Prisma {
     not?: NestedEnumErrorTypeFilter<$PrismaModel> | $Enums.ErrorType
   }
 
-  export type EnumSeverityFilter<$PrismaModel = never> = {
-    equals?: $Enums.Severity | EnumSeverityFieldRefInput<$PrismaModel>
-    in?: $Enums.Severity[] | ListEnumSeverityFieldRefInput<$PrismaModel>
-    notIn?: $Enums.Severity[] | ListEnumSeverityFieldRefInput<$PrismaModel>
-    not?: NestedEnumSeverityFilter<$PrismaModel> | $Enums.Severity
-  }
-
   export type EnumValidationLayerFilter<$PrismaModel = never> = {
     equals?: $Enums.ValidationLayer | EnumValidationLayerFieldRefInput<$PrismaModel>
     in?: $Enums.ValidationLayer[] | ListEnumValidationLayerFieldRefInput<$PrismaModel>
@@ -26742,9 +26656,7 @@ export namespace Prisma {
     endIndexSuggestion?: SortOrder
     privateDocumentId?: SortOrder
     type?: SortOrder
-    severity?: SortOrder
     layer?: SortOrder
-    model?: SortOrder
     resolvedAt?: SortOrder
     dismissedAt?: SortOrder
     createdAt?: SortOrder
@@ -26770,9 +26682,7 @@ export namespace Prisma {
     endIndexSuggestion?: SortOrder
     privateDocumentId?: SortOrder
     type?: SortOrder
-    severity?: SortOrder
     layer?: SortOrder
-    model?: SortOrder
     resolvedAt?: SortOrder
     dismissedAt?: SortOrder
     createdAt?: SortOrder
@@ -26789,9 +26699,7 @@ export namespace Prisma {
     endIndexSuggestion?: SortOrder
     privateDocumentId?: SortOrder
     type?: SortOrder
-    severity?: SortOrder
     layer?: SortOrder
-    model?: SortOrder
     resolvedAt?: SortOrder
     dismissedAt?: SortOrder
     createdAt?: SortOrder
@@ -26814,16 +26722,6 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedEnumErrorTypeFilter<$PrismaModel>
     _max?: NestedEnumErrorTypeFilter<$PrismaModel>
-  }
-
-  export type EnumSeverityWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: $Enums.Severity | EnumSeverityFieldRefInput<$PrismaModel>
-    in?: $Enums.Severity[] | ListEnumSeverityFieldRefInput<$PrismaModel>
-    notIn?: $Enums.Severity[] | ListEnumSeverityFieldRefInput<$PrismaModel>
-    not?: NestedEnumSeverityWithAggregatesFilter<$PrismaModel> | $Enums.Severity
-    _count?: NestedIntFilter<$PrismaModel>
-    _min?: NestedEnumSeverityFilter<$PrismaModel>
-    _max?: NestedEnumSeverityFilter<$PrismaModel>
   }
 
   export type EnumValidationLayerWithAggregatesFilter<$PrismaModel = never> = {
@@ -28057,10 +27955,6 @@ export namespace Prisma {
     set?: $Enums.ErrorType
   }
 
-  export type EnumSeverityFieldUpdateOperationsInput = {
-    set?: $Enums.Severity
-  }
-
   export type EnumValidationLayerFieldUpdateOperationsInput = {
     set?: $Enums.ValidationLayer
   }
@@ -28864,13 +28758,6 @@ export namespace Prisma {
     not?: NestedEnumErrorTypeFilter<$PrismaModel> | $Enums.ErrorType
   }
 
-  export type NestedEnumSeverityFilter<$PrismaModel = never> = {
-    equals?: $Enums.Severity | EnumSeverityFieldRefInput<$PrismaModel>
-    in?: $Enums.Severity[] | ListEnumSeverityFieldRefInput<$PrismaModel>
-    notIn?: $Enums.Severity[] | ListEnumSeverityFieldRefInput<$PrismaModel>
-    not?: NestedEnumSeverityFilter<$PrismaModel> | $Enums.Severity
-  }
-
   export type NestedEnumValidationLayerFilter<$PrismaModel = never> = {
     equals?: $Enums.ValidationLayer | EnumValidationLayerFieldRefInput<$PrismaModel>
     in?: $Enums.ValidationLayer[] | ListEnumValidationLayerFieldRefInput<$PrismaModel>
@@ -28886,16 +28773,6 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedEnumErrorTypeFilter<$PrismaModel>
     _max?: NestedEnumErrorTypeFilter<$PrismaModel>
-  }
-
-  export type NestedEnumSeverityWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: $Enums.Severity | EnumSeverityFieldRefInput<$PrismaModel>
-    in?: $Enums.Severity[] | ListEnumSeverityFieldRefInput<$PrismaModel>
-    notIn?: $Enums.Severity[] | ListEnumSeverityFieldRefInput<$PrismaModel>
-    not?: NestedEnumSeverityWithAggregatesFilter<$PrismaModel> | $Enums.Severity
-    _count?: NestedIntFilter<$PrismaModel>
-    _min?: NestedEnumSeverityFilter<$PrismaModel>
-    _max?: NestedEnumSeverityFilter<$PrismaModel>
   }
 
   export type NestedEnumValidationLayerWithAggregatesFilter<$PrismaModel = never> = {
@@ -29743,9 +29620,7 @@ export namespace Prisma {
     startIndexSuggestion: number
     endIndexSuggestion: number
     type: $Enums.ErrorType
-    severity: $Enums.Severity
     layer: $Enums.ValidationLayer
-    model: string
     resolvedAt?: Date | string | null
     dismissedAt?: Date | string | null
     createdAt?: Date | string
@@ -29761,9 +29636,7 @@ export namespace Prisma {
     startIndexSuggestion: number
     endIndexSuggestion: number
     type: $Enums.ErrorType
-    severity: $Enums.Severity
     layer: $Enums.ValidationLayer
-    model: string
     resolvedAt?: Date | string | null
     dismissedAt?: Date | string | null
     createdAt?: Date | string
@@ -30007,9 +29880,7 @@ export namespace Prisma {
     endIndexSuggestion?: IntFilter<"Error"> | number
     privateDocumentId?: IntFilter<"Error"> | number
     type?: EnumErrorTypeFilter<"Error"> | $Enums.ErrorType
-    severity?: EnumSeverityFilter<"Error"> | $Enums.Severity
     layer?: EnumValidationLayerFilter<"Error"> | $Enums.ValidationLayer
-    model?: StringFilter<"Error"> | string
     resolvedAt?: DateTimeNullableFilter<"Error"> | Date | string | null
     dismissedAt?: DateTimeNullableFilter<"Error"> | Date | string | null
     createdAt?: DateTimeFilter<"Error"> | Date | string
@@ -31916,9 +31787,7 @@ export namespace Prisma {
     startIndexSuggestion: number
     endIndexSuggestion: number
     type: $Enums.ErrorType
-    severity: $Enums.Severity
     layer: $Enums.ValidationLayer
-    model: string
     resolvedAt?: Date | string | null
     dismissedAt?: Date | string | null
     createdAt?: Date | string
@@ -31986,9 +31855,7 @@ export namespace Prisma {
     startIndexSuggestion?: IntFieldUpdateOperationsInput | number
     endIndexSuggestion?: IntFieldUpdateOperationsInput | number
     type?: EnumErrorTypeFieldUpdateOperationsInput | $Enums.ErrorType
-    severity?: EnumSeverityFieldUpdateOperationsInput | $Enums.Severity
     layer?: EnumValidationLayerFieldUpdateOperationsInput | $Enums.ValidationLayer
-    model?: StringFieldUpdateOperationsInput | string
     resolvedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     dismissedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -32004,9 +31871,7 @@ export namespace Prisma {
     startIndexSuggestion?: IntFieldUpdateOperationsInput | number
     endIndexSuggestion?: IntFieldUpdateOperationsInput | number
     type?: EnumErrorTypeFieldUpdateOperationsInput | $Enums.ErrorType
-    severity?: EnumSeverityFieldUpdateOperationsInput | $Enums.Severity
     layer?: EnumValidationLayerFieldUpdateOperationsInput | $Enums.ValidationLayer
-    model?: StringFieldUpdateOperationsInput | string
     resolvedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     dismissedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -32022,9 +31887,7 @@ export namespace Prisma {
     startIndexSuggestion?: IntFieldUpdateOperationsInput | number
     endIndexSuggestion?: IntFieldUpdateOperationsInput | number
     type?: EnumErrorTypeFieldUpdateOperationsInput | $Enums.ErrorType
-    severity?: EnumSeverityFieldUpdateOperationsInput | $Enums.Severity
     layer?: EnumValidationLayerFieldUpdateOperationsInput | $Enums.ValidationLayer
-    model?: StringFieldUpdateOperationsInput | string
     resolvedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     dismissedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string

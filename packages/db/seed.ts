@@ -1,6 +1,9 @@
-import { prisma } from "@prove-it/db"
+import { prisma } from "./index"
 import seedDocuments from "./seeds/documents"
 import deleteDatabase from "./seeds/deleteDatabase"
+import seedUniversity from "./seeds/university"
+import seedCourse from "./seeds/course"
+import seedUser from "./seeds/user"
 
 
 async function main() {
@@ -12,8 +15,10 @@ async function main() {
         console.log("Database deleted")
 
         // Seed the database here
-        console.log("Seeding database...")
-        await seedDocuments()
+        const university = await seedUniversity()
+        const course = await seedCourse(university?.privateId ?? 1)
+        const user = await seedUser('Test User', 'test@utoronto.ca', 'password123')
+        await seedDocuments(user?.privateId ?? 1, course?.privateId ?? 1)
         console.log("Seeding completed 🌱 ")
 
     } catch (error) {
@@ -22,6 +27,10 @@ async function main() {
     } finally {
         await prisma.$disconnect().catch(() => {})
         process.exit(process.exitCode ?? 0)
+        console.error("Something went wrong, did you forget to run you database?")
+
     }
 }
+
+main()
 

@@ -1,4 +1,4 @@
-import { prisma } from "@prove-it/db"
+import { prisma } from "../index"
 
 export default async function deleteDatabase() {
     // 1. Delete Junction Tables first (they depend on multiple models)

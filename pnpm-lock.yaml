@@ -142,11 +142,17 @@ importers:
     dependencies:
       '@prisma/client':
         specifier: ^6.19.3
-        version: 6.19.3(prisma@6.19.3(typescript@6.0.3))(typescript@6.0.3)
+        version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
     devDependencies:
       prisma:
         specifier: ^6.19.3
-        version: 6.19.3(typescript@6.0.3)
+        version: 6.19.3(typescript@5.9.3)
+      ts-node:
+        specifier: ^10.9.2
+        version: 10.9.2(@types/node@25.6.0)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.8.2
+        version: 5.9.3
 
 packages:
 
@@ -2864,10 +2870,10 @@ snapshots:
 
   '@nolyfill/is-core-module@1.0.39': {}
 
-  '@prisma/client@6.19.3(prisma@6.19.3(typescript@6.0.3))(typescript@6.0.3)':
+  '@prisma/client@6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)':
     optionalDependencies:
-      prisma: 6.19.3(typescript@6.0.3)
-      typescript: 6.0.3
+      prisma: 6.19.3(typescript@5.9.3)
+      typescript: 5.9.3
 
   '@prisma/config@6.19.3':
     dependencies:
@@ -4548,6 +4554,15 @@ snapshots:
 
   prelude-ls@1.2.1: {}
 
+  prisma@6.19.3(typescript@5.9.3):
+    dependencies:
+      '@prisma/config': 6.19.3
+      '@prisma/engines': 6.19.3
+    optionalDependencies:
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - magicast
+
   prisma@6.19.3(typescript@6.0.3):
     dependencies:
       '@prisma/config': 6.19.3
@@ -4883,6 +4898,24 @@ snapshots:
   ts-api-utils@2.5.0(typescript@5.9.3):
     dependencies:
       typescript: 5.9.3
+
+  ts-node@10.9.2(@types/node@25.6.0)(typescript@5.9.3):
+    dependencies:
+      '@cspotcode/source-map-support': 0.8.1
+      '@tsconfig/node10': 1.0.12
+      '@tsconfig/node12': 1.0.11
+      '@tsconfig/node14': 1.0.3
+      '@tsconfig/node16': 1.0.4
+      '@types/node': 25.6.0
+      acorn: 8.16.0
+      acorn-walk: 8.3.5
+      arg: 4.1.3
+      create-require: 1.1.1
+      diff: 4.0.4
+      make-error: 1.3.6
+      typescript: 5.9.3
+      v8-compile-cache-lib: 3.0.1
+      yn: 3.1.1
 
   ts-node@10.9.2(@types/node@25.6.0)(typescript@6.0.3):
     dependencies:

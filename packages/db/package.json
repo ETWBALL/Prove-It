@@ -17,7 +17,8 @@
     "typescript": "^5.8.2"
   },
   "prisma": {
-    "seed": "ts-node seed.ts"
+    "seed": "ts-node seed.ts",
+    "schema": "prisma generate --schema=./schema.prisma"
   }
 
 }
