@@ -4,14 +4,18 @@
   "private": true,
   "main": "src/index.ts",
   "scripts": {
-    "dev": "nodemon --exec ts-node src/index.ts"
+    "dev": "nodemon --exec \"node --env-file=../../.env -r ts-node/register src/index.ts\"",
+    "test:index": "node --env-file=../../.env -r ts-node/register test/testIndex.ts"
   },
   "dependencies": {
+    "jose": "^6.2.3",
+    "dotenv": "^16.4.7",
     "@prove-it/auth": "workspace:*",
     "@prove-it/db": "workspace:*",
     "@upstash/redis": "^1.37.0",
     "jsonwebtoken": "^9.0.3",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.14",

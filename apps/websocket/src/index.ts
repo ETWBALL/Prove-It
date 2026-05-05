@@ -13,11 +13,11 @@ import { onDisconnect } from '../src/events/onDisconnect'
 
 // Store all user's document states, deltas here (RAM)
 const documentStates = new Map<string, DocumentState>() 
+const timers = new Map<string, Timers>() // two timers per document
 
 // Store socketID to active documentID (single active document per socket).
 const socketDocumentMap = new Map<string, string>() // socketId -> documentId
 const documentConnectionCounts = new Map<string, number>() // documentId -> active socket count
-const timers = new Map<string, Timers>() // two timers per document
 
 // (1) Create a new HTTP server provided by Node.js
 const httpServer = createServer()
@@ -26,6 +26,7 @@ const httpServer = createServer()
 const io = new Server(httpServer, {
     pingInterval: 10000,  // send ping every 10 seconds
     pingTimeout: 5000,    // wait 5 seconds for pong before disconnecting
+    maxHttpBufferSize: 10 * 1024 * 1024, // large document payloads on join/success
 })
 
 // (3) Middleware to verify access token
@@ -61,22 +62,26 @@ io.on('connection', (socket) => {
     console.log('A user connected with socket id:', socket.id);
 
     // Event 1: User opens document
-    socket.on('document:join', async (documentId: string) =>
-        onJoin(socket, documentStates, documentId, socketDocumentMap, documentConnectionCounts)
-    )
+
+    // socket.on('document:join', async (documentId: string) =>
+    //     onJoin(socket, documentStates, documentId, socketDocumentMap, documentConnectionCounts)
+    // )
 
     // Event 2: User types (insert, delete, replace) (IMPORTANT)
-    socket.on('document:delta', async (delta: Delta) => onDelta(socket, documentStates, delta, socketDocumentMap, timers))
+
+    // socket.on('document:delta', async (delta: Delta) => onDelta(socket, documentStates, delta, socketDocumentMap, timers))
 
     // Event 3: User leaves document
-    socket.on('document:leave', async (documentId: string) =>
-        onLeave(socket, documentStates, documentId, socketDocumentMap, documentConnectionCounts, timers)
-    )
+
+    // socket.on('document:leave', async (documentId: string) =>
+    //     onLeave(socket, documentStates, documentId, socketDocumentMap, documentConnectionCounts, timers)
+    // )
 
     // Event 4: Listen for sudden disconnects
-    socket.on('disconnect', async () =>
-        onDisconnect(socket, documentStates, socketDocumentMap, documentConnectionCounts, timers)
-    )
+
+    // socket.on('disconnect', async () =>
+    //     onDisconnect(socket, documentStates, socketDocumentMap, documentConnectionCounts, timers)
+    // )
 
     // Event 5: Listen for save document event from client, persist to DB immediately
     // Event 6: Listen for lastCompiled to update document state in memory, persist to DB immediately (proofAttempt and update old documentbody)

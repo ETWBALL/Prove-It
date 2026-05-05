@@ -13,9 +13,12 @@ export async function onDisconnect(
         // Get the document ID
         const documentId = socketDocumentMap.get(socket.id)
 
+        // Already removed (e.g. same-user takeover) or never joined — nothing to do
+        if (!documentId) {
+            return
+        }
         // Check if the user is authorized to disconnect
-        if (!socket.data.user || !documentId) {
-            console.error(`Document ID not found for socket ${socket.id}`)
+        if (!socket.data.user) {
             return
         }
 

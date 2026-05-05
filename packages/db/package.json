@@ -6,7 +6,9 @@
   "private": true,
   "scripts": {
     "generate": "prisma generate --schema=./schema.prisma",
-    "seed": "ts-node seed.ts"
+    "seed": "ts-node seed.ts",
+    "dev": "ts-node --env-file=../../.env index.ts",
+    "migrate": "prisma migrate dev --schema=./schema.prisma"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3"
