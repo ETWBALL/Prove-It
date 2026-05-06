@@ -6,7 +6,7 @@
     "node": "22.x"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "node -e \"require('fs').copyFileSync('../../.env','.env.local')\" && next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
