@@ -8,10 +8,25 @@ const ML_TIMEOUT_MS = 35000 // 35 seconds
 const MAX_DELTA_CONTENT_LENGTH = 50_000
 const MAX_DOCUMENT_LENGTH = 1_000_000
 
+const redisHost = process.env.REDIS_HOST ?? 'localhost'
+const redisPort = Number(process.env.REDIS_PORT ?? 6379)
+const redisPassword = process.env.REDIS_PASSWORD || undefined
+
+// #region agent log
+fetch('http://127.0.0.1:7603/ingest/bbd4aff5-90ad-4b02-96a9-0911369cf8eb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'503fa4'},body:JSON.stringify({sessionId:'503fa4',runId:'pre-fix',hypothesisId:'H2',location:'apps/websocket/lib/helpers.ts:16',message:'websocket redis publisher config resolved',data:{redisHost,redisPort,hasPassword:Boolean(redisPassword)},timestamp:Date.now()})}).catch(()=>{});
+// #endregion
+
 const redis = new Redis({
-    host: process.env.REDIS_HOST ?? 'redis',
-    port: Number(process.env.REDIS_PORT ?? 6379),
-    password: process.env.REDIS_PASSWORD || undefined,
+    host: redisHost,
+    port: redisPort,
+    password: redisPassword,
+})
+
+redis.on('error', (err: Error) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7603/ingest/bbd4aff5-90ad-4b02-96a9-0911369cf8eb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'503fa4'},body:JSON.stringify({sessionId:'503fa4',runId:'pre-fix',hypothesisId:'H3',location:'apps/websocket/lib/helpers.ts:30',message:'websocket redis publisher error',data:{errorMessage:err.message,code:(err as unknown as { code?: string }).code},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    console.error('Redis publisher connection error:', err)
 })
 
 

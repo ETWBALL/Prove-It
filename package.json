@@ -2,7 +2,8 @@
   "name": "prove-it",
   "private": true,
   "scripts": {
-    "dev": "pnpm --parallel -r dev",
+    "dev": "pnpm dev:redis && pnpm --parallel -r dev",
+    "dev:redis": "docker compose up -d redis",
     "build": "pnpm -r build",
     "prisma:generate": "prisma generate --schema=./packages/db/schema.prisma",
     "prisma:migrate": "prisma migrate dev --schema=./packages/db/schema.prisma",
