@@ -177,5 +177,5 @@ async function main() {
 
 main().catch((error) => {
     console.error("Unhandled test failure:", error)
-    process.exit(1)
-})
+        process.exit(1)
+    })

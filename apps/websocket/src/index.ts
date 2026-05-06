@@ -99,7 +99,7 @@ io.on('connection', (socket) => {
 
 
 // (5) Subscribe to Redis channel. This allows the WS server to listen for ML results.
-redisSub.psubscribe('ml:result:*', (err) => {
+redisSub.psubscribe('ml:result:*', (err: Error | null) => {
     if (err) {
         console.error('Error subscribing to Redis channel:', err)
         return
@@ -107,11 +107,11 @@ redisSub.psubscribe('ml:result:*', (err) => {
     console.log('Subscribed to Redis channel: ml:result:*')
 })
 
-redisSub.on('error', (err) => {
+redisSub.on('error', (err: Error) => {
     console.error('Redis subscriber connection error:', err)
 })
 
-redisSub.on('pmessage', (pattern, channel, message) => {
+redisSub.on('pmessage', (_pattern: string, channel: string, message: string) => {
     try {
         const channelParts = channel.split(':')
         const documentId = channelParts[2]
