@@ -71,6 +71,7 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+/packages/db/generated/prisma/
 
 // AI instructions
 /AGENTS.md
