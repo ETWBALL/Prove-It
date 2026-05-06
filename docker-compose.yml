@@ -1,0 +1,97 @@
+# Prove-It local stack (from repo root: docker compose up --build)
+#
+# Env: all secrets live in root `.env` (see `env_file` per service).
+# Database: `DATABASE_URL` in `.env` uses `localhost` for host-native dev. Inside
+# containers, Postgres is reachable as hostname `postgres`, so we override
+# `DATABASE_URL` below for `web` and `websocket` only.
+#
+# WebSocket dev script runs `node --env-file=../../.env` from `apps/websocket`
+# → resolves to `/app/.env`, so we bind-mount `.env` there.
+#
+# Port note: if Postgres is already running on your machine on 5432, stop it or
+# change the host mapping (e.g. "5433:5432") and adjust DATABASE_URL override.
+#
+# Hot reload: bind-mount sources into the containers. Node services also use an
+# anonymous `/app/node_modules` volume. ML mounts `./apps/ml` only; pip packages
+# stay in the image under `/usr/local/...`.
+
+name: prove-it
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Upstash-only; no Compose Redis. Needs UPSTASH_* + MODEL_* + GEMINI_* from `.env`.
+  ml:
+    build:
+      context: ./apps/ml
+      dockerfile: dockerfile
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /app
+    command:
+      - uvicorn
+      - src.main:app
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
+      - --reload
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./apps/ml:/app
+
+  websocket:
+    build:
+      context: .
+      dockerfile: apps/websocket/Dockerfile
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/postgres
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./.env:/app/.env:ro
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/dockerfile
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/postgres
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      websocket:
+        condition: service_started
+
+volumes:
+  pgdata:

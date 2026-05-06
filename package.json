@@ -7,8 +7,13 @@
     "prisma:generate": "prisma generate --schema=./packages/db/schema.prisma",
     "prisma:migrate": "prisma migrate dev --schema=./packages/db/schema.prisma",
     "prisma:seed": "pnpm --filter @prove-it/db seed",
-    "prisma:studio": "prisma studio --schema=./packages/db/schema.prisma"
-
+    "prisma:studio": "prisma studio --schema=./packages/db/schema.prisma",
+    "docker:build:ws": "docker build -f apps/websocket/Dockerfile . -t prove-it-websocket",
+    "docker:run:ws": "docker run --env-file .env -p 3001:3001 prove-it-websocket",
+    "docker:build:ml": "docker build -f apps/ml/dockerfile apps/ml -t prove-it-ml",
+    "docker:run:ml": "docker run --env-file .env -p 8000:8000 prove-it-ml",
+    "docker:build:web": "docker build -f apps/web/dockerfile apps/web -t prove-it-web",
+    "docker:run:web": "docker run --env-file .env -p 3000:3000 prove-it-web"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

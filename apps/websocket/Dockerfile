@@ -11,8 +11,16 @@ WORKDIR /app
 # Copy everything in the current directory to the working directory.
 COPY . .
 
-# Install the dependencies.
+# Install deps and generate Prisma client as root (Corepack/pnpm need a writable cache).
 RUN pnpm install --frozen-lockfile
+RUN pnpm prisma:generate 
+
+# Non-root runtime: create user, own /app so the app can read workspace files.
+RUN useradd -r -u 1001 -m appuser && chown -R appuser:appuser /app
+USER appuser
+
+# Expose the port the application will run on.
+EXPOSE 3001
 
 # Start the application.
 CMD ["pnpm", "--filter", "@prove-it/websocket", "dev"]
