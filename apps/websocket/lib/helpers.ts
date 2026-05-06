@@ -1,5 +1,5 @@
 import { AuthenticatedSocket, Delta, DocumentState, ErrorState, Timers } from '../lib/types'
-import { Redis } from '@upstash/redis'
+import Redis from 'ioredis'
 import { prisma } from '@prove-it/db'
 
 const DATABASE_TIMEOUT_MS = 60000 // 1 minute
@@ -7,10 +7,14 @@ const ML_TIMEOUT_MS = 35000 // 35 seconds
 
 const MAX_DELTA_CONTENT_LENGTH = 50_000
 const MAX_DOCUMENT_LENGTH = 1_000_000
+
 const redis = new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN
+    host: process.env.REDIS_HOST ?? 'redis',
+    port: Number(process.env.REDIS_PORT ?? 6379),
+    password: process.env.REDIS_PASSWORD || undefined,
 })
+
+
 // Check for Standard Linguistic Triggers
 const trigger1 = ['.', '?', '!', '\n', '\n\n', ':', ';']
 

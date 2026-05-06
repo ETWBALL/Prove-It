@@ -16,7 +16,7 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm prisma:generate 
 
 # Non-root runtime: create user, own /app so the app can read workspace files.
-RUN useradd -r -u 1001 -m appuser && chown -R appuser:appuser /app
+RUN useradd -r -u 999 -m appuser
 USER appuser
 
 # Expose the port the application will run on.

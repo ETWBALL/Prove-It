@@ -1,4 +1,5 @@
 import { verifyAccessToken } from '@prove-it/auth'
+import Redis from 'ioredis'
 
 // Local Imports
 import { createServer } from 'http'
@@ -18,6 +19,14 @@ const timers = new Map<string, Timers>() // two timers per document
 // Store socketID to active documentID (single active document per socket).
 const socketDocumentMap = new Map<string, string>() // socketId -> documentId
 const documentConnectionCounts = new Map<string, number>() // documentId -> active socket count
+
+
+// Connect to Redis (subscriber for ML results -> websocket clients).
+const redisSub = new Redis({
+    host: process.env.REDIS_HOST ?? 'redis',
+    port: Number(process.env.REDIS_PORT ?? 6379),
+    password: process.env.REDIS_PASSWORD || undefined,
+})
 
 // (1) Create a new HTTP server provided by Node.js
 const httpServer = createServer()
@@ -89,7 +98,37 @@ io.on('connection', (socket) => {
 })
 
 
-// (5) start listening for connections on port 3001
+// (5) Subscribe to Redis channel. This allows the WS server to listen for ML results.
+redisSub.psubscribe('ml:result:*', (err) => {
+    if (err) {
+        console.error('Error subscribing to Redis channel:', err)
+        return
+    }
+    console.log('Subscribed to Redis channel: ml:result:*')
+})
+
+redisSub.on('error', (err) => {
+    console.error('Redis subscriber connection error:', err)
+})
+
+redisSub.on('pmessage', (pattern, channel, message) => {
+    try {
+        const channelParts = channel.split(':')
+        const documentId = channelParts[2]
+        if (!documentId) {
+            console.warn(`Ignoring ML result from unexpected channel: ${channel}`)
+            return
+        }
+
+        const result = JSON.parse(message)
+        io.to(documentId).emit('document:ml:result', { documentId, result })
+        console.log(`Forwarded ML result to document room ${documentId}.`)
+    } catch (error) {
+        console.error(`Failed to process Redis ML message for channel ${channel}:`, error)
+    }
+})
+
+// (6) start listening for connections on port 3001
 httpServer.listen(3001, () => {
     console.log('WebSocket server is running on port 3001')
 })
