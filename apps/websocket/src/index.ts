@@ -26,10 +26,6 @@ const redisHost = process.env.REDIS_HOST ?? 'localhost'
 const redisPort = Number(process.env.REDIS_PORT ?? 6379)
 const redisPassword = process.env.REDIS_PASSWORD || undefined
 
-// #region agent log
-fetch('http://127.0.0.1:7603/ingest/bbd4aff5-90ad-4b02-96a9-0911369cf8eb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'503fa4'},body:JSON.stringify({sessionId:'503fa4',runId:'pre-fix',hypothesisId:'H1',location:'apps/websocket/src/index.ts:29',message:'websocket redis subscriber config resolved',data:{redisHost,redisPort,hasPassword:Boolean(redisPassword)},timestamp:Date.now()})}).catch(()=>{});
-// #endregion
-
 const redisSub = new Redis({
     host: redisHost,
     port: redisPort,
@@ -109,22 +105,13 @@ io.on('connection', (socket) => {
 // (5) Subscribe to Redis channel. This allows the WS server to listen for ML results.
 redisSub.psubscribe('ml:result:*')
     .then(() => {
-        // #region agent log
-        fetch('http://127.0.0.1:7603/ingest/bbd4aff5-90ad-4b02-96a9-0911369cf8eb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'503fa4'},body:JSON.stringify({sessionId:'503fa4',runId:'post-fix',hypothesisId:'H1',location:'apps/websocket/src/index.ts:101',message:'redis psubscribe promise succeeded',data:{channelPattern:'ml:result:*'},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         console.log('Subscribed to Redis channel: ml:result:*')
     })
     .catch((err: unknown) => {
-        // #region agent log
-        fetch('http://127.0.0.1:7603/ingest/bbd4aff5-90ad-4b02-96a9-0911369cf8eb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'503fa4'},body:JSON.stringify({sessionId:'503fa4',runId:'post-fix',hypothesisId:'H2',location:'apps/websocket/src/index.ts:107',message:'redis psubscribe promise failed',data:{errorMessage:err instanceof Error ? err.message : 'unknown error'},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         console.error('Error subscribing to Redis channel:', err)
     })
 
 redisSub.on('error', (err: Error) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7603/ingest/bbd4aff5-90ad-4b02-96a9-0911369cf8eb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'503fa4'},body:JSON.stringify({sessionId:'503fa4',runId:'pre-fix',hypothesisId:'H3',location:'apps/websocket/src/index.ts:111',message:'redis subscriber emitted error',data:{errorMessage:err.message},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     console.error('Redis subscriber connection error:', err)
 })
 
@@ -138,15 +125,9 @@ redisSub.on('pmessage', (_pattern: string, channel: string, message: string) => 
         }
 
         const result = JSON.parse(message)
-        // #region agent log
-        fetch('http://127.0.0.1:7603/ingest/bbd4aff5-90ad-4b02-96a9-0911369cf8eb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'503fa4'},body:JSON.stringify({sessionId:'503fa4',runId:'pre-fix',hypothesisId:'H4',location:'apps/websocket/src/index.ts:127',message:'forwarding ml result event',data:{documentId},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         io.to(documentId).emit('document:ml:result', { documentId, result })
         console.log(`Forwarded ML result to document room ${documentId}.`)
     } catch (error) {
-        // #region agent log
-        fetch('http://127.0.0.1:7603/ingest/bbd4aff5-90ad-4b02-96a9-0911369cf8eb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'503fa4'},body:JSON.stringify({sessionId:'503fa4',runId:'pre-fix',hypothesisId:'H5',location:'apps/websocket/src/index.ts:132',message:'failed to process redis ml message',data:{channel},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         console.error(`Failed to process Redis ML message for channel ${channel}:`, error)
     }
 })
