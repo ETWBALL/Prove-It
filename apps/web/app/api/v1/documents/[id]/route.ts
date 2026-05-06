@@ -3,31 +3,37 @@
  * @description Handles fetching, updating, and deleting a specific document by its public ID.
  */
 
-import { NextResponse } from "next/server";
-import { prisma } from "@repo/db";
+import { NextResponse, NextRequest } from "next/server";
+import { prisma } from "@prove-it/db";
+import { verifySession } from "@prove-it/packages/auth/auth-utility";
 
 /**
  * GET /api/v1/documents/[id]
  * Retrieves a single document and its nested body content.
  */
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const documentPublicId = params.id;
+    const session = await verifySession(request);
+    const userId = session?.userId || 1; // Fallback for testing
 
-    // TODO: Verify Auth here and ensure the document belongs to the privateUserId
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const document = await prisma.document.findUnique({
-      where: { publicId: documentPublicId },
+      where: { 
+        publicId: documentPublicId,
+        privateUserId: userId // Security check: Ensure it belongs to the requester
+      },
       include: {
         body: true,
       }
     });
 
     if (!document) {
-      return NextResponse.json({ error: "Document not found" }, { status: 404 });
+      return NextResponse.json({ error: "Document not found or access denied" }, { status: 404 });
     }
 
     return NextResponse.json({ document }, { status: 200 });
@@ -43,13 +49,28 @@ export async function GET(
  * Updates a document's title and/or its body content.
  */
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const documentPublicId = params.id;
+    const session = await verifySession(request);
+    const userId = session?.userId || 1; 
+
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const body = await request.json();
     const { title, content } = body;
+
+    // Security: Verify document ownership before updating
+    const existingDoc = await prisma.document.findUnique({
+      where: { publicId: documentPublicId },
+      select: { privateUserId: true }
+    });
+
+    if (!existingDoc || existingDoc.privateUserId !== userId) {
+      return NextResponse.json({ error: "Document not found or access denied" }, { status: 404 });
+    }
 
     // Prepare update data payload dynamically
     const updateData: any = {};
@@ -78,14 +99,28 @@ export async function PATCH(
 
 /**
  * DELETE /api/v1/documents/[id]
- * Deletes a document (Prisma Cascade rules will handle deleting the DocumentBody).
+ * Deletes a document (Prisma Cascade rules handle deleting the DocumentBody and Attempts).
  */
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const documentPublicId = params.id;
+    const session = await verifySession(request);
+    const userId = session?.userId || 1; 
+
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    // Security: Verify ownership
+    const existingDoc = await prisma.document.findUnique({
+      where: { publicId: documentPublicId },
+      select: { privateUserId: true }
+    });
+
+    if (!existingDoc || existingDoc.privateUserId !== userId) {
+      return NextResponse.json({ error: "Document not found or access denied" }, { status: 404 });
+    }
 
     await prisma.document.delete({
       where: { publicId: documentPublicId }
