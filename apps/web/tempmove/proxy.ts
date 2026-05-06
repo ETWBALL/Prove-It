@@ -8,7 +8,7 @@ const publicRoutes = [
     '/api/v1/auth/refresh',
     '/api/v1/auth/logout',
     '/api/v1/plans',
-    '/landingPage'
+    '/',
 ]
 
 export const config = {
@@ -37,7 +37,7 @@ export async function proxy(request: NextRequest) {
         if (isApiRoute(pathname)){
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
-        return NextResponse.redirect(new URL('/login', request.url))
+        return NextResponse.redirect(new URL('/', request.url))
     }
 
     const { valid, expired, payload } = await verifyAccessToken(accessToken)
