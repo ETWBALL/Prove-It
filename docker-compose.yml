@@ -18,7 +18,21 @@
 name: prove-it
 
 services:
+  redis:
+    container_name: prove-it-redis
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   postgres:
+    container_name: prove-it-postgres
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: postgres
@@ -34,8 +48,9 @@ services:
       timeout: 5s
       retries: 10
 
-  # Upstash-only; no Compose Redis. Needs UPSTASH_* + MODEL_* + GEMINI_* from `.env`.
+  # ML worker service. Keep env in root `.env`; currently depends on Redis readiness.
   ml:
+    container_name: prove-it-ml
     build:
       context: ./apps/ml
       dockerfile: dockerfile
@@ -55,8 +70,12 @@ services:
       - "8000:8000"
     volumes:
       - ./apps/ml:/app
+    depends_on:
+      redis:
+        condition: service_healthy
 
   websocket:
+    container_name: prove-it-websocket
     build:
       context: .
       dockerfile: apps/websocket/Dockerfile
@@ -70,11 +89,26 @@ services:
       - ./.env:/app/.env:ro
       - .:/app
       - /app/node_modules
+      - /app/apps/websocket/node_modules
+      - /app/packages/auth/node_modules
+      - /app/packages/db/node_modules
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const net=require('net'); const s=net.connect(3001,'127.0.0.1',()=>{s.end();process.exit(0)}); s.on('error',()=>process.exit(1)); setTimeout(()=>process.exit(1),2000)\"",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 15
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
 
   web:
+    container_name: prove-it-web
     build:
       context: .
       dockerfile: apps/web/dockerfile
@@ -87,11 +121,15 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
+      - /app/apps/web/node_modules
+      - /app/packages/auth/node_modules
+      - /app/packages/db/node_modules
     depends_on:
       postgres:
         condition: service_healthy
       websocket:
-        condition: service_started
+        condition: service_healthy
 
 volumes:
   pgdata:
+  redisdata:

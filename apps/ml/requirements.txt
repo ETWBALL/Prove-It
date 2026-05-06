@@ -4,4 +4,4 @@ pydantic
 pydantic-settings
 anthropic
 google-generativeai
-upstash-redis
+redis

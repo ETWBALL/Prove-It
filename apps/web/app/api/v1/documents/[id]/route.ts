@@ -5,30 +5,29 @@
 
 import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@prove-it/db";
-import { verifySession } from "@prove-it/packages/auth/auth-utility";
 
 /**
  * GET /api/v1/documents/[id]
  * Retrieves a single document and its nested body content.
  */
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const documentPublicId = params.id;
-    const session = await verifySession(request);
-    const userId = session?.userId || 1; // Fallback for testing
+    const userId = 1; // TODO: wire real auth/session
 
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const document = await prisma.document.findUnique({
+    const document = await prisma.document.findFirst({
       where: { 
         publicId: documentPublicId,
-        privateUserId: userId // Security check: Ensure it belongs to the requester
+        privateOwnerId: userId, // Security check: Ensure it belongs to the requester
+        deletedAt: null,
       },
       include: {
-        body: true,
+        documentBody: true,
       }
     });
 
@@ -54,8 +53,7 @@ export async function PATCH(
 ) {
   try {
     const documentPublicId = params.id;
-    const session = await verifySession(request);
-    const userId = session?.userId || 1; 
+    const userId = 1; // TODO: wire real auth/session
 
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -65,15 +63,15 @@ export async function PATCH(
     // Security: Verify document ownership before updating
     const existingDoc = await prisma.document.findUnique({
       where: { publicId: documentPublicId },
-      select: { privateUserId: true }
+      select: { privateOwnerId: true }
     });
 
-    if (!existingDoc || existingDoc.privateUserId !== userId) {
+    if (!existingDoc || existingDoc.privateOwnerId !== userId) {
       return NextResponse.json({ error: "Document not found or access denied" }, { status: 404 });
     }
 
     // Prepare update data payload dynamically
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (title !== undefined) updateData.title = title;
     
     // If content is provided, update the connected DocumentBody
@@ -86,7 +84,7 @@ export async function PATCH(
     const updatedDocument = await prisma.document.update({
       where: { publicId: documentPublicId },
       data: updateData,
-      include: { body: true }
+      include: { documentBody: true }
     });
 
     return NextResponse.json({ document: updatedDocument }, { status: 200 });
@@ -102,23 +100,22 @@ export async function PATCH(
  * Deletes a document (Prisma Cascade rules handle deleting the DocumentBody and Attempts).
  */
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const documentPublicId = params.id;
-    const session = await verifySession(request);
-    const userId = session?.userId || 1; 
+    const userId = 1; // TODO: wire real auth/session
 
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     // Security: Verify ownership
     const existingDoc = await prisma.document.findUnique({
       where: { publicId: documentPublicId },
-      select: { privateUserId: true }
+      select: { privateOwnerId: true }
     });
 
-    if (!existingDoc || existingDoc.privateUserId !== userId) {
+    if (!existingDoc || existingDoc.privateOwnerId !== userId) {
       return NextResponse.json({ error: "Document not found or access denied" }, { status: 404 });
     }
 

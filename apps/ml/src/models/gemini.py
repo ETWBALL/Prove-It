@@ -9,6 +9,14 @@ genai.configure(api_key=settings.GEMINI_API_KEY)
 # Gemini model to use
 model = genai.GenerativeModel("gemini-2.5-pro")
 
+
+def getIndices(snippet: str) -> tuple[int, int]:
+    # Placeholder index resolver for prototype mode.
+    # Websocket can remap these indices later against live content.
+    if not snippet:
+        return (0, 0)
+    return (0, len(snippet))
+
 async def analyze_with_gemini(request: AnalyzeRequest) -> AnalyzeResponse:
     """
     Analyze the request with Gemini.

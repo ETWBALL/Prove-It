@@ -419,7 +419,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "C:\\Users\\Moses\\Documents\\GitHub\\Prove-It\\packages\\db\\generated\\prisma",
+      "value": "/Users/nazhussain/Desktop/ProveIt/Prove-It/packages/db/generated/prisma",
       "fromEnvVar": null
     },
     "config": {
@@ -428,7 +428,7 @@ const config = {
     "binaryTargets": [
       {
         "fromEnvVar": null,
-        "value": "windows",
+        "value": "darwin",
         "native": true
       },
       {
@@ -441,11 +441,12 @@ const config = {
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "C:\\Users\\Moses\\Documents\\GitHub\\Prove-It\\packages\\db\\schema.prisma",
+    "sourceFilePath": "/Users/nazhussain/Desktop/ProveIt/Prove-It/packages/db/schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {
-    "rootEnvPath": null
+    "rootEnvPath": null,
+    "schemaEnvPath": "../../../../.env"
   },
   "relativePath": "../..",
   "clientVersion": "6.19.3",
@@ -454,7 +455,6 @@ const config = {
     "db"
   ],
   "activeProvider": "postgresql",
-  "postinstall": false,
   "inlineDatasources": {
     "db": {
       "url": {

@@ -8,15 +8,23 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
  # Set the working directory. Every command after will run in this directory.
 WORKDIR /app
 
-# Copy everything in the current directory to the working directory.
-COPY . .
+# Copy dependency manifests first for better cache reuse.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/websocket/package.json ./apps/websocket/
+COPY packages/auth/package.json ./packages/auth/
+COPY packages/db/package.json ./packages/db/
+COPY packages/db/schema.prisma ./packages/db/
+
 
 # Install deps and generate Prisma client as root (Corepack/pnpm need a writable cache).
 RUN pnpm install --frozen-lockfile
 RUN pnpm prisma:generate 
 
-# Non-root runtime: create user, own /app so the app can read workspace files.
-RUN useradd -r -u 999 -m appuser
+# Copy source last - changes here don't bust install cache
+COPY . .
+
+# Non-root runtime: own files after source copy, then drop privileges.
+RUN useradd -r -u 999 -m appuser && chown -R appuser:appuser /app
 USER appuser
 
 # Expose the port the application will run on.

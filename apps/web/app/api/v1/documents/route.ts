@@ -4,7 +4,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { prisma } from "@repo/db";
+import { prisma } from "@prove-it/db";
 
 // TODO: Import your specific auth verification utility from @repo/auth
 // import { verifySession } from "@repo/auth/auth-utility";
@@ -24,12 +24,12 @@ export async function GET(request: Request) {
 
     // 2. Fetch Documents
     const documents = await prisma.document.findMany({
-      where: { privateUserId: userId },
-      orderBy: { updatedAt: 'desc' },
+      where: { privateOwnerId: userId, deletedAt: null },
+      orderBy: { lastEdited: "desc" },
       select: {
         publicId: true,
         title: true,
-        updatedAt: true,
+        lastEdited: true,
         numErrors: true,
       }
     });
@@ -63,16 +63,17 @@ export async function POST(request: Request) {
     const newDocument = await prisma.document.create({
       data: {
         title,
-        privateUserId: userId,
-        courseId: courseId || null,
-        body: {
+        privateOwnerId: userId,
+        privateCourseId: courseId ?? null,
+        proofType: "DIRECT",
+        documentBody: {
           create: {
             content: "" // Initialize with an empty string
           }
         }
       },
       include: {
-        body: true // Return the nested body so the client has the full state
+        documentBody: true // Return the nested body so the client has the full state
       }
     });
 

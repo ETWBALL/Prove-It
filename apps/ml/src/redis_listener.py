@@ -1,55 +1,56 @@
 import asyncio
 import json
-from upstash_redis import Redis
+
+from redis import Redis
+
 from src.config import settings
-from src.schemas import AnalyzeRequest, AnalyzeResponse
+from src.schemas import AnalyzeRequest
 from src.router import route_to_provider
 
-# (1) Create Redis client
+
+# (1) Create Redis TCP client. Decode responses as strings.
 redis = Redis(
-    url=settings.UPSTASH_REDIS_REST_URL,
-    token=settings.UPSTASH_REDIS_REST_TOKEN
+    host=settings.REDIS_HOST,
+    port=settings.REDIS_PORT,
+    password=settings.REDIS_PASSWORD or None,
+    decode_responses=True,
 )
+
 
 # (2) Process a single message from the queue
 async def process_message(message: str):
     try:
-        # Parse the incoming message
         data = json.loads(message)
         request = AnalyzeRequest(**data)
 
         print(f"Processing document: {request.documentId}")
 
-        # Route to the correct model provider
         response = await route_to_provider(request)
 
         # Publish result back to websocket
-        await redis.publish(
+        redis.publish(
             f"ml:result:{request.documentId}",
-            json.dumps(response.dict())
+            json.dumps(response.model_dump())
         )
 
         print(f"Result published for document: {request.documentId}")
-
     except Exception as e:
         print(f"Error processing message: {e}")
 
 
-# (3) Continuously listen to Redis channel
+# (3) Continuously listen to Redis queue with blocking pop
 async def start_listener():
-    print("Listening to Redis channel: ml:queue:analyze")
+    print("Listening to Redis queue: ml:queue:analyze")
 
     while True:
         try:
-            # Block and wait for a message (blpop waits until something arrives)
-            message = await redis.blpop("ml:queue:analyze", timeout=0)
-            
-            if message:
-                # message is a tuple: (channel, data)
-                _, data = message
-                asyncio.create_task(process_message(data))
+            # BLPOP blocks until a message is available.
+            result = await asyncio.to_thread(redis.blpop, "ml:queue:analyze", 0)
+            if not result:
+                continue
 
+            _, message = result  # (key, value)
+            asyncio.create_task(process_message(message))
         except Exception as e:
             print(f"Redis listener error: {e}")
-            # Wait before retrying to avoid hammering Redis on failure
             await asyncio.sleep(5)

@@ -6,12 +6,19 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
-# Full workspace context for pnpm workspaces + lockfile
-COPY . .
+# Copy dependency manifests first for better cache reuse.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/web/package.json ./apps/web/
+COPY packages/auth/package.json ./packages/auth/
+COPY packages/db/package.json ./packages/db/
+COPY packages/db/schema.prisma ./packages/db/
 
 # Install deps and generate Prisma client as root (Corepack writes under root/cache).
 RUN pnpm install --frozen-lockfile
 RUN pnpm prisma:generate
+
+# Copy source late so app code changes don't invalidate dependency layers.
+COPY . .
 
 # Non-root runtime: writable home avoids Corepack EACCES when `pnpm dev` runs.
 RUN useradd -r -u 1001 -m appuser && chown -R appuser:appuser /app
