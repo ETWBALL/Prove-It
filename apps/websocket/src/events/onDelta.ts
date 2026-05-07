@@ -28,11 +28,6 @@ export async function onDelta(
             return
         }
 
-        // Log the user typing in the document
-        console.log(`User typed in document ${joinedDocumentId}`)
-
-
-
         // (2) Precautionary steps
         // Get the document state
         const docState = documentStates.get(joinedDocumentId)
@@ -52,6 +47,22 @@ export async function onDelta(
         if (deltaValidationError) {
             socket.emit('document:delta:error', { code: deltaValidationError })
             return
+        }
+
+        // Log a meaningful delta summary from pre-delta content.
+        const removedContent = docState.content.slice(delta.startIndex, delta.endIndex)
+        if (delta.type === 'delete') {
+            console.log(
+                `User deleted "${removedContent}" in document ${joinedDocumentId}`
+            )
+        } else if (delta.type === 'replace') {
+            console.log(
+                `User replaced "${removedContent}" with "${delta.content}" in document ${joinedDocumentId}`
+            )
+        } else {
+            console.log(
+                `User inserted "${delta.content}" in document ${joinedDocumentId}`
+            )
         }
 
 

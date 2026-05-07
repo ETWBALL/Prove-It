@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
 import Editor from './editor'
 import ErrorPanel from './errorPanel'
@@ -34,11 +34,130 @@ type DeltaErrorPayload = {
   code: string
 }
 
+type DeltaType = 'insert' | 'delete' | 'replace'
+
+type ComputedDelta = {
+  type: DeltaType
+  startIndex: number
+  endIndex: number
+  content: string
+}
+
 type EditorLayoutProps = {
   documentId: string
 }
 
 type SocketStatus = 'connecting' | 'connected' | 'joined' | 'error' | 'disconnected'
+
+function computeDelta(previousContent: string, nextContent: string): ComputedDelta | null {
+  if (previousContent === nextContent) return null
+
+  let commonPrefix = 0
+  while (
+    commonPrefix < previousContent.length &&
+    commonPrefix < nextContent.length &&
+    previousContent[commonPrefix] === nextContent[commonPrefix]
+  ) {
+    commonPrefix += 1
+  }
+
+  let previousTail = previousContent.length - 1
+  let nextTail = nextContent.length - 1
+  while (
+    previousTail >= commonPrefix &&
+    nextTail >= commonPrefix &&
+    previousContent[previousTail] === nextContent[nextTail]
+  ) {
+    previousTail -= 1
+    nextTail -= 1
+  }
+
+  const removedLength = Math.max(0, previousTail - commonPrefix + 1)
+  const insertedContent = nextContent.slice(commonPrefix, nextTail + 1)
+
+  if (removedLength === 0 && insertedContent.length > 0) {
+    return {
+      type: 'insert',
+      startIndex: commonPrefix,
+      endIndex: commonPrefix,
+      content: insertedContent,
+    }
+  }
+
+  if (removedLength > 0 && insertedContent.length === 0) {
+    return {
+      type: 'delete',
+      startIndex: commonPrefix,
+      endIndex: commonPrefix + removedLength,
+      content: '',
+    }
+  }
+
+  return {
+    type: 'replace',
+    startIndex: commonPrefix,
+    endIndex: commonPrefix + removedLength,
+    content: insertedContent,
+  }
+}
+
+function applyDelta(content: string, delta: ComputedDelta): string {
+  switch (delta.type) {
+    case 'insert':
+      return content.slice(0, delta.startIndex) + delta.content + content.slice(delta.startIndex)
+    case 'delete':
+      return content.slice(0, delta.startIndex) + content.slice(delta.endIndex)
+    case 'replace':
+      return content.slice(0, delta.startIndex) + delta.content + content.slice(delta.endIndex)
+    default:
+      return content
+  }
+}
+
+function deltaFromBeforeInput(
+  event: FormEvent<HTMLTextAreaElement>,
+  currentContent: string
+): ComputedDelta | null {
+  const target = event.currentTarget
+  const start = target.selectionStart
+  const end = target.selectionEnd
+  const hasSelection = start !== end
+
+  const native = event.nativeEvent as InputEvent
+  const inputType = native.inputType ?? ''
+  const data = native.data ?? ''
+
+  if (inputType.startsWith('insert')) {
+    if (hasSelection) {
+      if (data.length === 0) return null
+      return { type: 'replace', startIndex: start, endIndex: end, content: data }
+    }
+    if (data.length === 0) return null
+    return { type: 'insert', startIndex: start, endIndex: start, content: data }
+  }
+
+  if (inputType.startsWith('delete')) {
+    if (hasSelection) {
+      return { type: 'delete', startIndex: start, endIndex: end, content: '' }
+    }
+
+    if (inputType === 'deleteContentBackward') {
+      if (start === 0) return null
+      return { type: 'delete', startIndex: start - 1, endIndex: start, content: '' }
+    }
+
+    if (inputType === 'deleteContentForward') {
+      if (start >= currentContent.length) return null
+      return { type: 'delete', startIndex: start, endIndex: start + 1, content: '' }
+    }
+
+    // Fallback for delete variants without explicit direction.
+    if (start === 0) return null
+    return { type: 'delete', startIndex: start - 1, endIndex: start, content: '' }
+  }
+
+  return null
+}
 
 export default function EditorLayout({ documentId }: EditorLayoutProps) {
   const [statement, setStatement] = useState('')
@@ -51,7 +170,8 @@ export default function EditorLayout({ documentId }: EditorLayoutProps) {
   const [deltaInFlight, setDeltaInFlight] = useState(false)
 
   const socketRef = useRef<Socket | null>(null)
-  const inFlightTargetRef = useRef('')
+  const pendingDeltaQueueRef = useRef<ComputedDelta[]>([])
+  const inFlightDeltaRef = useRef<ComputedDelta | null>(null)
 
   const wsUrl = useMemo(
     () => process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:3001',
@@ -84,6 +204,8 @@ export default function EditorLayout({ documentId }: EditorLayoutProps) {
       setBaseContent(payload.content ?? '')
       setRevision(payload.revision ?? 0)
       setErrors(payload.errors ?? [])
+      pendingDeltaQueueRef.current = []
+      inFlightDeltaRef.current = null
       setStatus('joined')
       setStatusMessage(`Connected to document ${payload.documentId}`)
     })
@@ -94,8 +216,13 @@ export default function EditorLayout({ documentId }: EditorLayoutProps) {
     })
 
     socket.on('document:delta:ack', (payload: DeltaAckPayload) => {
+      const acknowledgedDelta = inFlightDeltaRef.current
       setRevision(payload.revision)
-      setBaseContent(inFlightTargetRef.current)
+      setBaseContent((previous) => {
+        if (!acknowledgedDelta) return previous
+        return applyDelta(previous, acknowledgedDelta)
+      })
+      inFlightDeltaRef.current = null
       setDeltaInFlight(false)
     })
 
@@ -107,6 +234,8 @@ export default function EditorLayout({ documentId }: EditorLayoutProps) {
     socket.on('document:delta:error', (payload: DeltaErrorPayload) => {
       setStatus('error')
       setStatusMessage(`Delta rejected (${payload.code}). Re-syncing...`)
+      inFlightDeltaRef.current = null
+      pendingDeltaQueueRef.current = []
       setDeltaInFlight(false)
       socket.emit('document:join', documentId)
     })
@@ -123,24 +252,35 @@ export default function EditorLayout({ documentId }: EditorLayoutProps) {
     }
   }, [documentId, wsUrl])
 
+  function handleProofBeforeInput(event: FormEvent<HTMLTextAreaElement>) {
+    if (status !== 'joined') return
+    const nextDelta = deltaFromBeforeInput(event, draftContent)
+    if (!nextDelta) return
+    pendingDeltaQueueRef.current.push(nextDelta)
+  }
+
   useEffect(() => {
-    if (status !== 'joined' || deltaInFlight || draftContent === baseContent) {
+    if (status !== 'joined' || deltaInFlight) {
       return
     }
 
     const socket = socketRef.current
     if (!socket) return
 
+    const delta =
+      pendingDeltaQueueRef.current.shift() ?? computeDelta(baseContent, draftContent)
+    if (!delta) return
+
     const nextRevision = revision + 1
-    inFlightTargetRef.current = draftContent
+    inFlightDeltaRef.current = delta
     setDeltaInFlight(true)
 
     socket.emit('document:delta', {
-      type: 'replace',
+      type: delta.type,
       documentId,
-      startIndex: 0,
-      endIndex: baseContent.length,
-      content: draftContent,
+      startIndex: delta.startIndex,
+      endIndex: delta.endIndex,
+      content: delta.content,
       revision: nextRevision,
     })
   }, [baseContent, deltaInFlight, documentId, draftContent, revision, status])
@@ -172,6 +312,7 @@ export default function EditorLayout({ documentId }: EditorLayoutProps) {
         proof={draftContent}
         disabled={status !== 'joined'}
         onStatementChange={setStatement}
+        onProofBeforeInput={handleProofBeforeInput}
         onProofChange={setDraftContent}
       />
 

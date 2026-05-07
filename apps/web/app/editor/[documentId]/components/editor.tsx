@@ -1,11 +1,14 @@
 'use client'
 
+import { FormEvent } from 'react'
+
 type EditorProps = {
   statement: string
   proof: string
   disabled?: boolean
   onStatementChange: (value: string) => void
   onProofChange: (value: string) => void
+  onProofBeforeInput: (event: FormEvent<HTMLTextAreaElement>) => void
 }
 
 export default function Editor({
@@ -14,6 +17,7 @@ export default function Editor({
   disabled = false,
   onStatementChange,
   onProofChange,
+  onProofBeforeInput,
 }: EditorProps) {
   return (
     <section className="w-full rounded-2xl border border-white/10 bg-white/5 p-6 shadow-sm">
@@ -28,6 +32,7 @@ export default function Editor({
 
       <textarea
         value={proof}
+        onBeforeInput={onProofBeforeInput}
         onChange={(event) => onProofChange(event.target.value)}
         disabled={disabled}
         rows={14}

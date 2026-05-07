@@ -441,13 +441,13 @@ export function setUpTimers(documentId: string, timers: Map<string, Timers>, doc
     // Set new timers
     timers.set(documentId, {
         databaseTimeout: setTimeout(async () => {
-            console.log(`Database timeout for document ${documentId}`)
+            console.log(`Autosaving document ${documentId}`)
 
             // Try to update the database
             try {
                 await updateDatabase(documentId, updatedDocState, documentStates)
             } catch (error) {
-                console.error(`Persist failed for document ${documentId}:`, error)
+                console.error(`Autosaving failed for document ${documentId}:`, error)
                 socket.emit('document:delta:error', { code: 'PERSIST_FAILED' })
                 return
             }
@@ -456,7 +456,7 @@ export function setUpTimers(documentId: string, timers: Map<string, Timers>, doc
 
         }, DATABASE_TIMEOUT_MS),
         mlTimeout: setTimeout(async () => {
-            console.log(`ML timeout for document ${documentId}`)
+            console.log(`ML triggered on document ${documentId}`)
 
             // Trigger ML pipeline to redis.
             await redis.lpush('ml:queue:analyze', JSON.stringify({

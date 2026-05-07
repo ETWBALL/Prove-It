@@ -14,8 +14,8 @@ const SERVER_URL = "http://127.0.0.1:3001"
 const CONNECT_TIMEOUT_MS = 5000
 
 // IMPORTANT: Update these IDs to match your seeded DB.
-const USER_PUBLIC_ID = "cmostgrdm0004suyxpeg1eqtr"
-const SESSION_PUBLIC_ID = "cmostgrdm0005suyxhpl8yg4m"
+const USER_PUBLIC_ID = "cmovkq80m0001su7yhycdliwn"
+const SESSION_PUBLIC_ID = "cmovkq80x0003su7yshtt4z7s"
 const DOCUMENT_PUBLIC_ID = "cmostgreo0007suyx6kn89hp3"
 const SECOND_DOCUMENT_PUBLIC_ID = "cmostgrh9000asuyxk3dzpw10"
 
