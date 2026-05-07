@@ -195,6 +195,11 @@ export default function EditorLayout({ documentId }: EditorLayoutProps) {
       socket.emit('document:join', documentId)
     })
 
+    socket.on('connect_error', (error: Error) => {
+      setStatus('error')
+      setStatusMessage(`Realtime connection failed: ${error.message}`)
+    })
+
     socket.on('document:join:processing', () => {
       setStatusMessage('Loading document...')
     })
