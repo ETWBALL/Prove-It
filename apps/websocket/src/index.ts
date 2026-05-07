@@ -9,6 +9,7 @@ import { onDelta } from '../src/events/onDelta'
 import { onJoin } from '../src/events/onJoin'
 import { onLeave } from '../src/events/onLeave'
 import { onDisconnect } from '../src/events/onDisconnect'
+import { onSave } from './events/notNeeded/onSave'
 
 function parseCookieHeader(cookieHeader?: string): Record<string, string> {
     if (!cookieHeader) return {}
@@ -94,30 +95,33 @@ io.on('connection', (socket) => {
     console.log('A user connected with socket id:', socket.id);
 
     // Event 1: User opens document
-
     socket.on('document:join', async (documentId: string) =>
         onJoin(socket, documentStates, documentId, socketDocumentMap, documentConnectionCounts)
     )
 
     // Event 2: User types (insert, delete, replace) (IMPORTANT)
-
     socket.on('document:delta', async (delta: Delta) => onDelta(socket, documentStates, delta, socketDocumentMap, timers))
 
     // Event 3: User leaves document
-
     socket.on('document:leave', async (documentId: string) =>
         onLeave(socket, documentStates, documentId, socketDocumentMap, documentConnectionCounts, timers)
     )
 
     // Event 4: Listen for sudden disconnects
-
     socket.on('disconnect', async () =>
         onDisconnect(socket, documentStates, socketDocumentMap, documentConnectionCounts, timers)
     )
 
     // Event 5: Listen for save document event from client, persist to DB immediately
+    socket.on('document:save', async (documentId: string) =>
+        onSave(socket, documentStates, documentId, socketDocumentMap, timers)
+    )
+
+    // Event 5: Listen for save document event from client, persist to DB immediately
     // Event 6: Listen for lastCompiled to update document state in memory, persist to DB immediately (proofAttempt and update old documentbody)
     // Event 7: Listen for Hint being applied, error being ignored, suggestion being ignored/applied 
+    // Event 8: Listen for ML result from Redis, update document state in memory and emit to client
+    // Event 9: 
 })
 
 

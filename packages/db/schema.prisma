@@ -140,7 +140,6 @@ model Document {
 
   // Soft delete and editor/compiler bookkeeping.
   deletedAt                     DateTime?
-  lastCompiled                  DateTime?
   lastEdited                    DateTime                        @updatedAt
   createdAt                     DateTime                        @default(now())
 
