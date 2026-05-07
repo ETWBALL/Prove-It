@@ -2,6 +2,7 @@
   "name": "prove-it",
   "private": true,
   "scripts": {
+    "bootstrap:dev": "node scripts/bootstrap-dev.js",
     "dev": "pnpm dev:redis && pnpm --parallel -r dev",
     "dev:redis": "docker compose up -d redis",
     "build": "pnpm -r build",
