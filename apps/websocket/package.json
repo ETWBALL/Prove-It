@@ -4,7 +4,7 @@
   "private": true,
   "main": "src/index.ts",
   "scripts": {
-    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$conns = Get-NetTCPConnection -LocalPort 3001 -State Listen -ErrorAction SilentlyContinue; if ($conns) { $conns | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } }; nodemon --exec 'node --env-file=../../.env -r ts-node/register src/index.ts'\"",
+    "dev": "node scripts/kill-port-3001.js && nodemon --exec \"node --env-file=../../.env -r ts-node/register src/index.ts\"",
     "test:index": "node --env-file=../../.env -r ts-node/register test/testIndex.ts",
     "test:onJoin": "node --env-file=../../.env -r ts-node/register test/testOnJoin.ts",
     "test:onDelta": "node --env-file=../../.env -r ts-node/register test/testOnDelta.ts",
