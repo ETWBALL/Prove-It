@@ -8,7 +8,7 @@ import { Redis } from "@upstash/redis";
  *
  * `analytics` talks to Redis extra pipelines; keep it off unless you use Upstash analytics dashboards.
  */
-const rateLimitDisabled = process.env.RATE_LIMIT_DISABLED === "false";
+const rateLimitDisabled = process.env.RATE_LIMIT_DISABLED === "true";
 
 
 
