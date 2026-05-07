@@ -73,6 +73,7 @@ export default function LoginPage() {
 
       const successBody = body as LoginSuccessResponse
       setStatusMessage(successBody.message || 'Login successful')
+      router.push('/dashboard')
     } catch {
       setStatusMessage('Network error while calling login API')
     } finally {
