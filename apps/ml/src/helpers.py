@@ -53,7 +53,7 @@ PROOF_GRAMMAR_ERRORS = {
     "DANGLING_VARIABLE": "A variable is used without being properly defined or introduced in the proof, similar to undefined term but specifically for math symbols",
     "SYMBOL_AS_VERB": "Using logical symbols like $\implies$ or $\therefore$ as a replacement for English verbs in a sentence (e.g., \"Then $x \implies 2x$\").",
     "UNFOLDING_FAILURE": "Failure to use the specific definition (e.g., using 'even' without stating $n=2k$).",
-    }
+}
 
 
 class ValidationLayer(str, Enum):
