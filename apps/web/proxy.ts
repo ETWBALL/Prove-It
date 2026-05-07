@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAccessToken } from '@prove-it/auth';
+import { POST } from './app/api/v1/auth/refresh/route';
 
 
 const publicRoutes = [
@@ -24,12 +25,21 @@ function isApiRoute(pathname: string): boolean {
     return pathname.startsWith('/api/')
 }
 
+
+
 export async function proxy(request: NextRequest) {
-    // Check if the path is a public route or page
+// Check if the path is a public route or page
     const { pathname } = request.nextUrl
 
     if (publicRoutes.includes(pathname)){
         return NextResponse.next()
+    }
+
+    const response = (pathname: string, message: string): NextResponse => {
+        if (isApiRoute(pathname)){
+            return NextResponse.json({ error: message }, { status: 401 })
+        }
+        return NextResponse.redirect(new URL('/login', request.url))
     }
 
     // Accessing a private route. Get access token
@@ -37,44 +47,85 @@ export async function proxy(request: NextRequest) {
 
     // Verify access token
     if (!accessToken) {
-        if (isApiRoute(pathname)){
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
-        return NextResponse.redirect(new URL('/login', request.url))
+        return response(pathname, 'Unauthorized')
     }
 
-    try {
-        const { valid, expired, payload } = await verifyAccessToken(accessToken)
-        if (expired) {
-            if (isApiRoute(pathname)) {
-                return NextResponse.json({ error: 'Access token expired' }, { status: 401 })
-            }
-            return NextResponse.redirect(new URL('/login', request.url))
-        }
-
-        if (!valid) {
-            if (isApiRoute(pathname)) {
-                return NextResponse.json({ error: 'Invalid access token' }, { status: 401 })
-            }
-            return NextResponse.redirect(new URL('/login', request.url))
-        }
-
-
-        // Valid access token, attach payload
+    // Continue with the payload
+    const continueWithPayload = (payload: { publicId?: string; sessionPublicId?: string }, refreshedCookies?: { accessToken?: string; refreshToken?: string }) => {
         const requestHeaders = new Headers(request.headers)
         requestHeaders.set('x-user-id', payload?.publicId as string)
         requestHeaders.set('x-session-id', payload?.sessionPublicId as string)
 
-        return NextResponse.next({
+        const nextResponse = NextResponse.next({
             request: {
                 headers: requestHeaders,
             }
         })
-    } catch {
-        if (isApiRoute(pathname)) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+        if (refreshedCookies?.accessToken) {
+            nextResponse.cookies.set('accessToken', refreshedCookies.accessToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                path: '/',
+            })
         }
-        return NextResponse.redirect(new URL('/login', request.url))
+        if (refreshedCookies?.refreshToken) {
+            nextResponse.cookies.set('refreshToken', refreshedCookies.refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                path: '/',
+            })
+        }
+
+        return nextResponse
+    }
+
+    try {
+        const { valid, expired, payload } = await verifyAccessToken(accessToken)
+
+        // If the access token is expired, try to refresh it 
+        if (expired) {
+            const refreshToken = request.cookies.get('refreshToken')?.value
+            if (!refreshToken) {
+                return response(pathname, 'Unauthorized')
+            }
+
+            // Try to refresh the access token
+            const refreshResponse = await POST(request)
+            if (!refreshResponse.ok) {
+                return response(pathname, 'Access token expired')
+            }
+
+            // If the refresh was successful, get the new access and refresh tokens
+            const refreshedAccessToken = refreshResponse.cookies.get('accessToken')?.value
+            const refreshedRefreshToken = refreshResponse.cookies.get('refreshToken')?.value
+            if (!refreshedAccessToken) {
+                return response(pathname, 'Access token expired')
+            }
+
+            const refreshedVerification = await verifyAccessToken(refreshedAccessToken)
+            if (!refreshedVerification.valid || !refreshedVerification.payload) {
+                return response(pathname, 'Access token expired')
+            }
+
+            // Continue with the new access and refresh tokens
+            return continueWithPayload(refreshedVerification.payload as { publicId?: string; sessionPublicId?: string }, {
+                accessToken: refreshedAccessToken,
+                refreshToken: refreshedRefreshToken,
+            })
+        }
+
+        // If the access token is invalid, return an unauthorized response
+        if (!valid) {
+            return response(pathname, 'Invalid access token')
+        }
+
+        // If the access token is valid, continue with the payload
+        return continueWithPayload(payload as { publicId?: string; sessionPublicId?: string })
+    } catch {
+        return response(pathname, 'Unauthorized')
     }
     
 
