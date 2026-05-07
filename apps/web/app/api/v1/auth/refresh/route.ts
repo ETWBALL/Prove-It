@@ -27,6 +27,10 @@ export async function POST(request: NextRequest) {
     const accessToken = request.cookies.get('accessToken')?.value
     const refreshToken = request.cookies.get('refreshToken')?.value
 
+    if (!refreshToken) {
+        return refreshUnauthorized()
+    }
+
     // RATE LIMIT CHECK (IP-based because they aren't logged in yet)
     const { success } = await refreshRatelimit.limit(`refresh:${refreshToken}`);
 
@@ -49,10 +53,7 @@ export async function POST(request: NextRequest) {
         }
     }
 
-    // (3) if refresh is valid, generate new access and refresh token. Update old session row and insert a new row with the new token.
-    if (!refreshToken) {
-        return refreshUnauthorized()
-    }
+    // (3) if refresh is valid, generate new access and refresh token.
 
     const refreshTokenResult = await verifyRefreshToken(refreshToken)
 
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
     const newAccessToken = await generateAccessToken(payload.data)
     const newRefreshToken = await generateRefreshToken(payload.data)
 
-    // (6) Update old session row and insert a new row with the new token.
+    // (6) Update the existing session row with the new refresh token + expiry.
     try {
         await prisma.sessions.update({
             where: {
