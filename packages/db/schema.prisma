@@ -95,12 +95,15 @@ model Sessions {
   refreshToken                  String?                         @unique
 
   // Short label for the client (browser name, OS, etc.) for auditing and revoke UX.
-  device                        String
+  device                        String                        
 
   // Token validity window and last activity for idle-timeout policies.
   tokenExpiresAt                DateTime
   lastActiveAt                  DateTime
   createdAt                     DateTime                        @default(now())
+
+  // A user can have many unique devices:
+  @@unique([privateUserId, device])
 
 }
 

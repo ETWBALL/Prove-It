@@ -64,14 +64,24 @@ export async function POST(request: Request) {
 
     // (5) Generate JWT tokens, store their current session, and return to user
     try {
-        const session = await prisma.sessions.create({
-            data: {
+
+        const session = await prisma.sessions.upsert({
+            where: {
+                privateUserId_device: {privateUserId: user.privateId!, device: request.headers.get('user-agent') || 'Unknown'}
+            },
+            update: {
+                lastActiveAt: new Date(),
+                tokenExpiresAt: expiresAtFromSpan(env.REFRESH_TOKEN_EXPIRES_IN)
+            },
+            create: {
                 privateUserId: user.privateId!,
                 device: request.headers.get('user-agent') || 'Unknown',
                 tokenExpiresAt: expiresAtFromSpan(env.REFRESH_TOKEN_EXPIRES_IN),
                 lastActiveAt: new Date(),
             }
         })
+
+        
         const accessToken = await generateAccessToken({ publicId: user.publicId, sessionPublicId: session.publicId })
         const refreshToken = await generateRefreshToken({ publicId: user.publicId, sessionPublicId: session.publicId })
 

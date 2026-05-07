@@ -8,7 +8,7 @@ import { Redis } from "@upstash/redis";
  *
  * `analytics` talks to Redis extra pipelines; keep it off unless you use Upstash analytics dashboards.
  */
-const explicitDisable = process.env.RATE_LIMIT_DISABLED?.toLowerCase() === "true";
+const explicitDisable = process.env.RATE_LIMIT_DISABLED?.toLowerCase() === "false";
 const hasUpstashCreds =
   Boolean(process.env.UPSTASH_REDIS_REST_URL) &&
   Boolean(process.env.UPSTASH_REDIS_REST_TOKEN);
