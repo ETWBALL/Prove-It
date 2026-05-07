@@ -1,0 +1,443 @@
+{
+  "info": {
+    "_postman_id": "b2c3d4e5-prove-it-signup",
+    "name": "Prove-It — Auth (signup)",
+    "description": "Tests for `POST /api/v1/auth/signup`.\n\n**Setup**\n- Run the web app with Postgres + env configured.\n- **Signup — success** generates a unique email each run and saves **`lastSignupEmail`** for the duplicate-email request.\n- For university flows: after `pnpm prisma:seed`, set **`seedUniversityPublicId`** to the `University.publicId` from Prisma Studio (seed creates UofT with domain **utoronto.ca**).\n\n**Password rules** (must satisfy all): ≥8 chars, ≤64, uppercase, lowercase, digit, one of `!@#$%^&*`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "validPassword",
+      "value": "Abcd1234!"
+    },
+    {
+      "key": "lastSignupEmail",
+      "value": ""
+    },
+    {
+      "key": "seedUniversityPublicId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Signup — success (no university)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.collectionVariables.set('signupEmailUnique', `proveit.signup.${Date.now()}@example.com`);",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 201 Created', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Response contains user with expected fields', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body).to.have.property('user');",
+              "  pm.expect(body.user).to.have.property('email');",
+              "  pm.expect(body.user).to.have.property('publicId');",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('lastSignupEmail', body.user.email);",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{signupEmailUnique}}\",\n  \"password\": \"{{validPassword}}\",\n  \"confirmPassword\": \"{{validPassword}}\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/auth/signup",
+        "description": "Creates a user without `universityId`. Saves **`lastSignupEmail`** for the duplicate test."
+      },
+      "response": []
+    },
+    {
+      "name": "Signup — duplicate email (409)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 409', function () {",
+              "  pm.response.to.have.status(409);",
+              "});",
+              "",
+              "pm.test('Email already registered', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.error).to.eql('Email already registered');",
+              "});",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{lastSignupEmail}}\",\n  \"password\": \"{{validPassword}}\",\n  \"confirmPassword\": \"{{validPassword}}\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/auth/signup",
+        "description": "Run **after** *Signup — success*. Uses **`lastSignupEmail`**."
+      },
+      "response": []
+    },
+    {
+      "name": "Signup — password mismatch",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 400', function () {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('confirmPassword refinement error', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.error).to.have.property('confirmPassword');",
+              "});",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"anyone-mismatch@example.com\",\n  \"password\": \"Abcd1234!\",\n  \"confirmPassword\": \"Abcd1234!!\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/auth/signup"
+      },
+      "response": []
+    },
+    {
+      "name": "Signup — weak password (no uppercase)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 400', function () {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('password field error', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.error).to.have.property('password');",
+              "});",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"weak-pw@example.com\",\n  \"password\": \"abcd1234!\",\n  \"confirmPassword\": \"abcd1234!\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/auth/signup"
+      },
+      "response": []
+    },
+    {
+      "name": "Signup — invalid email",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 400', function () {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('email field error', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.error).to.have.property('email');",
+              "});",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"not-valid-email\",\n  \"password\": \"Abcd1234!\",\n  \"confirmPassword\": \"Abcd1234!\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/auth/signup"
+      },
+      "response": []
+    },
+    {
+      "name": "Signup — strict schema rejects unknown field",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 400', function () {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "",
+              "// Route returns only flatten().fieldErrors; Zod strict() puts this on formErrors,",
+              "// so the JSON body is often `{ error: {} }` here.",
+              "pm.test('error payload is an object', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body).to.have.property('error');",
+              "  pm.expect(body.error).to.be.an('object');",
+              "});",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"extra-keys@example.com\",\n  \"password\": \"Abcd1234!\",\n  \"confirmPassword\": \"Abcd1234!\",\n  \"unexpectedField\": true\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/auth/signup"
+      },
+      "response": []
+    },
+    {
+      "name": "Signup — invalid JSON body",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 400', function () {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('Invalid JSON message', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.error).to.eql('Invalid JSON body');",
+              "});",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ not json"
+        },
+        "url": "{{baseUrl}}/api/v1/auth/signup"
+      },
+      "response": []
+    },
+    {
+      "name": "Signup — invalid university id",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 400', function () {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('Invalid university id message', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.error).to.eql('Invalid university id');",
+              "});",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"student-uni-invalid@utoronto.ca\",\n  \"password\": \"Abcd1234!\",\n  \"confirmPassword\": \"Abcd1234!\",\n  \"universityId\": \"clxxxxxxxxxxxxxxxxxxxxxxxx\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/auth/signup",
+        "description": "Uses a plausible but non-existent `publicId`. Adjust `universityId` if your DB happens to use this exact cuid."
+      },
+      "response": []
+    },
+    {
+      "name": "Signup — email domain does not match university",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const uniId = pm.collectionVariables.get('seedUniversityPublicId');",
+              "if (!uniId || uniId.trim() === '') {",
+              "  pm.test('Needs seedUniversityPublicId', function () {",
+              "    throw new Error('Set collection variable seedUniversityPublicId (University.publicId from DB).');",
+              "  });",
+              "} else {",
+              "  pm.test('HTTP 400', function () {",
+              "    pm.response.to.have.status(400);",
+              "  });",
+              "  pm.test('Domain mismatch message', function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.error).to.eql('Invalid email domain. Please use your student email when signing up.');",
+              "  });",
+              "}",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"wrong-domain@gmail.com\",\n  \"password\": \"Abcd1234!\",\n  \"confirmPassword\": \"Abcd1234!\",\n  \"universityId\": \"{{seedUniversityPublicId}}\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/auth/signup",
+        "description": "Requires **`seedUniversityPublicId`** from seeded University (UofT). Email domain must not match allowed domains."
+      },
+      "response": []
+    },
+    {
+      "name": "Signup — success with university (utoronto.ca)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.collectionVariables.set('signupEmailUniOk', `proveit.uni.${Date.now()}@utoronto.ca`);",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const uniId = pm.collectionVariables.get('seedUniversityPublicId');",
+              "if (!uniId || uniId.trim() === '') {",
+              "  pm.test('Needs seedUniversityPublicId', function () {",
+              "    throw new Error('Set collection variable seedUniversityPublicId on the collection.');",
+              "  });",
+              "} else {",
+              "  pm.test('HTTP 201 Created', function () {",
+              "    pm.response.to.have.status(201);",
+              "  });",
+              "  pm.test('User returned', function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.user.email).to.include('@utoronto.ca');",
+              "  });",
+              "}",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{signupEmailUniOk}}\",\n  \"password\": \"Abcd1234!\",\n  \"confirmPassword\": \"Abcd1234!\",\n  \"universityId\": \"{{seedUniversityPublicId}}\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/auth/signup",
+        "description": "Set **`seedUniversityPublicId`** after seed. Uses `@utoronto.ca` to match seeded domain."
+      },
+      "response": []
+    }
+  ]
+}

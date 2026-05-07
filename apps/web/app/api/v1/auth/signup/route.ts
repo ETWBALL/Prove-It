@@ -1,13 +1,18 @@
 import { NextResponse } from 'next/server'
 import type { UniversityDomain } from '@prove-it/db'
-import { PrismaClientKnownRequestError, prisma} from '@prove-it/db'
-import { hashPassword } from '@prove-it/auth'
+import { PrismaClientKnownRequestError, prisma } from '@prove-it/db'
+import { generateAccessToken, generateRefreshToken, hashOpaqueToken, hashPassword } from '@prove-it/auth'
 
 // Local imports
-import { SignupSchema } from '@/lib/Validation/zodSchemas'
+import { env, SignupSchema } from '@/lib/Validation/zodSchemas'
 import { ProveItRateLimit } from '@/lib/rateLimiter'
 import { getClientIpForRateLimit } from '@/lib/requestIp'
+import { cookieMaxAgeSeconds, expiresAtFromSpan } from '@/lib/date-utility'
 
+function cookieSecure(request: Request): boolean {
+    if (process.env.NODE_ENV === 'production') return true
+    return request.headers.get('x-forwarded-proto') === 'https'
+}
 
 
 export async function POST(request: Request) {
@@ -65,24 +70,88 @@ export async function POST(request: Request) {
     // At this point, we assume the email, password, and optional university id are valid. 
     // Try to create a new user. User may also exist
     const hashedPassword = await hashPassword(password)
-    try{
-        const user = await prisma.user.create({
-            data: {
-                email: email,
-                password: hashedPassword,
-                privateUniversityId: privateUniversityId
-            },
-            select: {
-                name: true,
-                username: true,
-                email: true,
-                bio: true,
-                avatarUrl: true,
-                publicId: true,
-            }
-        });
+    try {
+        const { user, refreshToken, sessionPublicId } = await prisma.$transaction(async (tx) => {
+            const user = await tx.user.create({
+                data: {
+                    email: email,
+                    password: hashedPassword,
+                    privateUniversityId: privateUniversityId,
+                },
+                select: {
+                    name: true,
+                    username: true,
+                    email: true,
+                    bio: true,
+                    avatarUrl: true,
+                    publicId: true,
+                    privateId: true,
+                },
+            })
 
-        return NextResponse.json({ user }, { status: 201 })
+            const session = await tx.sessions.create({
+                data: {
+                    privateUserId: user.privateId,
+                    device: request.headers.get('user-agent') || 'Unknown',
+                    tokenExpiresAt: expiresAtFromSpan(env.REFRESH_TOKEN_EXPIRES_IN),
+                    lastActiveAt: new Date(),
+                },
+            })
+
+            const refreshToken = await generateRefreshToken({
+                publicId: user.publicId,
+                sessionPublicId: session.publicId,
+            })
+
+            await tx.sessions.update({
+                where: { publicId: session.publicId },
+                data: {
+                    refreshToken: await hashOpaqueToken(refreshToken),
+                },
+            })
+
+            return { user, refreshToken, sessionPublicId: session.publicId }
+        })
+
+        const accessToken = await generateAccessToken({
+            publicId: user.publicId,
+            sessionPublicId,
+        })
+
+        const accessMaxAge = cookieMaxAgeSeconds(env.ACCESS_TOKEN_EXPIRES_IN)
+        const refreshMaxAge = cookieMaxAgeSeconds(env.REFRESH_TOKEN_EXPIRES_IN)
+
+        const response = NextResponse.json({success: true, message: "Signup successful", user: {
+            name: user.name,
+            username: user.username,
+            email: user.email,
+            bio: user.bio,
+            avatarUrl: user.avatarUrl,
+            publicId: user.publicId,
+        }}, { status: 201 })
+
+        const secure = cookieSecure(request)
+        response.cookies.set({
+            name: 'accessToken',
+            value: accessToken,
+            httpOnly: true,
+            secure,
+            sameSite: 'lax',
+            path: '/',
+            maxAge: accessMaxAge,
+        })
+        response.cookies.set({
+            name: 'refreshToken',
+            value: refreshToken,
+            httpOnly: true,
+            secure,
+            sameSite: 'lax',
+            path: '/',
+            maxAge: refreshMaxAge,
+        })
+    
+        return response
+
 
     } catch (error: unknown) {
         if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {

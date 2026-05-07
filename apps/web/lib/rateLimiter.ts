@@ -1,16 +1,42 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
-// Create a new ratelimiter, that allows 10 requests per 10 seconds
-export const ProveItRateLimit = new Ratelimit({
-  redis: Redis.fromEnv(),
-  limiter: Ratelimit.slidingWindow(50, "1m"),
-  analytics: true,
-  prefix: "@upstash/ratelimit",
-});
+/**
+ * Upstash Ratelimit uses Redis Lua (`EVALSHA`). NOPERM on `evalsha` usually means:
+ * - Wrong product/credentials (not Upstash REST), read-only token, or ACL blocking scripts.
+ * - Fix credentials in the Upstash console, **or** set `RATE_LIMIT_DISABLED=true` in `.env` for local dev only.
+ *
+ * `analytics` talks to Redis extra pipelines; keep it off unless you use Upstash analytics dashboards.
+ */
+const rateLimitDisabled = process.env.RATE_LIMIT_DISABLED === "false";
 
-// For refresh rates
-export const refreshRatelimit = new Ratelimit({
-    redis: Redis.fromEnv(),
-    limiter: Ratelimit.slidingWindow(30, '1 m'), // 10 refreshes per minute per session
-  })
+
+
+const noopRatelimit = {limit: (_identifier: string) => {
+  const reset = Date.now() + 60_000;
+  return Promise.resolve({
+    success: true,
+    limit: 999999,
+    remaining: 999999,
+    reset,
+    pending: Promise.resolve(),
+  });
+}};
+
+export const ProveItRateLimit = rateLimitDisabled
+  ? noopRatelimit
+  : new Ratelimit({
+      redis: Redis.fromEnv(),
+      limiter: Ratelimit.slidingWindow(50, "1m"),
+      analytics: false,
+      prefix: "@upstash/ratelimit",
+    });
+
+export const refreshRatelimit = rateLimitDisabled
+  ? noopRatelimit
+  : new Ratelimit({
+      redis: Redis.fromEnv(),
+      limiter: Ratelimit.slidingWindow(30, "1 m"),
+      analytics: false,
+      prefix: "@upstash/ratelimit/refresh",
+    });

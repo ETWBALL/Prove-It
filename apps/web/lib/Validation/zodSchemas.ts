@@ -61,9 +61,10 @@ export const envSchema = z.object({
     UPSTASH_REDIS_REST_URL: z.string(),
     UPSTASH_REDIS_REST_TOKEN: z.string(),
     NEXT_PUBLIC_APP_URL: z.string(),
-    NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string(),
-    TURNSTILE_SECRET_KEY: z.string(),
-    RESEND_API_KEY: z.string(),
+    // Optional for local dev; set real values when Turnstile / Resend are wired up.
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().default(""),
+    TURNSTILE_SECRET_KEY: z.string().default(""),
+    RESEND_API_KEY: z.string().default(""),
     APP_URL: z.string(),
   })
 
