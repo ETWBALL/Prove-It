@@ -21,7 +21,19 @@ redis = Redis(
 async def process_message(message: str):
     try:
         data = json.loads(message)
-        request = AnalyzeRequest(**data)
+        # Normalize websocket payload to current AnalyzeRequest schema.
+        normalized = {
+            "documentId": data.get("documentId", ""),
+            "content": data.get("content", ""),
+            "layer": data.get("layer", "LOGIC_CHAIN"),
+            "context": data.get("context", False),
+            "provingStatement": data.get("provingStatement", ""),
+            "currentSentence": data.get("currentSentence", data.get("content", "")),
+            "currentErrors": data.get("currentErrors", data.get("errors", [])),
+            "allErrors": data.get("allErrors", []),
+            "mathStatements": data.get("mathStatements", []),
+        }
+        request = AnalyzeRequest(**normalized)
 
         print(f"Processing document: {request.documentId}")
 

@@ -11,7 +11,7 @@ def constructPrompt(request: AnalyzeRequest) -> str:
     ) if request.mathStatements else "None"
 
     existing_errors = "\n".join(
-        f"- {e.errorContent} (at '{e.errorSnippet}')" for e in request.currentErrors
+        f"- {e.errorContent} (at '{e.problematicContent or e.errorContent}')" for e in request.currentErrors
     ) if request.currentErrors else "None"
 
     # 2. Build the Prompt
@@ -59,7 +59,6 @@ def constructPrompt(request: AnalyzeRequest) -> str:
       {{
         "errorSnippet": "the exact string of text that is wrong",
         "errorMessage": "brief description",
-        "errorType": "CODE_FROM_TAXONOMY",
         "internalReasoning": "Your step-by-step logic",
         "suggestedFix": {{ 
             "suggestionContent": "correct phrasing",
