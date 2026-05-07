@@ -40,15 +40,6 @@ type EditorLayoutProps = {
 
 type SocketStatus = 'connecting' | 'connected' | 'joined' | 'error' | 'disconnected'
 
-function getAccessToken(): string {
-  if (typeof window === 'undefined') return ''
-  return (
-    window.localStorage.getItem('accessToken') ??
-    window.localStorage.getItem('proveit_access_token') ??
-    ''
-  )
-}
-
 export default function EditorLayout({ documentId }: EditorLayoutProps) {
   const [statement, setStatement] = useState('')
   const [draftContent, setDraftContent] = useState('')
@@ -68,11 +59,10 @@ export default function EditorLayout({ documentId }: EditorLayoutProps) {
   )
 
   useEffect(() => {
-    const accessToken = getAccessToken()
     const socket = io(wsUrl, {
       autoConnect: true,
       transports: ['websocket'],
-      auth: { accessToken },
+      withCredentials: true,
     })
 
     socketRef.current = socket

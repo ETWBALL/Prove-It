@@ -10,6 +10,21 @@ import { onJoin } from '../src/events/onJoin'
 import { onLeave } from '../src/events/onLeave'
 import { onDisconnect } from '../src/events/onDisconnect'
 
+function parseCookieHeader(cookieHeader?: string): Record<string, string> {
+    if (!cookieHeader) return {}
+    return cookieHeader.split(';').reduce<Record<string, string>>((acc, part) => {
+        const [rawKey, ...rest] = part.trim().split('=')
+        if (!rawKey || rest.length === 0) return acc
+        const rawValue = rest.join('=')
+        try {
+            acc[rawKey] = decodeURIComponent(rawValue)
+        } catch {
+            acc[rawKey] = rawValue
+        }
+        return acc
+    }, {})
+}
+
 
 
 // Store all user's document states, deltas here (RAM)
@@ -40,13 +55,17 @@ const io = new Server(httpServer, {
     pingInterval: 10000,  // send ping every 10 seconds
     pingTimeout: 5000,    // wait 5 seconds for pong before disconnecting
     maxHttpBufferSize: 10 * 1024 * 1024, // large document payloads on join/success
+    cors: {
+        origin: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+        credentials: true,
+    },
 })
 
 // (3) Middleware to verify access token
 io.use(async (socket, next) => {
     try {
-        // Check if their access token exists
-        const accessToken = socket.handshake.auth.accessToken
+        const cookies = parseCookieHeader(socket.handshake.headers.cookie)
+        const accessToken = cookies.accessToken
         if (!accessToken) {
             return next(new Error('Unauthorized'))
         }
