@@ -1,6 +1,6 @@
 import json
 import google.generativeai as genai
-from src.schemas import AnalyzeRequest, AnalyzeResponse, DetectedError, Suggestion, ErrorType, Severity, ValidationLayer
+from src.schemas import AnalyzeRequest, AnalyzeResponse, DetectedError, Suggestion
 from src.config import settings
 from src.AIprompts import constructPrompt
 
@@ -43,18 +43,33 @@ async def analyze_with_gemini(request: AnalyzeRequest) -> AnalyzeResponse:
 
 
         for item in parsed:
-            eStart, eEnd = getIndices(item["errorSnippet"])
-            sStart, sEnd = getIndices(item["suggestionSnippet"])
+            error_snippet = item.get("errorSnippet") or item.get("problematicContent") or ""
+            eStart, eEnd = getIndices(error_snippet)
+
+            suggestion_obj = item.get("suggestedFix") or item.get("suggestion")
+            suggestion_content = ""
+            suggestion_snippet = ""
+            if isinstance(suggestion_obj, dict):
+                suggestion_content = suggestion_obj.get("suggestionContent") or ""
+                suggestion_snippet = suggestion_obj.get("suggestionSnippet") or suggestion_content
+            else:
+                suggestion_content = item.get("suggestionContent") or ""
+                suggestion_snippet = item.get("suggestionSnippet") or suggestion_content
+
+            sStart, sEnd = getIndices(suggestion_snippet)
 
             detectedErrors = DetectedError(
                 startIndexError=eStart,
                 endIndexError=eEnd,
-                problematicContent=item["errorSnippet"],
+                problematicContent=error_snippet,
 
-                errorMessage=item["errorMessage"],
-                errorType=ErrorType(item["errorType"]),
-                layer=ValidationLayer(request.layer),
-                suggestion=Suggestion(suggestionContent=item["suggestionContent"], startIndexSuggestion=sStart, endIndexSuggestion=sEnd) if item.get("suggestion") else None     #Checks if the suggestion is present and if so, parses it into a Suggestion object
+                errorMessage=item.get("errorMessage", ""),
+                layer=request.layer,
+                suggestedFix=Suggestion(
+                    suggestionContent=suggestion_content,
+                    startIndexSuggestion=sStart,
+                    endIndexSuggestion=sEnd
+                ) if suggestion_content else None
             )
 
 
