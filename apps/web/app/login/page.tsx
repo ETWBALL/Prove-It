@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useState } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 type LoginSuccessResponse = {
@@ -36,8 +36,7 @@ export default function LoginPage() {
       .join(' | ')
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  async function handleSubmit() {
     setIsSubmitting(true)
     setStatusCode(null)
     setStatusMessage('')
@@ -73,7 +72,6 @@ export default function LoginPage() {
 
       const successBody = body as LoginSuccessResponse
       setStatusMessage(successBody.message || 'Login successful')
-      router.push('/dashboard')
     } catch {
       setStatusMessage('Network error while calling login API')
     } finally {
@@ -91,10 +89,7 @@ export default function LoginPage() {
         </p>
       </header>
 
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-5"
-      >
+      <section className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-5">
         <label className="block text-sm text-gray-300">
           Email
           <input
@@ -118,18 +113,27 @@ export default function LoginPage() {
         </label>
 
         <button
-          type="submit"
+          type="button"
+          onClick={() => void handleSubmit()}
           disabled={isSubmitting}
           className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? 'Logging in...' : 'Log in'}
         </button>
-      </form>
+      </section>
 
       <section className="space-y-3 rounded-xl border border-white/10 bg-white/5 p-5">
         <p className="text-sm text-gray-300">
           Status: {statusCode ?? '-'} {statusMessage ? `| ${statusMessage}` : ''}
         </p>
+        <button
+          type="button"
+          onClick={() => router.push('/dashboard')}
+          disabled={statusCode !== 200}
+          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Continue to Dashboard
+        </button>
         <pre className="overflow-auto rounded-md bg-black/30 p-3 text-xs text-gray-300">
           {rawResponse || 'No response yet'}
         </pre>

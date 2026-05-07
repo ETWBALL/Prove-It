@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAccessToken } from '@prove-it/auth';
-import { POST } from './app/api/v1/auth/refresh/route';
+import { POST } from '../app/api/v1/auth/refresh/route';
 
 
 const publicRoutes = [

@@ -3,24 +3,40 @@
  * @description Handles fetching all documents for a user and creating new documents.
  */
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@prove-it/db";
+import { verifyAccessToken } from "@prove-it/auth";
+import { TokenPayloadSchema } from "@/lib/Validation/zodSchemas";
 
-// TODO: Import your specific auth verification utility from @repo/auth
-// import { verifySession } from "@repo/auth/auth-utility";
+async function getAuthenticatedUserPrivateId(request: NextRequest): Promise<number | null> {
+  const accessToken = request.cookies.get("accessToken")?.value;
+  if (!accessToken) return null;
+
+  const tokenResult = await verifyAccessToken(accessToken);
+  if (!tokenResult.valid || !tokenResult.payload) return null;
+
+  const parsedPayload = TokenPayloadSchema.safeParse(tokenResult.payload);
+  if (!parsedPayload.success) return null;
+
+  const user = await prisma.user.findUnique({
+    where: { publicId: parsedPayload.data.publicId },
+    select: { privateId: true },
+  });
+
+  return user?.privateId ?? null;
+}
 
 /**
  * GET /api/v1/documents
  * Fetches all documents belonging to the authenticated user.
  */
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    // 1. Verify Authentication (Mocked for now)
-    // const session = await verifySession(request);
-    // if (!session?.userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    
-    // MOCK USER ID for testing until auth middleware is plugged in
-    const userId = 1; 
+    // 1. Verify Authentication
+    const userId = await getAuthenticatedUserPrivateId(request);
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     // 2. Fetch Documents
     const documents = await prisma.document.findMany({
@@ -46,10 +62,13 @@ export async function GET(request: Request) {
  * POST /api/v1/documents
  * Creates a new document and an associated empty DocumentBody.
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    // 1. Verify Authentication (Mocked for now)
-    const userId = 1; 
+    // 1. Verify Authentication
+    const userId = await getAuthenticatedUserPrivateId(request);
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     // 2. Parse Request Body
     const body = await request.json();
