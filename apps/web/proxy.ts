@@ -51,7 +51,7 @@ export async function proxy(request: NextRequest) {
     }
 
     // Continue with the payload
-    const continueWithPayload = (payload: { publicId?: string; sessionPublicId?: string }, refreshedCookies?: { accessToken?: string; refreshToken?: string }) => {
+    const continueWithPayload = (payload: { publicId?: string; sessionPublicId?: string }, refreshResponse?: NextResponse) => {
         const requestHeaders = new Headers(request.headers)
         requestHeaders.set('x-user-id', payload?.publicId as string)
         requestHeaders.set('x-session-id', payload?.sessionPublicId as string)
@@ -62,21 +62,24 @@ export async function proxy(request: NextRequest) {
             }
         })
 
-        if (refreshedCookies?.accessToken) {
-            nextResponse.cookies.set('accessToken', refreshedCookies.accessToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'lax',
-                path: '/',
-            })
-        }
-        if (refreshedCookies?.refreshToken) {
-            nextResponse.cookies.set('refreshToken', refreshedCookies.refreshToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'lax',
-                path: '/',
-            })
+        // Preserve exact cookie attributes from refresh route (maxAge/expires/sameSite/etc.).
+        if (refreshResponse) {
+            const getSetCookie = (refreshResponse.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie
+            const setCookieValues =
+                typeof getSetCookie === 'function'
+                    ? getSetCookie.call(refreshResponse.headers)
+                    : []
+
+            if (setCookieValues.length > 0) {
+                for (const value of setCookieValues) {
+                    nextResponse.headers.append('set-cookie', value)
+                }
+            } else {
+                const single = refreshResponse.headers.get('set-cookie')
+                if (single) {
+                    nextResponse.headers.append('set-cookie', single)
+                }
+            }
         }
 
         return nextResponse
@@ -111,10 +114,10 @@ export async function proxy(request: NextRequest) {
             }
 
             // Continue with the new access and refresh tokens
-            return continueWithPayload(refreshedVerification.payload as { publicId?: string; sessionPublicId?: string }, {
-                accessToken: refreshedAccessToken,
-                refreshToken: refreshedRefreshToken,
-            })
+            return continueWithPayload(
+                refreshedVerification.payload as { publicId?: string; sessionPublicId?: string },
+                refreshResponse
+            )
         }
 
         // If the access token is invalid, return an unauthorized response
