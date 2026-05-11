@@ -31,13 +31,36 @@ export interface Delta {
     revision: number
 }
 
+
+export type MathStatementType = 'DEFINITION' | 'THEOREM' | 'LEMMA' | 'PROPERTY' | 'AXIOM' | 'COROLLARY' | 'CONJECTURE' | 'PROPOSITION'
+
+
+export interface MathStatements {
+    publicId: string, 
+    type: MathStatementType,
+    name: string,
+    content: string,
+    textbook: string,
+    orderIndex: number,
+}
+
+export type ProofType = 'DIRECT' | 'CONTRADICTION' | 'CONTRAPOSITIVE' | 'WEAK_INDUCTION' | 'STRONG_INDUCTION' | 'COUNTEREXAMPLE' | 'STRUCTURAL_INDUCTION' | 'BICONDITIONAL' | 'CONDITIONAL' | 'CASE_ANALYSIS'
+
+
 export interface DocumentState {
+    questionContent: string,
+    questionRevision: number,
+    questionBuffer: Delta[],
     content: string,
     contentId: string,
     revision: number, // The current revision (or at the end of the buffer array). Helps for syncing server side document and the client side document
     buffer: Delta[],
     errors: ErrorState[],
+    coursePublicId: string | null,
+    proofType: ProofType | null
+    selectedMathStatements: MathStatements[] | null
 }
+
 
 export type AuthenticatedSocket = Socket & {
   data: {
@@ -47,6 +70,10 @@ export type AuthenticatedSocket = Socket & {
 
 
 export interface Timers{
-    databaseTimeout: NodeJS.Timeout,
-    mlTimeout: NodeJS.Timeout
+    databaseTimeout?: NodeJS.Timeout,
+    mlTimeout?: NodeJS.Timeout,
+    questionTimeout?: NodeJS.Timeout,
 }
+
+
+

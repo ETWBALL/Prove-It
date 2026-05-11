@@ -22,27 +22,29 @@ export async function onDisconnect(
             return
         }
 
-        // Clear both timers
-        const existingTimers = timers.get(documentId)
-        if (existingTimers) {
-            if (existingTimers.databaseTimeout) clearTimeout(existingTimers.databaseTimeout)
-            if (existingTimers.mlTimeout) clearTimeout(existingTimers.mlTimeout)
-            timers.delete(documentId) // Delete the timers from the map
-        }
-
-        
-        // Get the current count of connections to the document
         const currentCount = documentConnectionCounts.get(documentId) ?? 0
         const nextCount = Math.max(0, currentCount - 1)
         if (nextCount === 0) {
-            // Get the document state
+            const existingTimers = timers.get(documentId)
+            if (existingTimers) {
+                if (existingTimers.databaseTimeout) clearTimeout(existingTimers.databaseTimeout)
+                if (existingTimers.mlTimeout) clearTimeout(existingTimers.mlTimeout)
+                if (existingTimers.questionTimeout) clearTimeout(existingTimers.questionTimeout)
+                timers.delete(documentId)
+            }
+
             const docState = documentStates.get(documentId)
 
             // Check if the document state exists and the buffer is greater than 0
-            if (docState && docState.buffer.length > 0) {
-                // Try to update the database
+            if (docState && (docState.buffer.length > 0 || docState.questionBuffer.length > 0)) {
                 try {
-                    await updateDatabase(documentId, docState, documentStates)
+                    await updateDatabase(
+                        documentId,
+                        docState,
+                        documentStates,
+                        docState.buffer.length > 0,
+                        docState.questionBuffer.length > 0
+                    )
                 } catch (error) {
                     console.error(`Persist failed on disconnect for document ${documentId}; keeping in-memory state for retry.`, error)
                     socketDocumentMap.delete(socket.id)

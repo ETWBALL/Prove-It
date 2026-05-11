@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { UniversityDomain } from '@prove-it/db'
-import { PrismaClientKnownRequestError, prisma } from '@prove-it/db'
+import { prisma } from '@prove-it/db'
 import { generateAccessToken, generateRefreshToken, hashOpaqueToken, hashPassword } from '@prove-it/auth'
 
 // Local imports
@@ -154,8 +154,13 @@ export async function POST(request: Request) {
 
 
     } catch (error: unknown) {
-        if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
-            const target = error.meta?.target
+        const prismaError = error as {
+            code?: string
+            meta?: { target?: string[] | string }
+        }
+
+        if (prismaError?.code === 'P2002') {
+            const target = prismaError.meta?.target
             const fields = (
                 Array.isArray(target) ? target : typeof target === 'string' ? [target] : []
             ) as string[]

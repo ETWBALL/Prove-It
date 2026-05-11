@@ -4,12 +4,14 @@ import Redis from 'ioredis'
 // Local Imports
 import { createServer } from 'http'
 import { Server } from 'socket.io'
-import { Delta, DocumentState, Timers } from '../lib/types'
+import { Delta, DocumentState, Timers, MathStatements} from '../lib/types'
 import { onDelta } from '../src/events/onDelta'
 import { onJoin } from '../src/events/onJoin'
 import { onLeave } from '../src/events/onLeave'
 import { onDisconnect } from '../src/events/onDisconnect'
-import { onSave } from './events/notNeeded/onSave'
+import { onQuestionDelta } from '../src/events/onQuestionDelta'
+import { onQuestionMLTrigger } from '../src/events/mlTrigger:Question'
+import { prisma } from '@prove-it/db'
 
 function parseCookieHeader(cookieHeader?: string): Record<string, string> {
     if (!cookieHeader) return {}
@@ -27,15 +29,14 @@ function parseCookieHeader(cookieHeader?: string): Record<string, string> {
 }
 
 
-
 // Store all user's document states, deltas here (RAM)
 const documentStates = new Map<string, DocumentState>() 
-const timers = new Map<string, Timers>() // two timers per document
+const timers = new Map<string, Timers>() // optional per-doc: body autosave, ML, proving-statement autosave
 
 // Store socketID to active documentID (single active document per socket).
 const socketDocumentMap = new Map<string, string>() // socketId -> documentId
 const documentConnectionCounts = new Map<string, number>() // documentId -> active socket count
-
+const library = new Map<string, MathStatements[]>() // Store <course_publicId, definitions> in here
 
 // Connect to Redis (subscriber for ML results -> websocket clients).
 const redisHost = process.env.REDIS_HOST ?? 'localhost'
@@ -107,18 +108,21 @@ io.on('connection', (socket) => {
         onLeave(socket, documentStates, documentId, socketDocumentMap, documentConnectionCounts, timers)
     )
 
-    // Event 4: Listen for sudden disconnects
+    // Event 4: Socket disconnect (browser close, network drop, etc.)
     socket.on('disconnect', async () =>
         onDisconnect(socket, documentStates, socketDocumentMap, documentConnectionCounts, timers)
     )
 
-    // Event 5: Listen for save document event from client, persist to DB immediately
-    socket.on('document:save', async (documentId: string) =>
-        onSave(socket, documentStates, documentId, socketDocumentMap, timers)
+    // Event 5: Proving statement edits (document:qDelta) — same Delta shape, separate stream from body
+    socket.on('document:qDelta', async (qDelta: Delta) =>
+        onQuestionDelta(socket, documentStates, qDelta, socketDocumentMap, timers)
     )
 
-    // Event 5: Listen for save document event from client, persist to DB immediately
-    // Event 6: Listen for lastCompiled to update document state in memory, persist to DB immediately (proofAttempt and update old documentbody)
+    // Event 6: ML Trigger: Find necessary definitions for the proof statement
+    socket.on('document:question:ml:trigger', async (documentID: string) =>
+        onQuestionMLTrigger(socket, documentStates, documentID, socketDocumentMap, library)
+    )
+
     // Event 7: Listen for Hint being applied, error being ignored, suggestion being ignored/applied 
     // Event 8: Listen for ML result from Redis, update document state in memory and emit to client
     // Event 9: 
@@ -155,9 +159,55 @@ redisSub.on('pmessage', (_pattern: string, channel: string, message: string) => 
     }
 })
 
-// (6) start listening for connections on port 3001
-httpServer.listen(3001, () => {
-    console.log('WebSocket server is running on port 3001')
+// (6) Load the library from the database into memory
+
+async function loadLibrary() {
+
+    try {
+        const courses = await prisma.course.findMany({
+            select: {
+                publicId: true,
+                mathStatements: {
+                    select: {
+                        publicId: true,
+                        type: true,
+                        name: true,
+                        content: true,
+                        textbook: true,
+                        orderIndex: true,
+                    },
+                    orderBy: {
+                        orderIndex: 'asc',
+                    },
+                },
+            },
+        })
+
+        library.clear()
+        for (const course of courses) {
+            const statements: MathStatements[] = course.mathStatements.map((mathStatement) => ({
+                publicId: mathStatement.publicId,
+                type: mathStatement.type,
+                name: mathStatement.name,
+                content: mathStatement.content ?? '',
+                textbook: mathStatement.textbook ?? 'Unknown Textbook',
+                orderIndex: mathStatement.orderIndex,
+            }))
+            library.set(course.publicId, statements)
+        }
+        console.log(`Library loaded into memory (${library.size} courses)`)
+
+    } catch (error) {
+        console.error('Failed to load library:', error)
+    }
+}
+
+
+// (7) start listening for connections on port 3001
+loadLibrary().then(() => {
+    httpServer.listen(3001, () => {
+        console.log('WebSocket server is running on port 3001')
+    })
 })
 
 

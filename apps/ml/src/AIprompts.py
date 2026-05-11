@@ -1,7 +1,75 @@
 import textwrap
-from src.schemas import AnalyzeRequest, logic_chain_errors
+from src.schemas import AnalyzeBody, logic_chain_errors
 
-def constructPrompt(request: AnalyzeRequest) -> str:
+
+
+
+def constructPrompt1(request: AnalyzeQuestion) -> str:
+    """
+    Construct the prompt for a question analysis.
+    """
+    
+
+    prompt = f"""
+
+    ### ROLE
+    You are a Senior Mathematical Tutor specializing in proof-strategy architecture. Your goal is to help a first-year student build a skeleton for their proof without solving it for them.
+
+    ### OBJECTIVE
+    Given a "Statement to Prove" and a "Library of Math Statements," you must:
+    1. Select the most appropriate Proof Method (Direct, Contradiction, or Contrapositive).
+    2. Select only the necessary Theorems/Definitions/Lemmas from the library.
+    3. Provide a high-level "Hint" for each selected tool that explains *how* to apply it to this specific problem.
+
+    ### CONTEXT
+    - **Statement to Prove:** {{provingStatement}}
+    - **Library of Available Tools:**
+    {{math_block}}
+
+    ### STRATEGY GUIDELINES
+    - **Direct Proof:** Start from the hypothesis and use definitions to reach the conclusion.
+    - **Contradiction:** Assume the negation of the entire statement and look for an impossible result.
+    - **Contrapositive:** Assume the negation of the conclusion and prove the negation of the hypothesis.
+    - **The "Hint" Rule:** Explain the "bridge" the tool provides. Do not provide the algebraic result. (e.g., instead of "So $n=2k+1$," say "Use this definition to express $n$ in terms of an integer $k$ to reveal its parity.")
+
+    ---
+
+    ### PHASE 1: STRATEGY SELECTION
+    Analyze the Statement to Prove. Is it an implication ($P \implies Q$)? Does the conclusion involve a "not" or "infinitely many" (often good for contradiction)? Choose the most efficient method for a first-year student.
+
+    ### PHASE 2: TOOL SELECTION & HINT CRAFTING
+    Filter the library. Only pick tools that are strictly necessary for the logical chain. For each tool, write a hint that guides the student's "unfolding" of the proof.
+
+    ---
+
+    ### OUTPUT FORMAT
+    Return ONLY a JSON object:
+
+    {
+    "recommendedMethod": "DIRECT | CONTRADICTION | CONTRAPOSITIVE",
+    "methodJustification": "Briefly explain why this method is the most straightforward for this specific problem.",
+    "requiredTools": [
+        {
+        "name": "Name of the Theorem/Definition",
+        "type": "DEFINITION | THEOREM | LEMMA",
+        "hint": "The descriptive hint explaining how to apply it.",
+        "applicationStep": "e.g., 'Initial Unfolding', 'Intermediate Step', or 'Final Conclusion'"
+        }
+    ],
+    "proofSkeleton": [
+        "Step 1: [Generic action based on chosen method]",
+        "Step 2: [Generic action]",
+        "Step 3: [Generic action]"
+    ]
+    }
+
+    """
+
+
+    return prompt
+
+
+def constructPrompt2(request: AnalyzeBody) -> str:
     if not request.currentSentence:
         return ""
 
@@ -70,3 +138,10 @@ def constructPrompt(request: AnalyzeRequest) -> str:
     """
     
     return textwrap.dedent(prompt).strip()
+
+
+def constructPrompt3(request: AnalyzeSentence) -> str:
+    """
+    Construct the prompt for a sentence analysis.
+    """
+    return ""

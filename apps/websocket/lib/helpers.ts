@@ -3,6 +3,7 @@ import Redis from 'ioredis'
 import { prisma } from '@prove-it/db'
 
 const DATABASE_TIMEOUT_MS = 60000 // 1 minute
+const QUESTION_DEBOUNCE_MS = 60000 // align with autosave cadence until product defines a shorter UX debounce
 const ML_TIMEOUT_MS = 35000 // 35 seconds
 
 const MAX_DELTA_CONTENT_LENGTH = 50_000
@@ -88,8 +89,15 @@ export function validateDeltaForContent(delta: Delta, contentLength: number): st
 }
 
 
-// Update the database with the current document state, clear buffer. 
-export async function updateDatabase(documentPublicId: string, updatedDocState: DocumentState, documentStates: Map<string, DocumentState>, clearBuffer: boolean = true) {
+// Update the database with the current document hot state (body + proving statement).
+// clearBodyBuffer / clearQuestionBuffer control which replay buffers reset after a successful txn.
+export async function updateDatabase(
+    documentPublicId: string,
+    updatedDocState: DocumentState,
+    documentStates: Map<string, DocumentState>,
+    clearBodyBuffer: boolean = true,
+    clearQuestionBuffer: boolean = false
+) {
     try {
 
         const updatedDocumentBody = await prisma.$transaction(async (tx) => {
@@ -102,8 +110,9 @@ export async function updateDatabase(documentPublicId: string, updatedDocState: 
             // DocumentBody is unique by privateDocumentId, so upsert by that key.
             const persistedDocumentBody = await tx.documentBody.upsert({
                 where: { privateDocumentId: updatedDocument.privateId },
-                update: { content: updatedDocState.content },
+                update: { content: updatedDocState.content, provingStatement: updatedDocState.questionContent },
                 create: {
+                    provingStatement: updatedDocState.questionContent,
                     content: updatedDocState.content,
                     privateDocumentId: updatedDocument.privateId
                 }
@@ -140,11 +149,17 @@ export async function updateDatabase(documentPublicId: string, updatedDocState: 
 
         // If db succeeds: Update the document state in memory with the new content and clear the buffer
         documentStates.set(documentPublicId, {
+                questionContent: updatedDocState.questionContent,
+                questionRevision: updatedDocState.questionRevision,
+                questionBuffer: clearQuestionBuffer ? [] : [...updatedDocState.questionBuffer],
                 content: updatedDocState.content,
                 contentId: updatedDocumentBody.publicId,
                 revision: updatedDocState.revision,
-                buffer: clearBuffer ? [] : updatedDocState.buffer,
-                errors: updatedDocState.errors
+                buffer: clearBodyBuffer ? [] : [...updatedDocState.buffer],
+                errors: updatedDocState.errors,
+                coursePublicId: updatedDocState.coursePublicId,
+                proofType: updatedDocState.proofType,
+                selectedMathStatements: updatedDocState.selectedMathStatements,
         })
 
     }catch(error){
@@ -440,12 +455,19 @@ export function setUpTimers(documentId: string, timers: Map<string, Timers>, doc
 
     // Set new timers
     timers.set(documentId, {
+        ...existingTimers,
         databaseTimeout: setTimeout(async () => {
             console.log(`Autosaving document ${documentId}`)
 
             // Try to update the database
             try {
-                await updateDatabase(documentId, updatedDocState, documentStates)
+                await updateDatabase(
+                    documentId,
+                    updatedDocState,
+                    documentStates,
+                    true,
+                    updatedDocState.questionBuffer.length > 0
+                )
             } catch (error) {
                 console.error(`Autosaving failed for document ${documentId}:`, error)
                 socket.emit('document:delta:error', { code: 'PERSIST_FAILED' })
@@ -456,20 +478,82 @@ export function setUpTimers(documentId: string, timers: Map<string, Timers>, doc
 
         }, DATABASE_TIMEOUT_MS),
         mlTimeout: setTimeout(async () => {
-            console.log(`ML triggered on document ${documentId}`)
+            console.log(`ML Triggered: Body analysis till current sentence for document ${documentId}`)
 
             // Trigger ML pipeline to redis.
             await redis.lpush('ml:queue:analyze', JSON.stringify({
-                documentId,
-                content: currentSentence,
-                errors: errorsForSentence
-            }))
-            socket.emit('document:ml:triggered', { message: 'ML pipeline triggered.' })
+                taskType: 'body_analysis',
+                documentId: documentId,
+                payload: {
+                    mathStatements: updatedDocState.selectedMathStatements ?? [],
+                    provingStatement: updatedDocState.questionContent,
+                    content: updatedDocState.content,
+                    currentSentence: currentSentence,
+                    currentSentenceErrors: errorsForSentence,
+                    allDocumentErrors: updatedDocState.errors
+                }
 
+            }))
+            socket.emit('document:ml:triggered', { message: 'ML triggered for body analysis.' })
+            
         }, ML_TIMEOUT_MS)
     })
 
 }
+
+
+export function setUpQuestionTimer(documentId: string, timers: Map<string, Timers>, documentStates: Map<string, DocumentState>, socket: AuthenticatedSocket) {
+    const existingTimers = timers.get(documentId)
+
+    // Clear prior question autosave timer; database / ML timeouts are owned by document:delta.
+    if (existingTimers) {
+        if (existingTimers.questionTimeout) clearTimeout(existingTimers.questionTimeout)
+    }
+
+    // Snapshot only to validate presence; callback re-reads map for freshest state.
+    const warmState = documentStates.get(documentId)
+
+    if (!warmState) {
+        console.error(`Document state not found for document ${documentId}`)
+        socket.emit('document:qDelta:error', { code: 'DOCUMENT_STATE_MISSING' })
+        return
+    }
+
+    const latestDelta = warmState.questionBuffer.at(-1)
+
+    if (!latestDelta) {
+        console.error(`No question delta found for document ${documentId}`)
+        socket.emit('document:qDelta:error', { code: 'NO_QUESTION_DELTA_FOUND' })
+        return
+    }
+
+    timers.set(documentId, {
+        ...existingTimers,
+        questionTimeout: setTimeout(async () => {
+            console.log(`Autosaving question content for document ${documentId}`)
+            const latest = documentStates.get(documentId)
+
+            // Room empty or raced away document state — nothing to save.
+            if (!latest) {
+                return
+            }
+
+            try {
+                // Persist body snapshot + proving text; flush only proving replay buffer here.
+                await updateDatabase(documentId, latest, documentStates, false, true)
+            } catch (error) {
+                console.error(`Autosaving question content failed for document ${documentId}:`, error)
+                socket.emit('document:qDelta:error', { code: 'PERSIST_QUESTION_FAILED' })
+                return
+            }
+
+            socket.emit('document:qDelta:persisted', {
+                message: 'Document proving statement persisted to database.',
+            })
+        }, QUESTION_DEBOUNCE_MS),
+    })
+}
+
 
 /**
  * Check if the delta is a character trigger. If it is, we need to trigger the ML pipeline.

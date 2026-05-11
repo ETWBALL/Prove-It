@@ -61,6 +61,7 @@ yarn-error.log*
 .env*
 **/.env
 **/.env.*
+!.env.example
 .env.local
 
 # vercel
@@ -73,12 +74,15 @@ next-env.d.ts
 /app/generated/prisma
 /packages/db/generated/prisma/
 
-// AI instructions
+# AI instructions
 /AGENTS.md
 /CLAUDE.md
 
-// Cursor Info
+# Cursor Info
 .cursor/
 
-// Local development
+# Local development
 start_local_database.sh
+
+# RAG data
+/apps/ml/data/

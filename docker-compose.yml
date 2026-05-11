@@ -33,7 +33,7 @@ services:
 
   postgres:
     container_name: prove-it-postgres
-    image: postgres:16-alpine
+    image: ankane/pgvector:v0.5.1-pg16-alpine
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -42,6 +42,7 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./scripts/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
       interval: 5s

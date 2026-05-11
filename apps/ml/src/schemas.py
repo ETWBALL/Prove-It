@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
 from enum import Enum
 
@@ -60,18 +60,68 @@ class ValidationLayer(str, Enum):
     PROOF_GRAMMER = "PROOF_GRAMMER"
     LOGIC_CHAIN = "LOGIC_CHAIN"
 
+
+# Mirror Prisma `ErrorType` (packages/db/schema.prisma) for ML outputs.
+class ErrorType(str, Enum):
+    INCORRECT_NEGATION = "INCORRECT_NEGATION"
+    ASSUMING_THE_CONVERSE = "ASSUMING_THE_CONVERSE"
+    EQUIVOCATION = "EQUIVOCATION"
+    FALSE_DICHOTOMY_IN_CASE_ANALYSIS = "FALSE_DICHOTOMY_IN_CASE_ANALYSIS"
+    UNJUSTIFIED_REVERSIBILITY = "UNJUSTIFIED_REVERSIBILITY"
+    MISAPPLYING_A_THEOREM = "MISAPPLYING_A_THEOREM"
+    MISAPPLYING_A_DEFINITION = "MISAPPLYING_A_DEFINITION"
+    MISAPPLYING_A_LEMMA = "MISAPPLYING_A_LEMMA"
+    MISAPPLYING_A_PROPERTY = "MISAPPLYING_A_PROPERTY"
+    MISAPPLYING_AN_AXIOM = "MISAPPLYING_AN_AXIOM"
+    MISAPPLYING_A_COROLLARY = "MISAPPLYING_A_COROLLARY"
+    MISAPPLYING_A_CONJECTURE = "MISAPPLYING_A_CONJECTURE"
+    MISAPPLYING_A_PROPOSITION = "MISAPPLYING_A_PROPOSITION"
+    AFFIRMING_THE_CONSEQUENT = "AFFIRMING_THE_CONSEQUENT"
+    CIRCULAR_REASONING = "CIRCULAR_REASONING"
+    JUMPING_TO_CONCLUSIONS = "JUMPING_TO_CONCLUSIONS"
+    IMPROPER_GENERALIZATION = "IMPROPER_GENERALIZATION"
+    IMPLICIT_ASSUMPTION = "IMPLICIT_ASSUMPTION"
+    CONTRADICTS_PREVIOUS_STATEMENT = "CONTRADICTS_PREVIOUS_STATEMENT"
+    SCOPE_ERROR = "SCOPE_ERROR"
+    NON_SEQUITUR = "NON_SEQUITUR"
+    VACUOUS_PROOF_FALLACY = "VACUOUS_PROOF_FALLACY"
+    EXISTENTIAL_INSTANTIATION_ERROR = "EXISTENTIAL_INSTANTIATION_ERROR"
+    ASSUMING_THE_GOAL = "ASSUMING_THE_GOAL"
+    VARIABLE_SHADOWING = "VARIABLE_SHADOWING"
+    PROOF_BY_EXAMPLE = "PROOF_BY_EXAMPLE"
+    ILLEGAL_OPERATION = "ILLEGAL_OPERATION"
+    VACUOUS_NEGATION = "VACUOUS_NEGATION"
+    STRUCTURE_ERROR = "STRUCTURE_ERROR"
+
+    INFORMAL_LANGUAGE = "INFORMAL_LANGUAGE"
+    AMBIGUOUS_PRONOUN = "AMBIGUOUS_PRONOUN"
+    MISSING_PUNCTUATION = "MISSING_PUNCTUATION"
+    INCOMPLETE_SENTENCE = "INCOMPLETE_SENTENCE"
+    MISSING_DEFINITION_UNFOLD = "MISSING_DEFINITION_UNFOLD"
+    UNEXPANDED_ACRONYM = "UNEXPANDED_ACRONYM"
+    INCONSISTENT_NOTATION = "INCONSISTENT_NOTATION"
+    UNDEFINED_TERM_USED = "UNDEFINED_TERM_USED"
+    MISSING_QUANTIFIER = "MISSING_QUANTIFIER"
+    WRONG_LOGICAL_CONNECTIVE = "WRONG_LOGICAL_CONNECTIVE"
+    REDUNDANT_STATEMENT = "REDUNDANT_STATEMENT"
+    TYPE_MISMATCH = "TYPE_MISMATCH"
+    DANGLING_VARIABLE = "DANGLING_VARIABLE"
+    SYMBOL_AS_VERB = "SYMBOL_AS_VERB"
+    UNFOLDING_FAILURE = "UNFOLDING_FAILURE"
+
+
 # Mirror your TypeScript Suggestion interface
 class Suggestion(BaseModel):
     suggestionContent: str
-    startIndexSuggestion: int
-    endIndexSuggestion: int
+    startIndexSuggestion: int = 0
+    endIndexSuggestion: int = 0
 
 # Mirror your TypeScript ErrorState interface
 class ErrorState(BaseModel):
-    publicId: str
-    startIndexError: int
-    endIndexError: int
-    errorContent: str
+    publicId: str = ""
+    startIndexError: int = 0
+    endIndexError: int = 0
+    errorContent: str = ""
     suggestion: Optional[Suggestion] = None
     resolvedAt: Optional[str] = None
     dismissedAt: Optional[str] = None
@@ -79,31 +129,78 @@ class ErrorState(BaseModel):
     MLTriggered: Optional[bool] = None
 
 class MathStatement(BaseModel):
-    publicId: str
+    publicId: str = ""
     type: str
     name: str
     content: str
 
-# What the websocket sends to the ML service
-class AnalyzeRequest(BaseModel):
+
+class ProofType(str, Enum):
+    DIRECT = "DIRECT"
+    CONTRADICTION = "CONTRADICTION"
+    CONTRAPOSITIVE = "CONTRAPOSITIVE"
+    WEAK_INDUCTION = "WEAK_INDUCTION"
+    STRONG_INDUCTION = "STRONG_INDUCTION"
+    COUNTEREXAMPLE = "COUNTEREXAMPLE"
+    STRUCTURAL_INDUCTION = "STRUCTURAL_INDUCTION"
+    BICONDITIONAL = "BICONDITIONAL"
+    CONDITIONAL = "CONDITIONAL"
+    CASE_ANALYSIS = "CASE_ANALYSIS"
+
+
+class TaskType(str, Enum):
+    QUESTION_ANALYSIS = "question_analysis"
+    SENTENCE_ANALYSIS = "sentence_analysis"
+    BODY_ANALYSIS = "body_analysis"
+
+
+# Websocket can sends this schema at all times:
+class Request(BaseModel):
+    taskType: TaskType
+    documentId: str
+    payload: Any
+
+
+# (1) Websocket sends a question analysis request
+class AnalyzeQuestion(BaseModel):
+    mathStatements: list[MathStatement] 
+    content: str # The statement being proven.
+    proofType: Optional[ProofType]
+
+
+# (2) Websocket sends a single sentence analysis request
+class AnalyzeSentence(BaseModel):
     mathStatements: list[MathStatement] # all math statements in the document
     provingStatement: str # The statement being proven.
-    content: str # The content of the document
 
-    documentId: str
-    layer: ValidationLayer
-    context: bool # Does the ML need context to understand the current sentence?
+    content: str # The content of the document. Won't be used in prompt, mainly needed for finding error indices
+    sentence: str 
 
-    
-    currentSentence: str
-    currentErrors: list[ErrorState]  # existing errors so ML doesn't re-flag them
+    currentSentenceErrors: list[ErrorState]  # existing errors so ML doesn't re-flag them
 
-    allErrors: list[ErrorState] # all errors in the document
+# (3) Websocket sends a body analysis request
+class AnalyzeBody(BaseModel):
     mathStatements: list[MathStatement] # all math statements in the document
+    provingStatement: str # The statement being proven.
+
+    content: str # The content of the document
+    currentSentence: str
+
+    currentSentenceErrors: list[ErrorState]  # existing errors so ML doesn't re-flag them
+    allDocumentErrors: list[ErrorState] # all errors in the document
 
 
 
 # What the ML service sends back
+
+# (1) ML sends back the needed definitions and theorems to prove the statement
+class Response1(BaseModel):
+    documentId: str
+    proofType: ProofType
+    mathStatements: list[MathStatement]
+
+
+# (2) ML sends back the detected errors
 class DetectedError(BaseModel):
 
     # Location of the error in the document
@@ -113,11 +210,11 @@ class DetectedError(BaseModel):
 
     # Message to the user
     errorMessage: str
-    layer: ValidationLayer
+    errortype: ErrorType
     suggestedFix: Optional[Suggestion] = None
 
 # The full response back to websocket
-class AnalyzeResponse(BaseModel):
+class Response2(BaseModel):
     documentId: str
     errors: list[DetectedError]
 

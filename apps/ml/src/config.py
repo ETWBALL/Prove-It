@@ -1,9 +1,16 @@
 from pydantic_settings import BaseSettings
 
 
+# Explains what is expected of the env variables.
 class Settings(BaseSettings):
-    # Model provider. We can swap this to change model providers.
-    MODEL_PROVIDER: str = "gemini"
+    # Question analysis model provider. We can swap this to change model providers.
+    QUESTION_ANALYSIS_MODEL: str = "gemini"
+
+    # Body analysis model provider. We can swap this to change model providers.
+    BODY_ANALYSIS_MODEL: str = "gemini"
+
+    # Sentence analysis model provider. We can swap this to change model providers.
+    SENTENCE_ANALYSIS_MODEL: str = "gemini"
 
     # API Keys
     GEMINI_API_KEY: str = ""
@@ -13,8 +20,19 @@ class Settings(BaseSettings):
     REDIS_PORT: int = 6379
     REDIS_PASSWORD: str = ""
 
+    # Postgres settings. 
+    POSTGRES_USER: str = "postgres"
+    POSTGRES_PASSWORD: str = "postgres"
+    POSTGRES_DB: str = "postgres"
+    DB_HOST: str = "postgres" 
+    
+
     class Config:
         env_file = ".env"
 
 
 settings = Settings()
+
+
+
+

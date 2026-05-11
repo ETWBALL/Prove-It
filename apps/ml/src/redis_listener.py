@@ -6,6 +6,7 @@ from redis import Redis
 from src.config import settings
 from src.schemas import AnalyzeRequest
 from src.router import route_to_provider
+from src.helpers import formatResponse
 
 
 # (1) Create Redis TCP client. Decode responses as strings.
@@ -21,23 +22,33 @@ redis = Redis(
 async def process_message(message: str):
     try:
         data = json.loads(message)
+        
         # Normalize websocket payload to current AnalyzeRequest schema.
         normalized = {
             "documentId": data.get("documentId", ""),
-            "content": data.get("content", ""),
-            "layer": data.get("layer", "LOGIC_CHAIN"),
-            "context": data.get("context", False),
-            "provingStatement": data.get("provingStatement", ""),
-            "currentSentence": data.get("currentSentence", data.get("content", "")),
-            "currentErrors": data.get("currentErrors", data.get("errors", [])),
-            "allErrors": data.get("allErrors", []),
-            "mathStatements": data.get("mathStatements", []),
+            "taskType": data.get("taskType", ""),
+            "payload": data.get("payload", {}),
         }
-        request = AnalyzeRequest(**normalized)
 
-        print(f"Processing document: {request.documentId}")
+        request = Request(**normalized)
+        print(f"Processing document: {request.documentId} for task type: {request.taskType}")
 
+        # Create the request object based on the task type
+        if request.taskType == 'question_analysis':
+            request = AnalyzeQuestion(**request.payload)
+        elif request.taskType == 'body_analysis':
+            request = AnalyzeBody(**request.payload)
+        elif request.taskType == 'sentence_analysis':
+            request = AnalyzeSentence(**request.payload)
+        else:
+            raise ValueError(f"Invalid task type: {request.taskType}")
+
+
+        # Get the model's JSON response
         response = await route_to_provider(request)
+
+        # Format the response to the AnalyzeResponse schema
+        response = formatResponse(request, response)
 
         # Publish result back to websocket
         redis.publish(
@@ -58,11 +69,13 @@ async def start_listener():
         try:
             # BLPOP blocks until a message is available.
             result = await asyncio.to_thread(redis.blpop, "ml:queue:analyze", 0)
+
             if not result:
                 continue
 
             _, message = result  # (key, value)
             asyncio.create_task(process_message(message))
+
         except Exception as e:
             print(f"Redis listener error: {e}")
             await asyncio.sleep(5)

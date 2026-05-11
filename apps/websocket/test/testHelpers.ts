@@ -179,6 +179,9 @@ async function main() {
 
     function baseDocState(overrides: Partial<DocumentState> = {}): DocumentState {
         return {
+            questionContent: "",
+            questionRevision: 0,
+            questionBuffer: [],
             content: "Updated test content",
             contentId: "placeholder-content-id",
             revision: 1,

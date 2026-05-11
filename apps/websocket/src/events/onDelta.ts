@@ -74,13 +74,20 @@ export async function onDelta(
             socket.emit('document:errors:removed', { errorIds: mlErrors.map(e => e.publicId) })
         }
 
-        // Set the document state
+        // Set the document state. Do not touch the question buffer. Keep it as it is
         documentStates.set(joinedDocumentId, {
+            questionContent: docState.questionContent,
+            questionRevision: docState.questionRevision,
+            questionBuffer: [...docState.questionBuffer],
+
             content: applyDelta(docState.content, delta),
             contentId: docState.contentId,
             revision: delta.revision,
             buffer: [...docState.buffer, delta],
             errors: updatedErrors,
+            coursePublicId: docState.coursePublicId,
+            proofType: docState.proofType,
+            selectedMathStatements: docState.selectedMathStatements,
         })
 
 
@@ -111,7 +118,13 @@ export async function onDelta(
 
             // Try to update the database
             try {
-                await updateDatabase(joinedDocumentId, updatedDocState, documentStates)
+                await updateDatabase(
+                    joinedDocumentId,
+                    updatedDocState,
+                    documentStates,
+                    true,
+                    updatedDocState.questionBuffer.length > 0
+                )
 
                 // Clear the persistent timer
                 clearTimeout(timers.get(joinedDocumentId)?.databaseTimeout)

@@ -6,8 +6,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@prove-it/db";
 
-// TODO: Import your specific auth verification utility from @repo/auth
-// import { verifySession } from "@repo/auth/auth-utility";
+async function getPrivateUserIdFromRequest(request: Request): Promise<number | null> {
+  const publicUserId = request.headers.get("x-user-id");
+  if (!publicUserId) return null;
+
+  const user = await prisma.user.findUnique({
+    where: { publicId: publicUserId },
+    select: { privateId: true },
+  });
+
+  return user?.privateId ?? null;
+}
 
 /**
  * GET /api/v1/documents
@@ -15,14 +24,12 @@ import { prisma } from "@prove-it/db";
  */
 export async function GET(request: Request) {
   try {
-    // 1. Verify Authentication (Mocked for now)
-    // const session = await verifySession(request);
-    // if (!session?.userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    
-    // MOCK USER ID for testing until auth middleware is plugged in
-    const userId = 1; 
+    const userId = await getPrivateUserIdFromRequest(request);
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    // 2. Fetch Documents
+    // Fetch Documents
     const documents = await prisma.document.findMany({
       where: { privateOwnerId: userId, deletedAt: null },
       orderBy: { lastEdited: "desc" },
@@ -48,23 +55,57 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
   try {
-    // 1. Verify Authentication (Mocked for now)
-    const userId = 1; 
+    const userId = await getPrivateUserIdFromRequest(request);
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    // 2. Parse Request Body
-    const body = await request.json();
-    const { title, courseId } = body;
+    // Parse Request Body
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
 
-    if (!title) {
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    }
+
+    const { title, courseId } = body as { title?: unknown; courseId?: unknown };
+
+    if (typeof title !== "string" || title.trim().length === 0) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 });
     }
 
-    // 3. Create Document and DocumentBody in a single transaction
+    let normalizedCourseId: number | null = null;
+    if (courseId !== undefined && courseId !== null) {
+      if (typeof courseId !== "number" || !Number.isInteger(courseId) || courseId <= 0) {
+        return NextResponse.json({ error: "Invalid courseId" }, { status: 400 });
+      }
+
+      const enrollment = await prisma.userCourse.findFirst({
+        where: {
+          privateUserId: userId,
+          privateCourseId: courseId,
+          unenrolledAt: null,
+        },
+        select: { privateCourseId: true },
+      });
+
+      if (!enrollment) {
+        return NextResponse.json({ error: "Course not found for user" }, { status: 400 });
+      }
+
+      normalizedCourseId = enrollment.privateCourseId;
+    }
+
+    // Create Document and DocumentBody in a single transaction
     const newDocument = await prisma.document.create({
       data: {
-        title,
+        title: title.trim(),
         privateOwnerId: userId,
-        privateCourseId: courseId ?? null,
+        privateCourseId: normalizedCourseId,
         proofType: "DIRECT",
         documentBody: {
           create: {

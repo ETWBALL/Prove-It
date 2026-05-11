@@ -8,11 +8,20 @@ import { Redis } from "@upstash/redis";
  *
  * `analytics` talks to Redis extra pipelines; keep it off unless you use Upstash analytics dashboards.
  */
-const explicitDisable = process.env.RATE_LIMIT_DISABLED?.toLowerCase() === "false";
-const hasUpstashCreds =
-  Boolean(process.env.UPSTASH_REDIS_REST_URL) &&
-  Boolean(process.env.UPSTASH_REDIS_REST_TOKEN);
+function cleanEnv(value?: string): string {
+  if (!value) return "";
+  const trimmed = value.trim();
+  return trimmed.replace(/^['"]|['"]$/g, "");
+}
+
+const explicitDisable = process.env.RATE_LIMIT_DISABLED?.toLowerCase() === "true";
+const upstashUrl = cleanEnv(process.env.UPSTASH_REDIS_REST_URL);
+const upstashToken = cleanEnv(process.env.UPSTASH_REDIS_REST_TOKEN);
+const hasUpstashCreds = Boolean(upstashUrl) && Boolean(upstashToken);
 const rateLimitDisabled = explicitDisable || !hasUpstashCreds;
+const redisClient = hasUpstashCreds
+  ? new Redis({ url: upstashUrl, token: upstashToken })
+  : null;
 
 
 
@@ -30,7 +39,7 @@ const noopRatelimit = {limit: (_identifier: string) => {
 export const ProveItRateLimit = rateLimitDisabled
   ? noopRatelimit
   : new Ratelimit({
-      redis: Redis.fromEnv(),
+      redis: redisClient!,
       limiter: Ratelimit.slidingWindow(50, "1m"),
       analytics: false,
       prefix: "@upstash/ratelimit",
@@ -39,7 +48,7 @@ export const ProveItRateLimit = rateLimitDisabled
 export const refreshRatelimit = rateLimitDisabled
   ? noopRatelimit
   : new Ratelimit({
-      redis: Redis.fromEnv(),
+      redis: redisClient!,
       limiter: Ratelimit.slidingWindow(30, "1 m"),
       analytics: false,
       prefix: "@upstash/ratelimit/refresh",

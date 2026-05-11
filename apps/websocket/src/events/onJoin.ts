@@ -1,4 +1,4 @@
-import { DocumentState, ErrorState, Suggestion, AuthenticatedSocket} from '../../lib/types'
+import { DocumentState, ErrorState, Suggestion, AuthenticatedSocket, MathStatements} from '../../lib/types'
 import { prisma } from '@prove-it/db'
 
 
@@ -67,6 +67,9 @@ export async function onJoin(
                 revision: state?.revision ?? 0,
                 buffer: state?.buffer ?? [],
                 errors: state?.errors ?? [],
+                questionContent: state?.questionContent ?? '',
+                questionRevision: state?.questionRevision ?? 0,
+                questionBuffer: state?.questionBuffer ?? [],
             })
             return
         }
@@ -95,6 +98,7 @@ export async function onJoin(
         socket.emit('document:join:processing', { documentId: documentId })
 
         // Find the document
+
         const document = await prisma.document.findFirst({
             where: {
                 publicId: documentId,
@@ -102,13 +106,19 @@ export async function onJoin(
                 user: { is: { publicId: userPublicId } }, // This verifies if they actually own this document
             },
             include: { 
-                documentBody: true,
+                documentBody: true, 
+                course: true,
                 errors: {
                     where: {
                         resolvedAt: null,
                         dismissedAt: null
                     }
-                }
+                },
+                documentMathStatements: {
+                    include: {
+                        mathstatement: true
+                    }
+                },
             }
         })
 
@@ -120,6 +130,17 @@ export async function onJoin(
 
         // Join the document
         socket.join(documentId)
+
+        // set up the math statements
+        const selectedMathStatements: MathStatements[] = document.documentMathStatements.map(row => ({
+            publicId: row.mathstatement.publicId,
+            type: row.mathstatement.type,
+            name: row.mathstatement.name,
+            content: row.mathstatement.content,
+            textbook: row.mathstatement.textbook,
+            orderIndex: row.mathstatement.orderIndex,
+        }));
+        
 
         // Check if the document state exists
         if (!documentStates.has(documentId)) {
@@ -150,6 +171,12 @@ export async function onJoin(
                 revision: 0,
                 buffer: [],
                 errors: errorStates,
+                questionContent: document.documentBody?.provingStatement ?? '',
+                questionRevision: 0,
+                questionBuffer: [],
+                coursePublicId: document.course?.publicId ?? null,
+                proofType: document.proofType ?? null,
+                selectedMathStatements: selectedMathStatements,
             })
         }
 
@@ -157,13 +184,18 @@ export async function onJoin(
         socketDocumentMap.set(socket.id, documentId)
         documentConnectionCounts.set(documentId, (documentConnectionCounts.get(documentId) ?? 0) + 1)
 
+        const live = documentStates.get(documentId)
+
         // Emit success back to client
         socket.emit('document:join:success', { 
             documentId: documentId,
             content: document.documentBody?.content as string ?? '',
-            revision: documentStates.get(documentId)?.revision ?? 0,
-            buffer: documentStates.get(documentId)?.buffer ?? [],
-            errors: documentStates.get(documentId)?.errors ?? [],
+            revision: live?.revision ?? 0,
+            buffer: live?.buffer ?? [],
+            errors: live?.errors ?? [],
+            questionContent: live?.questionContent ?? document.documentBody?.provingStatement ?? '',
+            questionRevision: live?.questionRevision ?? 0,
+            questionBuffer: live?.questionBuffer ?? [],
         })
 
         console.log(`User joined document ${documentId} successfully!`)
