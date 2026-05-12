@@ -163,9 +163,9 @@ class Request(BaseModel):
 
 # (1) Websocket sends a question analysis request
 class AnalyzeQuestion(BaseModel):
-    mathStatements: list[MathStatement] 
+    currentMathStatements: list[MathStatement] 
     content: str # The statement being proven.
-    proofType: Optional[ProofType]
+    currentProofType: Optional[ProofType]
 
 
 # (2) Websocket sends a single sentence analysis request

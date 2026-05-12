@@ -35,8 +35,6 @@ Analyze the request with Gemini. Use Gemini's API, choose which prompt to select
         #raw = re.sub(r"^```(?:json)?\n?(.*?)\n?```$", r"\1", raw, flags=re.DOTALL)
 
 
-
-
     except Exception as e:
         print(f"Gemini error: {e}")
 

@@ -1,70 +1,92 @@
 import textwrap
-from src.schemas import AnalyzeBody, logic_chain_errors
+
+from src.database import courseMathStatements
+from src.schemas import (
+    AnalyzeBody,
+    AnalyzeQuestion,
+    AnalyzeSentence,
+    logic_chain_errors,
+    proof_grammar_errors,
+    ProofType,
+)
 
 
+def _master_definitions_catalog() -> str:
+    """Flatten preloaded course definitions for the prompt (dedupe by publicId)."""
+    if not courseMathStatements:
+        return "(definitions cache empty)"
+    seen: set[str] = set()
+    labels: list[str] = []
+    for defs in courseMathStatements.values():
+        for m in defs:
+            if m.publicId in seen:
+                continue
+            seen.add(m.publicId)
+            labels.append(f"{m.name} ({m.type})")
+    return ", ".join(labels) if labels else "(no definitions loaded)"
 
 
 def constructPrompt1(request: AnalyzeQuestion) -> str:
     """
     Construct the prompt for a question analysis.
     """
-    
+    currentMathStatments = ", ".join(
+        f"{math.name} ({math.type})" for math in request.currentMathStatements
+    )
+    currentProofStrategies = (
+        request.currentProofType.value
+        if request.currentProofType is not None
+        else "not specified"
+    )
+    allMathStatements = _master_definitions_catalog()
+    allProofStrategies = ", ".join(member.value for member in ProofType)
 
     prompt = f"""
 
     ### ROLE
-    You are a Senior Mathematical Tutor specializing in proof-strategy architecture. Your goal is to help a first-year student build a skeleton for their proof without solving it for them.
+    You are a Mathematical Proof Auditor. Your goal is to optimize a student's "Proof Toolkit" by comparing their current document state against a master textbook library.
 
-    ### OBJECTIVE
-    Given a "Statement to Prove" and a "Library of Math Statements," you must:
-    1. Select the most appropriate Proof Method (Direct, Contradiction, or Contrapositive).
-    2. Select only the necessary Theorems/Definitions/Lemmas from the library.
-    3. Provide a high-level "Hint" for each selected tool that explains *how* to apply it to this specific problem.
+    ### INPUT DATA
+    1. [MASTER_LIBRARY]: {allMathStatements} (The only allowed sources)
+    2. [USER_DOCUMENT]: {currentMathStatments} (What the student already has)
+    3. [CURRENT_STRATEGY]: {currentProofStrategies} (e.g., Direct, Contradiction)
+    4. [PROOF_OPTIONS]: {allProofStrategies} (Alternative strategies)
+    5. [GOAL]: {request.content}
 
-    ### CONTEXT
-    - **Statement to Prove:** {{provingStatement}}
-    - **Library of Available Tools:**
-    {{math_block}}
+    ### CRITICAL RULES
+    - CLOSED SYSTEM: Never suggest definitions/theorems not found in [MASTER_LIBRARY].
+    - MINIMALISM: Do not recommend extra statements if the current set is sufficient.
+    - LOGICAL SYNERGY: If a [USER_DOCUMENT] item is irrelevant to the [GOAL] or the chosen [CURRENT_STRATEGY], mark it for removal.
+    - DIRECTIONAL HINTS: Hints must be specific to the [GOAL]. Do not define the term; tell the student *how* to use it in this specific proof.
 
-    ### STRATEGY GUIDELINES
-    - **Direct Proof:** Start from the hypothesis and use definitions to reach the conclusion.
-    - **Contradiction:** Assume the negation of the entire statement and look for an impossible result.
-    - **Contrapositive:** Assume the negation of the conclusion and prove the negation of the hypothesis.
-    - **The "Hint" Rule:** Explain the "bridge" the tool provides. Do not provide the algebraic result. (e.g., instead of "So $n=2k+1$," say "Use this definition to express $n$ in terms of an integer $k$ to reveal its parity.")
-
-    ---
-
-    ### PHASE 1: STRATEGY SELECTION
-    Analyze the Statement to Prove. Is it an implication ($P \implies Q$)? Does the conclusion involve a "not" or "infinitely many" (often good for contradiction)? Choose the most efficient method for a first-year student.
-
-    ### PHASE 2: TOOL SELECTION & HINT CRAFTING
-    Filter the library. Only pick tools that are strictly necessary for the logical chain. For each tool, write a hint that guides the student's "unfolding" of the proof.
-
-    ---
+    ### TASK
+    1. Determine if the [CURRENT_STRATEGY] is the most efficient. If not, suggest a better one from [PROOF_OPTIONS].
+    2. Identify missing statements from [MASTER_LIBRARY] required for the proof.
+    3. Identify redundant or irrelevant statements in [USER_DOCUMENT] that should be removed.
+    4. For every recommended statement, provide a targeted "application_hint".
 
     ### OUTPUT FORMAT
-    Return ONLY a JSON object:
+    Return ONLY a valid JSON object.
 
-    {
-    "recommendedMethod": "DIRECT | CONTRADICTION | CONTRAPOSITIVE",
-    "methodJustification": "Briefly explain why this method is the most straightforward for this specific problem.",
-    "requiredTools": [
-        {
-        "name": "Name of the Theorem/Definition",
-        "type": "DEFINITION | THEOREM | LEMMA",
-        "hint": "The descriptive hint explaining how to apply it.",
-        "applicationStep": "e.g., 'Initial Unfolding', 'Intermediate Step', or 'Final Conclusion'"
-        }
-    ],
-    "proofSkeleton": [
-        "Step 1: [Generic action based on chosen method]",
-        "Step 2: [Generic action]",
-        "Step 3: [Generic action]"
-    ]
-    }
+    {{
+        "recommended_proof_type": "string",
+        "is_strategy_change": boolean,
+        "add_math_statements": [
+            {{
+                "title": "string",
+                "application_hint": "Example: 'Use this to rewrite the definition of n before squaring.'"
+            }}
+        ],
+        "remove_math_statements": [
+            {{
+                "title": "string",
+                "reason": "Example: 'This definition of Prime numbers is not used in a proof about Parity.'"
+            }}
+        ],
+        "status_summary": "string (Short explanation: e.g., 'Sufficient', 'Missing Prerequisites', or 'Redundant Content')"
+    }}
 
     """
-
 
     return prompt
 
@@ -74,13 +96,20 @@ def constructPrompt2(request: AnalyzeBody) -> str:
         return ""
 
     # 1. Format Context Blocks
-    math_block = "\n".join(
-        f"- [{s.type}] {s.name}: {s.content}" for s in request.mathStatements
-    ) if request.mathStatements else "None"
+    math_block = (
+        "\n".join(f"- [{s.type}] {s.name}: {s.content}" for s in request.mathStatements)
+        if request.mathStatements
+        else "None"
+    )
 
-    existing_errors = "\n".join(
-        f"- {e.errorContent} (at '{e.problematicContent or e.errorContent}')" for e in request.currentErrors
-    ) if request.currentErrors else "None"
+    existing_errors = (
+        "\n".join(
+            f"- {e.errorContent} (at '{e.problematicContent or e.errorContent}')"
+            for e in request.currentSentenceErrors
+        )
+        if request.currentSentenceErrors
+        else "None"
+    )
 
     # 2. Build the Prompt
     prompt = f"""
@@ -91,13 +120,13 @@ def constructPrompt2(request: AnalyzeBody) -> str:
     Analyze the "CURRENT SENTENCE" for logical fallacies. You must be pedantic.
 
     ---
-    STATEMENT TO PROVE: 
+    STATEMENT TO PROVE:
     {request.provingStatement}
 
-    FULL PROOF CONTEXT: 
+    FULL PROOF CONTEXT:
     {request.content}
-    
-    CURRENT SENTENCE: 
+
+    CURRENT SENTENCE:
     {request.currentSentence}
 
     AVAILABLE THEOREMS/DEFINITIONS:
@@ -119,7 +148,7 @@ def constructPrompt2(request: AnalyzeBody) -> str:
     ### PHASE 1: ANALYSIS & PHASE 2: CRITIQUE
     - Trace the logic from prior steps.
     - SKEPTICAL CRITIQUE: Ask "Am I being too lenient?" or "Did I miss a subtle jump in logic?"
-    
+
     ---
     RETURN ONLY A JSON ARRAY. No markdown, no backticks.
     Format:
@@ -128,15 +157,15 @@ def constructPrompt2(request: AnalyzeBody) -> str:
         "errorSnippet": "the exact string of text that is wrong",
         "errorMessage": "brief description",
         "internalReasoning": "Your step-by-step logic",
-        "suggestedFix": {{ 
+        "suggestedFix": {{
             "suggestionContent": "correct phrasing",
-            "suggestionSnippet": "what text should be replaced" 
+            "suggestionSnippet": "what text should be replaced"
         }}
       }}
     ]
     If no errors, return [].
     """
-    
+
     return textwrap.dedent(prompt).strip()
 
 
@@ -144,4 +173,75 @@ def constructPrompt3(request: AnalyzeSentence) -> str:
     """
     Construct the prompt for a sentence analysis.
     """
-    return ""
+
+    currentMathStatments = ", ".join(
+        f"{math.name} ({math.type})" for math in request.mathStatements
+    )
+    existing_errors = (
+        "\n".join(
+            f"- {e.errorContent} (at '{e.problematicContent or e.errorContent}')"
+            for e in request.currentSentenceErrors
+        )
+        if request.currentSentenceErrors
+        else "None"
+    )
+
+    prompt = f"""
+
+    ### ROLE
+    You are a formal mathematical proof writing validator for a strict first-year Discrete Math course.
+
+    ### OBJECTIVE
+    Analyze the "CURRENT SENTENCE" for proof writing and grammar errors only.
+    You are NOT checking logical correctness — only how the sentence is written.
+
+    ---
+    STATEMENT TO PROVE:
+    {request.provingStatement}
+
+    FULL PROOF CONTEXT:
+    {request.content}
+
+    CURRENT SENTENCE:
+    {request.sentence}
+
+    AVAILABLE THEOREMS/DEFINITIONS:
+    {currentMathStatments}
+
+    ALREADY FLAGGED ERRORS (Do not re-flag these):
+    {existing_errors}
+
+    VALID GRAMMAR ERROR TYPES (USE ONLY THESE CODES):
+    {proof_grammar_errors}
+
+    ---
+    ### EVALUATION PROTOCOL:
+    1. Formality Check: Flag INFORMAL_LANGUAGE for casual phrasing, hedging words, or proof by intimidation.
+    2. Clarity Check: Flag AMBIGUOUS_PRONOUN if any pronoun lacks a clear referent.
+    3. Structure Check: Flag INCOMPLETE_SENTENCE if the sentence cannot stand as a complete mathematical thought.
+    4. Notation Check: Flag INCONSISTENT_NOTATION, DANGLING_VARIABLE, or SYMBOL_AS_VERB where applicable.
+    5. Definition Check: Flag MISSING_DEFINITION_UNFOLD or UNFOLDING_FAILURE if a term is used without being properly expanded.
+    6. Quantifier Check: Flag MISSING_QUANTIFIER if a variable is used without specifying scope.
+
+    ### PHASE 1: ANALYSIS & PHASE 2: CRITIQUE
+    - Read the sentence in isolation, then in the context of the full proof.
+    - SKEPTICAL CRITIQUE: Ask "Is this sentence precise enough for a formal proof?" and "Did I miss any subtle writing issue?"
+
+    ---
+    RETURN ONLY A JSON ARRAY. No markdown, no backticks.
+    Format:
+    [
+      {{
+        "errorSnippet": "the exact string of text that is wrong",
+        "errorMessage": "brief description",
+        "internalReasoning": "Your step-by-step logic",
+        "suggestedFix": {{
+            "suggestionContent": "correct phrasing",
+            "suggestionSnippet": "what text should be replaced"
+        }}
+      }}
+    ]
+    If no errors, return [].
+
+    """
+    return prompt

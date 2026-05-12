@@ -1,32 +1,45 @@
-from fastapi import FastAPI
+import asyncio
 from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+
 from src.config import settings
+from src.database import preload_all_definitions
 from src.redis_listener import start_listener
 
-# (1) Lifespan manages startup and shutdown events
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    
+    # One-time: definition library for all courses (in-process cache for ML workers).
+    await asyncio.to_thread(preload_all_definitions)
+
     # Startup: begin listening to Redis
-    print(f"Starting ML service with provider: {settings.MODEL_PROVIDER}")
-    await start_listener()
-    yield
+    print(
+        f"Starting ML service (question model: {settings.QUESTION_ANALYSIS_MODEL})"
+    )
+    listener_task = asyncio.create_task(start_listener())
+    try:
+        yield
+    finally:
+        listener_task.cancel()
+        try:
+            await listener_task
+        except asyncio.CancelledError:
+            pass
+        # Shutdown: cleanup if needed
+        print("ML service shutting down")
 
 
-    # Shutdown: cleanup if needed
-    print("ML service shutting down")
-
-# (2) Create the FastAPI app
 app = FastAPI(
     title="Prove-It ML Service",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
-# (3) Health check endpoint
+
 @app.get("/health")
 async def health():
     return {
         "status": "ok",
-        "provider": settings.MODEL_PROVIDER
+        "question_analysis_model": settings.QUESTION_ANALYSIS_MODEL,
     }
