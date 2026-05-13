@@ -6,10 +6,8 @@ class Settings(BaseSettings):
     # Question analysis model provider. We can swap this to change model providers.
     QUESTION_ANALYSIS_MODEL: str = "gemini"
 
-    # Body analysis model provider. We can swap this to change model providers.
+    # Body and sentence analysis share the same payload model; ``taskType`` selects the prompt.
     BODY_ANALYSIS_MODEL: str = "gemini"
-
-    # Sentence analysis model provider. We can swap this to change model providers.
     SENTENCE_ANALYSIS_MODEL: str = "gemini"
 
     # API Keys

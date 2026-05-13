@@ -13,3 +13,4 @@ openai==1.35.7
 numpy==1.26.4
 pydantic==2.7.1
 pgvector==1.0.2  # Python client (latest)
+sentence-transformers

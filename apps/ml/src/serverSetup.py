@@ -15,7 +15,8 @@ async def lifespan(app: FastAPI):
 
     # Startup: begin listening to Redis
     print(
-        f"Starting ML service (question model: {settings.QUESTION_ANALYSIS_MODEL})"
+        f"Starting ML service (question: {settings.QUESTION_ANALYSIS_MODEL}, "
+        f"body: {settings.BODY_ANALYSIS_MODEL}, sentence: {settings.SENTENCE_ANALYSIS_MODEL})"
     )
     listener_task = asyncio.create_task(start_listener())
     try:
@@ -42,4 +43,6 @@ async def health():
     return {
         "status": "ok",
         "question_analysis_model": settings.QUESTION_ANALYSIS_MODEL,
+        "body_analysis_model": settings.BODY_ANALYSIS_MODEL,
+        "sentence_analysis_model": settings.SENTENCE_ANALYSIS_MODEL,
     }

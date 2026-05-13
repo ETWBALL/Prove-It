@@ -4,7 +4,11 @@ import json
 from redis import Redis
 
 from src.config import settings
-from src.schemas import AnalyzeRequest
+from src.schemas import (
+    AnalyzeBody,
+    AnalyzeQuestion,
+    TaskType,
+)
 from src.router import route_to_provider
 from src.helpers import formatResponse
 
@@ -30,33 +34,34 @@ async def process_message(message: str):
             "payload": data.get("payload", {}),
         }
 
-        request = Request(**normalized)
-        print(f"Processing document: {request.documentId} for task type: {request.taskType}")
+        outer = Request(**normalized)
+        doc_id = outer.documentId
+        payload = {**outer.payload, "documentId": doc_id}
+        print(f"Processing document: {doc_id} for task type: {outer.taskType}")
 
-        # Create the request object based on the task type
-        if request.taskType == 'question_analysis':
-            request = AnalyzeQuestion(**request.payload)
-        elif request.taskType == 'body_analysis':
-            request = AnalyzeBody(**request.payload)
-        elif request.taskType == 'sentence_analysis':
-            request = AnalyzeSentence(**request.payload)
+        if outer.taskType == TaskType.QUESTION_ANALYSIS:
+            request = AnalyzeQuestion(**payload)
+        elif outer.taskType in (
+            TaskType.BODY_ANALYSIS,
+            TaskType.SENTENCE_ANALYSIS,
+        ):
+            request = AnalyzeBody(**payload)
         else:
-            raise ValueError(f"Invalid task type: {request.taskType}")
-
+            raise ValueError(f"Invalid task type: {outer.taskType}")
 
         # Get the model's JSON response
-        response = await route_to_provider(request)
+        raw = await route_to_provider(request, outer.taskType)
 
-        # Format the response to the AnalyzeResponse schema
-        response = formatResponse(request, response)
+        # Format the response to Response1 / Response2
+        response = formatResponse(request, raw, outer.taskType)
 
         # Publish result back to websocket
         redis.publish(
-            f"ml:result:{request.documentId}",
-            json.dumps(response.model_dump())
+            f"ml:result:{doc_id}",
+            json.dumps(response.model_dump()),
         )
 
-        print(f"Result published for document: {request.documentId}")
+        print(f"Result published for document: {doc_id}")
     except Exception as e:
         print(f"Error processing message: {e}")
 

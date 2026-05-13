@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field
-from typing import Optional
+from typing import Any, Optional
 from enum import Enum
 
 # Mirror TypeScript enums from Prisma
@@ -163,31 +163,25 @@ class Request(BaseModel):
 
 # (1) Websocket sends a question analysis request
 class AnalyzeQuestion(BaseModel):
-    currentMathStatements: list[MathStatement] 
-    content: str # The statement being proven.
+    documentId: str = ""
+    currentMathStatements: list[MathStatement]
+    content: str  # The statement being proven.
     currentProofType: Optional[ProofType]
 
 
-# (2) Websocket sends a single sentence analysis request
-class AnalyzeSentence(BaseModel):
-    mathStatements: list[MathStatement] # all math statements in the document
-    provingStatement: str # The statement being proven.
-
-    content: str # The content of the document. Won't be used in prompt, mainly needed for finding error indices
-    sentence: str 
-
-    currentSentenceErrors: list[ErrorState]  # existing errors so ML doesn't re-flag them
-
-# (3) Websocket sends a body analysis request
+# (2) Websocket sends a body or sentence analysis request (same shape; taskType selects the prompt).
+# For BODY_ANALYSIS: pass proof text *up to* the current sentence in ``content`` (logic-chain prompt).
+# For SENTENCE_ANALYSIS: pass full document ``content`` when needed for context / index anchoring (grammar prompt).
 class AnalyzeBody(BaseModel):
-    mathStatements: list[MathStatement] # all math statements in the document
+    documentId: str = ""
+    mathStatements: list[MathStatement]  # all math statements in the document
     provingStatement: str # The statement being proven.
 
     content: str # The content of the document
     currentSentence: str
 
     currentSentenceErrors: list[ErrorState]  # existing errors so ML doesn't re-flag them
-    allDocumentErrors: list[ErrorState] # all errors in the document
+    allDocumentErrors: list[ErrorState] = Field(default_factory=list)  # used for body analysis; optional for sentence
 
 
 
@@ -197,7 +191,8 @@ class AnalyzeBody(BaseModel):
 class Response1(BaseModel):
     documentId: str
     proofType: ProofType
-    mathStatements: list[MathStatement]
+    addMathStatements: list[MathStatement]
+    removeMathStatements: list[MathStatement]
 
 
 # (2) ML sends back the detected errors

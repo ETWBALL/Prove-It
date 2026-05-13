@@ -4,7 +4,6 @@ from src.database import courseMathStatements
 from src.schemas import (
     AnalyzeBody,
     AnalyzeQuestion,
-    AnalyzeSentence,
     logic_chain_errors,
     proof_grammar_errors,
     ProofType,
@@ -123,7 +122,7 @@ def constructPrompt2(request: AnalyzeBody) -> str:
     STATEMENT TO PROVE:
     {request.provingStatement}
 
-    FULL PROOF CONTEXT:
+    PROOF BODY (text up to this point in the argument):
     {request.content}
 
     CURRENT SENTENCE:
@@ -151,11 +150,13 @@ def constructPrompt2(request: AnalyzeBody) -> str:
 
     ---
     RETURN ONLY A JSON ARRAY. No markdown, no backticks.
+    Each object MUST include "errortype" set to exactly one code from VALID LOGIC ERROR TYPES above.
     Format:
     [
       {{
         "errorSnippet": "the exact string of text that is wrong",
         "errorMessage": "brief description",
+        "errortype": "MISAPPLYING_A_DEFINITION",
         "internalReasoning": "Your step-by-step logic",
         "suggestedFix": {{
             "suggestionContent": "correct phrasing",
@@ -169,13 +170,14 @@ def constructPrompt2(request: AnalyzeBody) -> str:
     return textwrap.dedent(prompt).strip()
 
 
-def constructPrompt3(request: AnalyzeSentence) -> str:
+def constructPrompt3(request: AnalyzeBody) -> str:
     """
-    Construct the prompt for a sentence analysis.
+    Grammar / proof-writing check for the current sentence only (not logic-chain).
     """
-
-    currentMathStatments = ", ".join(
-        f"{math.name} ({math.type})" for math in request.mathStatements
+    math_block = (
+        "\n".join(f"- [{s.type}] {s.name}: {s.content}" for s in request.mathStatements)
+        if request.mathStatements
+        else "None"
     )
     existing_errors = (
         "\n".join(
@@ -199,14 +201,14 @@ def constructPrompt3(request: AnalyzeSentence) -> str:
     STATEMENT TO PROVE:
     {request.provingStatement}
 
-    FULL PROOF CONTEXT:
+    FULL PROOF CONTEXT (for referents and phrasing; focus your flags on CURRENT SENTENCE):
     {request.content}
 
     CURRENT SENTENCE:
-    {request.sentence}
+    {request.currentSentence}
 
     AVAILABLE THEOREMS/DEFINITIONS:
-    {currentMathStatments}
+    {math_block}
 
     ALREADY FLAGGED ERRORS (Do not re-flag these):
     {existing_errors}
@@ -229,11 +231,13 @@ def constructPrompt3(request: AnalyzeSentence) -> str:
 
     ---
     RETURN ONLY A JSON ARRAY. No markdown, no backticks.
+    Each object MUST include "errortype" set to exactly one code from VALID GRAMMAR ERROR TYPES above.
     Format:
     [
       {{
         "errorSnippet": "the exact string of text that is wrong",
         "errorMessage": "brief description",
+        "errortype": "INFORMAL_LANGUAGE",
         "internalReasoning": "Your step-by-step logic",
         "suggestedFix": {{
             "suggestionContent": "correct phrasing",
