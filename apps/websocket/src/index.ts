@@ -11,6 +11,7 @@ import { onLeave } from '../src/events/onLeave'
 import { onDisconnect } from '../src/events/onDisconnect'
 import { onQuestionDelta } from '../src/events/onQuestionDelta'
 import { onQuestionMLTrigger } from '../src/events/mlTrigger:Question'
+import { onMLResult } from '../src/events/onMLResult'
 import { prisma } from '@prove-it/db'
 
 function parseCookieHeader(cookieHeader?: string): Record<string, string> {
@@ -120,12 +121,13 @@ io.on('connection', (socket) => {
 
     // Event 6: ML Trigger: Find necessary definitions for the proof statement
     socket.on('document:question:ml:trigger', async (documentID: string) =>
-        onQuestionMLTrigger(socket, documentStates, documentID, socketDocumentMap, library)
+        onQuestionMLTrigger(socket, documentStates, documentID, socketDocumentMap)
     )
 
-    // Event 7: Listen for Hint being applied, error being ignored, suggestion being ignored/applied 
-    // Event 8: Listen for ML result from Redis, update document state in memory and emit to client
-    // Event 9: 
+    // Event 7: (reserved) e.g. error dismissed, suggestion applied — not wired yet
+    // NOTE: ML results are NOT received per-socket. They arrive on the server-level Redis ``pmessage``
+    // handler below, which mutates ``documentStates`` once (not once-per-socket-in-room) and then
+    // broadcasts ``document:ml:result`` to the room.
 })
 
 
@@ -142,7 +144,10 @@ redisSub.on('error', (err: Error) => {
     console.error('Redis subscriber connection error:', err)
 })
 
-redisSub.on('pmessage', (_pattern: string, channel: string, message: string) => {
+// ``pmessage`` fires for pattern-subscribed channels (``ml:result:*``). ML publishes the raw
+// ``Response1`` / ``Response2`` model dump — no ``{ type, data }`` envelope. We hand the parsed payload
+// to ``onMLResult`` which (a) merges into ``documentStates`` once, and (b) broadcasts to the doc room.
+redisSub.on('pmessage', async (_pattern: string, channel: string, message: string) => {
     try {
         const channelParts = channel.split(':')
         const documentId = channelParts[2]
@@ -152,8 +157,8 @@ redisSub.on('pmessage', (_pattern: string, channel: string, message: string) => 
         }
 
         const result = JSON.parse(message)
-        io.to(documentId).emit('document:ml:result', { documentId, result })
-        console.log(`Forwarded ML result to document room ${documentId}.`)
+        await onMLResult(io, documentStates, documentId, result, library)
+        console.log(`Processed ML result for document ${documentId}.`)
     } catch (error) {
         console.error(`Failed to process Redis ML message for channel ${channel}:`, error)
     }
@@ -173,6 +178,7 @@ async function loadLibrary() {
                         type: true,
                         name: true,
                         content: true,
+                        hint: true,
                         textbook: true,
                         orderIndex: true,
                     },
@@ -190,6 +196,7 @@ async function loadLibrary() {
                 type: mathStatement.type,
                 name: mathStatement.name,
                 content: mathStatement.content ?? '',
+                hint: mathStatement.hint ?? '',
                 textbook: mathStatement.textbook ?? 'Unknown Textbook',
                 orderIndex: mathStatement.orderIndex,
             }))

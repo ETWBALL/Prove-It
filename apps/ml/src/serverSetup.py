@@ -10,14 +10,15 @@ from src.redis_listener import start_listener
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # One-time: definition library for all courses (in-process cache for ML workers).
-    await asyncio.to_thread(preload_all_definitions)
-
-    # Startup: begin listening to Redis
     print(
         f"Starting ML service (question: {settings.QUESTION_ANALYSIS_MODEL}, "
         f"body: {settings.BODY_ANALYSIS_MODEL}, sentence: {settings.SENTENCE_ANALYSIS_MODEL})"
     )
+
+    # One-time: definition library for all courses (in-process cache for ML workers).
+    await asyncio.to_thread(preload_all_definitions)
+
+    # Startup: begin listening to Redis
     listener_task = asyncio.create_task(start_listener())
     try:
         yield

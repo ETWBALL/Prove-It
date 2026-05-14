@@ -1,6 +1,7 @@
 import { AuthenticatedSocket, Delta, DocumentState, ErrorState, Timers } from '../lib/types'
 import Redis from 'ioredis'
 import { prisma } from '@prove-it/db'
+import { ErrorType, ValidationLayer } from '@prove-it/db/generated/prisma'
 
 const DATABASE_TIMEOUT_MS = 60000 // 1 minute
 const QUESTION_DEBOUNCE_MS = 60000 // align with autosave cadence until product defines a shorter UX debounce
@@ -29,6 +30,45 @@ const trigger1 = ['.', '?', '!', '\n', '\n\n', ':', ';']
 
 // Check for Latex Triggers
 const trigger2 = ['$$', '\]', '\therefore', '\qed', '\square']
+
+// ``ValidationLayer`` is required on ``Error`` create. ML doesn't return it explicitly, so we derive it
+// from ``errortype`` (LOGIC_CHAIN vs PROOF_GRAMMER). Keep this set in lockstep with the ML side
+// ``apps/ml/src/schemas.py`` LOGIC_CHAIN_ERRORS dict — they MUST agree.
+const LOGIC_CHAIN_ERROR_TYPES: ReadonlySet<ErrorType> = new Set<ErrorType>([
+    'INCORRECT_NEGATION',
+    'ASSUMING_THE_CONVERSE',
+    'EQUIVOCATION',
+    'FALSE_DICHOTOMY_IN_CASE_ANALYSIS',
+    'UNJUSTIFIED_REVERSIBILITY',
+    'MISAPPLYING_A_THEOREM',
+    'MISAPPLYING_A_DEFINITION',
+    'MISAPPLYING_A_LEMMA',
+    'MISAPPLYING_A_PROPERTY',
+    'MISAPPLYING_AN_AXIOM',
+    'MISAPPLYING_A_COROLLARY',
+    'MISAPPLYING_A_CONJECTURE',
+    'MISAPPLYING_A_PROPOSITION',
+    'AFFIRMING_THE_CONSEQUENT',
+    'CIRCULAR_REASONING',
+    'JUMPING_TO_CONCLUSIONS',
+    'IMPROPER_GENERALIZATION',
+    'IMPLICIT_ASSUMPTION',
+    'CONTRADICTS_PREVIOUS_STATEMENT',
+    'SCOPE_ERROR',
+    'NON_SEQUITUR',
+    'VACUOUS_PROOF_FALLACY',
+    'EXISTENTIAL_INSTANTIATION_ERROR',
+    'ASSUMING_THE_GOAL',
+    'VARIABLE_SHADOWING',
+    'PROOF_BY_EXAMPLE',
+    'ILLEGAL_OPERATION',
+    'VACUOUS_NEGATION',
+    'STRUCTURE_ERROR',
+])
+
+export function deriveValidationLayer(errortype: ErrorType): ValidationLayer {
+    return LOGIC_CHAIN_ERROR_TYPES.has(errortype) ? 'LOGIC_CHAIN' : 'PROOF_GRAMMER'
+}
 
 function isSafeInteger(value: number): boolean {
     return Number.isSafeInteger(value)
@@ -100,7 +140,7 @@ export async function updateDatabase(
 ) {
     try {
 
-        const updatedDocumentBody = await prisma.$transaction(async (tx) => {
+        const { persistedDocumentBody, persistedErrors } = await prisma.$transaction(async (tx) => {
              // Update the document's lastEdited timestamp
             const updatedDocument = await tx.document.update({
                 where: { publicId: documentPublicId },
@@ -128,35 +168,79 @@ export async function updateDatabase(
                 }
             })
 
+            // Errors:
+            //   - existing errors (have ``publicId``) → ``update`` by publicId.
+            //   - ML-produced errors that have never been persisted (``publicId === undefined``) →
+            //     ``create`` and capture the freshly generated publicId so the in-memory state can
+            //     reference the same DB row on the next save (no more orphan creates).
+            // ``upsert`` is intentionally avoided here because Prisma requires a concrete ``where`` value;
+            // we have no surrogate key to look up unpersisted errors by.
+            const persistedErrors: ErrorState[] = await Promise.all(
+                updatedDocState.errors.map(async (error): Promise<ErrorState> => {
+                    const suggestionContent = error.suggestion?.suggestionContent ?? null
+                    const startIndexSuggestion = error.suggestion?.startIndexSuggestion ?? 0
+                    const endIndexSuggestion = error.suggestion?.endIndexSuggestion ?? 0
 
-            await Promise.all(updatedDocState.errors.map(async (error) => {
-                return tx.error.update({
-                    where: { publicId: error.publicId },
-                    data: {
-                        startIndexError: error.startIndexError,
-                        endIndexError: error.endIndexError,
-                        resolvedAt: error.resolvedAt,
-                        dismissedAt: error.dismissedAt,
-                        suggestionContent: error.suggestion?.suggestionContent ?? null,
-                        startIndexSuggestion: error.suggestion ? error.suggestion.startIndexSuggestion : undefined,
-                        endIndexSuggestion: error.suggestion ? error.suggestion.endIndexSuggestion : undefined,
+                    if (error.publicId) {
+                        // Existing row: refresh anchors, lifecycle dates, message, and suggestion fields.
+                        await tx.error.update({
+                            where: { publicId: error.publicId },
+                            data: {
+                                startIndexError: error.startIndexError,
+                                endIndexError: error.endIndexError,
+                                errorMessage: error.errorMessage,
+                                errortype: error.errortype,
+                                layer: deriveValidationLayer(error.errortype),
+                                problematicContent: error.problematicContent ?? null,
+                                suggestionContent,
+                                startIndexSuggestion,
+                                endIndexSuggestion,
+                                resolvedAt: error.resolvedAt,
+                                dismissedAt: error.dismissedAt,
+                            },
+                        })
+                        return error
                     }
-                })
-            }))
 
-            return persistedDocumentBody
+                    // New row: Prisma generates publicId (cuid). We must supply every required column
+                    // on the ``Error`` model — privateDocumentId, indices, errorMessage, errortype, layer,
+                    // and suggestion indices (NOT null per schema).
+                    const created = await tx.error.create({
+                        data: {
+                            startIndexError: error.startIndexError,
+                            endIndexError: error.endIndexError,
+                            errorMessage: error.errorMessage,
+                            errortype: error.errortype,
+                            layer: deriveValidationLayer(error.errortype),
+                            problematicContent: error.problematicContent ?? null,
+                            suggestionContent,
+                            startIndexSuggestion,
+                            endIndexSuggestion,
+                            privateDocumentId: updatedDocument.privateId,
+                            resolvedAt: error.resolvedAt,
+                            dismissedAt: error.dismissedAt,
+                        },
+                    })
+                    // Write the generated publicId back into the in-memory state so subsequent saves
+                    // hit the ``update`` branch instead of creating duplicates.
+                    return { ...error, publicId: created.publicId }
+                }),
+            )
+
+            return { persistedDocumentBody, persistedErrors }
         })
 
-        // If db succeeds: Update the document state in memory with the new content and clear the buffer
+        // If db succeeds: Update the document state in memory with the new content and clear the buffer.
+        // ``errors`` is replaced with ``persistedErrors`` so newly-created rows now carry their publicId.
         documentStates.set(documentPublicId, {
                 questionContent: updatedDocState.questionContent,
                 questionRevision: updatedDocState.questionRevision,
                 questionBuffer: clearQuestionBuffer ? [] : [...updatedDocState.questionBuffer],
                 content: updatedDocState.content,
-                contentId: updatedDocumentBody.publicId,
+                contentId: persistedDocumentBody.publicId,
                 revision: updatedDocState.revision,
                 buffer: clearBodyBuffer ? [] : [...updatedDocState.buffer],
-                errors: updatedDocState.errors,
+                errors: persistedErrors,
                 coursePublicId: updatedDocState.coursePublicId,
                 proofType: updatedDocState.proofType,
                 selectedMathStatements: updatedDocState.selectedMathStatements,
@@ -342,20 +426,22 @@ export function applyDeltatoErrors(errors: ErrorState[], delta: Delta, documentC
             MLTriggered: triggered
         }
         
-        // Only update suggestion if error is not triggered AND suggestion actually exists
+        // Only update suggestion if error is not triggered AND suggestion actually exists.
+        // ``ErrorState.suggestion`` is ``Suggestion | undefined`` (never ``null``) — use ``undefined`` for "no suggestion".
         const [newStart, newEnd] = !triggered && error.suggestion ? shiftRange(error.suggestion?.startIndexSuggestion ?? 0, error.suggestion?.endIndexSuggestion ?? 0, delta, error.resolvedAt, 'suggestion', error.suggestion?.suggestionContent ?? '') : [0, 0]
         if (!triggered) {
             updatedError.suggestion = error.suggestion ? {
                     suggestionContent: error.suggestion.suggestionContent,
                     startIndexSuggestion: newStart, // For simplicity, we will shift the suggestion indices the same way as the error indices. This is not 100% accurate but it is a reasonable approximation. We can improve this later if needed.
                     endIndexSuggestion: newEnd
-                } : null
+                } : undefined
         } else {
+            // Error is being re-evaluated by ML — suggestion is stale either way. Keep the message but zero the anchors.
             updatedError.suggestion = error.suggestion ? {
                 suggestionContent: error.suggestion.suggestionContent,
                 startIndexSuggestion: 0, // stale
                 endIndexSuggestion: 0 // stale
-            } : null
+            } : undefined
         }
 
         if (triggered) {
@@ -376,27 +462,37 @@ export function applyDeltatoErrors(errors: ErrorState[], delta: Delta, documentC
  * @param endIndex - The latest delta's end index
  */
 
-export function getCurrentSentence(content: string, startIndex: number, endIndex: number): string {
-    let newStartIndex;
-    let newEndIndex;
-
-    // From startIndex, go backwards and find the beginning of the sentence
+/** Bounds of the sentence containing the edit cursor (used for ML payloads). */
+export function getCurrentSentenceBounds(
+    content: string,
+    startIndex: number,
+    endIndex: number,
+): { sentence: string; sentenceStart: number; sentenceEnd: number } {
+    let sentenceStart = 0
     for (let i = startIndex; i >= 0; i--) {
         if (trigger1.includes(content[i]) || trigger2.includes(content[i])) {
-            newStartIndex = i + 1
+            sentenceStart = i + 1
             break
         }
     }
 
-    // From endIndex, go forwards and find the end of the sentence
+    let sentenceEnd = content.length
     for (let i = endIndex; i < content.length; i++) {
         if (trigger1.includes(content[i]) || trigger2.includes(content[i])) {
-            newEndIndex = i
+            sentenceEnd = i
             break
         }
     }
 
-    return content.slice(newStartIndex, newEndIndex)
+    return {
+        sentence: content.slice(sentenceStart, sentenceEnd),
+        sentenceStart,
+        sentenceEnd,
+    }
+}
+
+export function getCurrentSentence(content: string, startIndex: number, endIndex: number): string {
+    return getCurrentSentenceBounds(content, startIndex, endIndex).sentence
 }
 
 /**
@@ -447,8 +543,13 @@ export function setUpTimers(documentId: string, timers: Map<string, Timers>, doc
         return
     }
 
-    // Get the current sentence(s) the user is currently working on
-    const currentSentence = getCurrentSentence(updatedDocState.content, latestDelta.startIndex, latestDelta.endIndex)
+    // Sentence under edit + proof prefix up to it (matches ML ``AnalyzeBody`` for body_analysis).
+    const { sentence: currentSentence, sentenceStart } = getCurrentSentenceBounds(
+        updatedDocState.content,
+        latestDelta.startIndex,
+        latestDelta.endIndex,
+    )
+    const proofBodyUpToSentence = updatedDocState.content.slice(0, sentenceStart)
 
     // Get the errors that are associated with the current sentence(s)
     const errorsForSentence = getErrorsForSentence(updatedDocState.errors, currentSentence)
@@ -487,8 +588,9 @@ export function setUpTimers(documentId: string, timers: Map<string, Timers>, doc
                 payload: {
                     mathStatements: updatedDocState.selectedMathStatements ?? [],
                     provingStatement: updatedDocState.questionContent,
-                    content: updatedDocState.content,
+                    content: proofBodyUpToSentence,
                     currentSentence: currentSentence,
+                    fullProofContent: updatedDocState.content,
                     currentSentenceErrors: errorsForSentence,
                     allDocumentErrors: updatedDocState.errors
                 }

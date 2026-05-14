@@ -71,7 +71,7 @@ def _flatten_master_by_name() -> dict[str, MathStatement]:
 
 
 def _math_statement_for_add(title: str, application_hint: str) -> MathStatement:
-    hint = (application_hint or "").strip()
+    hint_text = (application_hint or "").strip()
     master = _flatten_master_by_name()
     key = title.strip().casefold()
     base = master.get(key)
@@ -80,13 +80,15 @@ def _math_statement_for_add(title: str, application_hint: str) -> MathStatement:
             publicId=base.publicId,
             type=base.type,
             name=base.name,
-            content=hint or base.content,
+            content=base.content,
+            hint=hint_text,
         )
     return MathStatement(
         publicId="",
         type="DEFINITION",
         name=title.strip(),
-        content=hint,
+        content="",
+        hint=hint_text,
     )
 
 
@@ -100,13 +102,15 @@ def _math_statement_for_remove(
                 publicId=m.publicId,
                 type=m.type,
                 name=m.name,
-                content=(reason or "").strip() or m.content,
+                content=m.content,
+                hint=(reason or "").strip(),
             )
     return MathStatement(
         publicId="",
         type="DEFINITION",
         name=title.strip(),
-        content=(reason or "").strip(),
+        content="",
+        hint=(reason or "").strip(),
     )
 
 
@@ -141,7 +145,86 @@ def _normalize_errors_payload(raw: Union[dict, list]) -> list:
     return []
 
 
-def _parse_suggested_fix(raw: object, sentence: str) -> Optional[Suggestion]:
+def _full_proof_for_indexing(request: AnalyzeBody) -> str:
+    """
+    Canonical proof string for document indices. Prefer ``fullProofContent`` from the client;
+    fall back to prefix + sentence for older payloads without the full document.
+    """
+    s = (request.fullProofContent or "").strip()
+    if s:
+        return s
+    return request.content + request.currentSentence
+
+
+def _sentence_anchor_in_full_proof(full_proof: str, sentence: str) -> int:
+    if not full_proof or not sentence:
+        return -1
+    return full_proof.find(sentence)
+
+
+def _span_from_snippet_in_full_proof(
+    full_proof: str,
+    snippet: str,
+    sentence: str,
+) -> Optional[tuple[int, int]]:
+    """
+    Prefer locating ``snippet`` inside the current-sentence window in ``full_proof``;
+    otherwise first occurrence in ``full_proof``.
+    """
+    if not full_proof or not snippet:
+        return None
+    sent = sentence or ""
+    sent_start = _sentence_anchor_in_full_proof(full_proof, sent) if sent else -1
+    if sent_start >= 0:
+        window = full_proof[sent_start : sent_start + len(sent)]
+        rel = window.find(snippet)
+        if rel >= 0:
+            i = sent_start + rel
+            return i, i + len(snippet)
+    idx = full_proof.find(snippet)
+    if idx >= 0:
+        return idx, idx + len(snippet)
+    return None
+
+
+def _clamp_span(full_proof: str, start: int, end: int) -> tuple[int, int]:
+    plen = len(full_proof)
+    start = max(0, min(start, plen))
+    end = max(start, min(end, plen))
+    return start, end
+
+
+def _normalize_error_span_in_full_proof(
+    request: AnalyzeBody,
+    snippet: str,
+    start_raw: object,
+    end_raw: object,
+) -> tuple[int, int]:
+    """
+    Map model output to ``[start, end)`` in the full proof. Primary: locate ``errorSnippet`` in
+    ``fullProofForIndexing``. Secondary: use model ints only if they already fit the full proof.
+    """
+    full_proof = _full_proof_for_indexing(request)
+    sentence_text = request.currentSentence or ""
+    plen = len(full_proof)
+
+    pair = _span_from_snippet_in_full_proof(full_proof, snippet, sentence_text)
+    if pair is not None:
+        return _clamp_span(full_proof, pair[0], pair[1])
+
+    if isinstance(start_raw, int) and isinstance(end_raw, int):
+        st, en = start_raw, end_raw
+        if 0 <= st < plen and st < en <= plen:
+            return _clamp_span(full_proof, st, en)
+
+    return _clamp_span(full_proof, 0, 0)
+
+
+def _parse_suggested_fix(
+    raw: object,
+    sentence_text: str,
+    full_proof: str,
+) -> Optional[Suggestion]:
     if raw is None:
         return None
     if isinstance(raw, str):
@@ -157,7 +240,13 @@ def _parse_suggested_fix(raw: object, sentence: str) -> Optional[Suggestion]:
     ).strip()
     if not content and not snippet:
         return None
-    start, end = _snippet_indices(sentence, snippet)
+    start, end = _snippet_indices(sentence_text, snippet)
+    anchor = _sentence_anchor_in_full_proof(full_proof, sentence_text)
+    if anchor < 0:
+        anchor = 0
+    start += anchor
+    end += anchor
+    start, end = _clamp_span(full_proof, start, end)
     return Suggestion(
         suggestionContent=content or snippet,
         startIndexSuggestion=start,
@@ -225,7 +314,10 @@ def formatResponse(
                 if not title:
                     continue
                 hint = str(
-                    item.get("application_hint") or item.get("applicationHint") or ""
+                    item.get("application_hint")
+                    or item.get("applicationHint")
+                    or item.get("hint")
+                    or ""
                 ).strip()
                 add_math.append(_math_statement_for_add(title, hint))
 
@@ -237,7 +329,9 @@ def formatResponse(
                 title = str(item.get("title") or "").strip()
                 if not title:
                     continue
-                reason = str(item.get("reason") or "").strip()
+                reason = str(
+                    item.get("reason") or item.get("hint") or ""
+                ).strip()
                 remove_math.append(
                     _math_statement_for_remove(
                         title, reason, request.currentMathStatements
@@ -259,6 +353,7 @@ def formatResponse(
             raw if isinstance(raw, (dict, list)) else []
         )
         sentence_text = request.currentSentence or ""
+        full_proof = _full_proof_for_indexing(request)
         default_err = (
             ErrorType.INFORMAL_LANGUAGE
             if task_type == TaskType.SENTENCE_ANALYSIS
@@ -280,14 +375,20 @@ def formatResponse(
                 or "",
             ).strip()
 
-            if isinstance(start_raw, int) and isinstance(end_raw, int):
-                start_idx, end_idx = start_raw, end_raw
-            else:
-                start_idx, end_idx = _snippet_indices(sentence_text, snippet)
+            start_idx, end_idx = _normalize_error_span_in_full_proof(
+                request,
+                snippet,
+                start_raw,
+                end_raw,
+            )
 
             problematic = str(
                 error.get("problematicContent") or error.get("problematic_content") or ""
-            ).strip() or snippet
+            ).strip()
+            if not problematic and full_proof and start_idx < end_idx:
+                problematic = full_proof[start_idx:end_idx]
+            if not problematic:
+                problematic = snippet
 
             msg = str(error.get("errorMessage") or error.get("error_message") or "").strip()
             reasoning = str(error.get("internalReasoning") or "").strip()
@@ -302,6 +403,7 @@ def formatResponse(
             suggested = _parse_suggested_fix(
                 error.get("suggestedFix") or error.get("suggested_fix"),
                 sentence_text,
+                full_proof,
             )
 
             formatted.append(

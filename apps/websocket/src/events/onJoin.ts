@@ -70,6 +70,9 @@ export async function onJoin(
                 questionContent: state?.questionContent ?? '',
                 questionRevision: state?.questionRevision ?? 0,
                 questionBuffer: state?.questionBuffer ?? [],
+                mathStatements: state?.selectedMathStatements ?? [],
+                proofType: state?.proofType ?? null,
+                coursePublicId: state?.coursePublicId ?? null,
             })
             return
         }
@@ -137,6 +140,7 @@ export async function onJoin(
             type: row.mathstatement.type,
             name: row.mathstatement.name,
             content: row.mathstatement.content,
+            hint: row.mathstatement.hint ?? '',
             textbook: row.mathstatement.textbook,
             orderIndex: row.mathstatement.orderIndex,
         }));
@@ -145,21 +149,29 @@ export async function onJoin(
         // Check if the document state exists
         if (!documentStates.has(documentId)) {
             const errorStates: ErrorState[] = document.errors.map(error => {
-                const suggestion: Suggestion | null = error && error.suggestionContent ? {
+                // ``ErrorState.suggestion`` uses ``undefined`` (not null) for "no suggestion"; DB-null is coerced here.
+                const suggestion: Suggestion | undefined = error.suggestionContent ? {
                     suggestionContent: error.suggestionContent,
                     startIndexSuggestion: error.startIndexSuggestion,
                     endIndexSuggestion: error.endIndexSuggestion
-                } : null
+                } : undefined
 
                 return {
                     publicId: error.publicId,
                     startIndexError: error.startIndexError,
                     endIndexError: error.endIndexError,
-                    errorContent: error.errorContent,
-                    suggestion: suggestion,
+                    // Renamed Prisma field: ``errorContent`` column is now exposed as ``errorMessage`` via @map.
+                    errorMessage: error.errorMessage,
+                    errortype: error.errortype,
+                    suggestion,
                     resolvedAt: error.resolvedAt,
                     dismissedAt: error.dismissedAt,
-                    problematicContent: document.documentBody?.content.slice(error.startIndexError, error.endIndexError) ?? '',
+                    // Prefer the stored snippet; fall back to slicing the body for legacy rows (problematicContent
+                    // was added in migration 20260513170000_add_problematic_content_to_error and is null for older errors).
+                    problematicContent:
+                        error.problematicContent
+                        ?? document.documentBody?.content.slice(error.startIndexError, error.endIndexError)
+                        ?? '',
                     MLTriggered: false
                 }
             })
@@ -196,6 +208,9 @@ export async function onJoin(
             questionContent: live?.questionContent ?? document.documentBody?.provingStatement ?? '',
             questionRevision: live?.questionRevision ?? 0,
             questionBuffer: live?.questionBuffer ?? [],
+            mathStatements: live?.selectedMathStatements ?? selectedMathStatements,
+            proofType: live?.proofType ?? document.proofType ?? null,
+            coursePublicId: live?.coursePublicId ?? document.course?.publicId ?? null,
         })
 
         console.log(`User joined document ${documentId} successfully!`)

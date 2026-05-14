@@ -7,6 +7,7 @@ from src.config import settings
 from src.schemas import (
     AnalyzeBody,
     AnalyzeQuestion,
+    Request,
     TaskType,
 )
 from src.router import route_to_provider
@@ -39,12 +40,16 @@ async def process_message(message: str):
         payload = {**outer.payload, "documentId": doc_id}
         print(f"Processing document: {doc_id} for task type: {outer.taskType}")
 
+        responseType = None
+
         if outer.taskType == TaskType.QUESTION_ANALYSIS:
+            responseType = "neededMathStatements"
             request = AnalyzeQuestion(**payload)
         elif outer.taskType in (
             TaskType.BODY_ANALYSIS,
             TaskType.SENTENCE_ANALYSIS,
         ):
+            responseType = "detectedErrors" # type: ignore
             request = AnalyzeBody(**payload)
         else:
             raise ValueError(f"Invalid task type: {outer.taskType}")
@@ -58,7 +63,9 @@ async def process_message(message: str):
         # Publish result back to websocket
         redis.publish(
             f"ml:result:{doc_id}",
-            json.dumps(response.model_dump()),
+            json.dumps({
+                "type": responseType,
+                "data":response.model_dump()}),
         )
 
         print(f"Result published for document: {doc_id}")

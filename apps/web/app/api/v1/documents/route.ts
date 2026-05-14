@@ -109,6 +109,7 @@ export async function POST(request: Request) {
         proofType: "DIRECT",
         documentBody: {
           create: {
+            provingStatement: "",
             content: "" // Initialize with an empty string
           }
         }

@@ -116,12 +116,13 @@ class Suggestion(BaseModel):
     startIndexSuggestion: int = 0
     endIndexSuggestion: int = 0
 
-# Mirror your TypeScript ErrorState interface
+# Mirror your TypeScript ErrorState interface (apps/websocket/lib/types.ts).
+# ``errorMessage`` matches the renamed Prisma field (DB column is still ``errorContent`` via @map).
 class ErrorState(BaseModel):
     publicId: str = ""
     startIndexError: int = 0
     endIndexError: int = 0
-    errorContent: str = ""
+    errorMessage: str = ""
     suggestion: Optional[Suggestion] = None
     resolvedAt: Optional[str] = None
     dismissedAt: Optional[str] = None
@@ -133,6 +134,7 @@ class MathStatement(BaseModel):
     type: str
     name: str
     content: str
+    hint: str = ""  # e.g. Gemini ``application_hint``; library rows often empty
 
 
 class ProofType(str, Enum):
@@ -170,8 +172,9 @@ class AnalyzeQuestion(BaseModel):
 
 
 # (2) Websocket sends a body or sentence analysis request (same shape; taskType selects the prompt).
-# For BODY_ANALYSIS: pass proof text *up to* the current sentence in ``content`` (logic-chain prompt).
-# For SENTENCE_ANALYSIS: pass full document ``content`` when needed for context / index anchoring (grammar prompt).
+# For BODY_ANALYSIS: ``content`` is proof text *through* the current sentence (token-efficient for Gemini).
+# ``fullProofContent``: entire proof body as stored in the editor. Not included in prompts 2–3; used only
+# server-side to map ``errorSnippet`` values to document ``startIndexError`` / ``endIndexError``.
 class AnalyzeBody(BaseModel):
     documentId: str = ""
     mathStatements: list[MathStatement]  # all math statements in the document
@@ -179,6 +182,8 @@ class AnalyzeBody(BaseModel):
 
     content: str # The content of the document
     currentSentence: str
+
+    fullProofContent: str = ""  # whole proof; canonical index space for detected errors
 
     currentSentenceErrors: list[ErrorState]  # existing errors so ML doesn't re-flag them
     allDocumentErrors: list[ErrorState] = Field(default_factory=list)  # used for body analysis; optional for sentence

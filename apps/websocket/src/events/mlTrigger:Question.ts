@@ -1,5 +1,5 @@
 import Redis from 'ioredis'
-import { AuthenticatedSocket, DocumentState, MathStatements } from '../../lib/types'
+import { AuthenticatedSocket, DocumentState } from '../../lib/types'
 
 const redisHost = process.env.REDIS_HOST ?? 'localhost'
 const redisPort = Number(process.env.REDIS_PORT ?? 6379)
@@ -18,7 +18,6 @@ export async function onQuestionMLTrigger(
     documentStates: Map<string, DocumentState>,
     documentID: string,
     socketDocumentMap: Map<string, string>,
-    library: Map<string, MathStatements[]>
 ) {
     try {
         // (1) Basic checks
@@ -39,11 +38,9 @@ export async function onQuestionMLTrigger(
             return
         }
 
-        // (2) Pull course-scoped library entries if this document belongs to a course
+        // (2) Pull course-scoped definitions that are currently in document
         const questionContent = docState.questionContent
-        const mathStatements: MathStatements[] = docState.coursePublicId
-            ? (library.get(docState.coursePublicId) ?? [])
-            : []
+        const mathStatements = docState.selectedMathStatements
 
 
         // (3) Enqueue ML request for proving-statement assistance
@@ -52,9 +49,9 @@ export async function onQuestionMLTrigger(
             documentId: documentID,
             taskType: 'question_analysis',
             payload: {
-                questionContent: questionContent,
-                mathStatements: mathStatements,
-                proofType: docState.proofType,
+                content: questionContent,
+                currentMathStatements: mathStatements ?? [],
+                currentProofType: docState.proofType,
             }
         }))
 

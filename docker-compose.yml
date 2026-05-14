@@ -33,7 +33,7 @@ services:
 
   postgres:
     container_name: prove-it-postgres
-    image: ankane/pgvector:v0.5.1-pg16-alpine
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -74,6 +74,8 @@ services:
     volumes:
       - ./apps/ml:/app
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
 

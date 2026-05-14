@@ -1,0 +1,5 @@
+{
+    "python.analysis.typeCheckingMode": "basic",
+    "prisma.prismaFmtBinPath": "./node_modules/.bin/prisma"
+}
+  

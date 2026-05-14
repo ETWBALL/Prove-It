@@ -6,7 +6,6 @@ export default async function deleteDatabase() {
 
     // 2. Delete "Child" models that reference Documents/Users
     await prisma.error.deleteMany()
-    await prisma.hint.deleteMany()
     await prisma.proofAttempt.deleteMany()
     await prisma.documentBody.deleteMany()
     await prisma.sessions.deleteMany()

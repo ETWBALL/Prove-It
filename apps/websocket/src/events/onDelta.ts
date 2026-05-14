@@ -70,8 +70,12 @@ export async function onDelta(
         // (3) Begin storing delta in memory
         // Apply the delta to the errors
         const { updatedErrors, mlErrors } = applyDeltatoErrors(docState.errors, delta, docState.content)
-        if (mlErrors.length > 0) {
-            socket.emit('document:errors:removed', { errorIds: mlErrors.map(e => e.publicId) })
+
+        // Only notify the client about errors it already knows by id — ML-produced errors that haven't
+        // been persisted yet have ``publicId === undefined`` and would emit ``[null]`` after JSON serialization.
+        const removedErrorIds = mlErrors.map(e => e.publicId).filter((id): id is string => typeof id === 'string')
+        if (removedErrorIds.length > 0) {
+            socket.emit('document:errors:removed', { errorIds: removedErrorIds })
         }
 
         // Set the document state. Do not touch the question buffer. Keep it as it is

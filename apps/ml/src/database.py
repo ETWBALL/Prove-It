@@ -56,7 +56,8 @@ def preload(coursePublicId: str) -> None:
                     ms."publicId",
                     (ms.type)::text AS library_type,
                     ms.name,
-                    ms.content
+                    ms.content,
+                    COALESCE(ms."hint", '') AS hint
                 FROM "MathStatement" ms
                 INNER JOIN "Course" c ON c."privateId" = ms."privateCourseId"
                 WHERE c."publicId" = %s
@@ -73,6 +74,7 @@ def preload(coursePublicId: str) -> None:
             type=r["library_type"],
             name=r["name"],
             content=r["content"] if r["content"] is not None else "",
+            hint=str(r.get("hint") or ""),
         )
         for r in rows
     ]
@@ -96,7 +98,8 @@ def preload_all_definitions() -> None:
                     ms."publicId",
                     (ms.type)::text AS library_type,
                     ms.name,
-                    ms.content
+                    ms.content,
+                    COALESCE(ms."hint", '') AS hint
                 FROM "MathStatement" ms
                 INNER JOIN "Course" c ON c."privateId" = ms."privateCourseId"
                 WHERE ms.type = 'DEFINITION'::"Library"
@@ -110,6 +113,7 @@ def preload_all_definitions() -> None:
                     type=r["library_type"],
                     name=r["name"],
                     content=r["content"] if r["content"] is not None else "",
+                    hint=str(r.get("hint") or ""),
                 )
                 courseMathStatements.setdefault(cid, []).append(stmt)
 

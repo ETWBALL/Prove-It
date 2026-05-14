@@ -103,7 +103,7 @@ def constructPrompt2(request: AnalyzeBody) -> str:
 
     existing_errors = (
         "\n".join(
-            f"- {e.errorContent} (at '{e.problematicContent or e.errorContent}')"
+            f"- {e.errorMessage} (at '{e.problematicContent or e.errorMessage}')"
             for e in request.currentSentenceErrors
         )
         if request.currentSentenceErrors
@@ -172,7 +172,8 @@ def constructPrompt2(request: AnalyzeBody) -> str:
 
 def constructPrompt3(request: AnalyzeBody) -> str:
     """
-    Grammar / proof-writing check for the current sentence only (not logic-chain).
+    Grammar / proof-writing check for the current sentence only.
+    No proof context is sent to the model; spans are mapped server-side using ``fullProofContent``.
     """
     math_block = (
         "\n".join(f"- [{s.type}] {s.name}: {s.content}" for s in request.mathStatements)
@@ -181,7 +182,7 @@ def constructPrompt3(request: AnalyzeBody) -> str:
     )
     existing_errors = (
         "\n".join(
-            f"- {e.errorContent} (at '{e.problematicContent or e.errorContent}')"
+            f"- {e.errorMessage} (at '{e.problematicContent or e.errorMessage}')"
             for e in request.currentSentenceErrors
         )
         if request.currentSentenceErrors
@@ -189,20 +190,12 @@ def constructPrompt3(request: AnalyzeBody) -> str:
     )
 
     prompt = f"""
-
     ### ROLE
     You are a formal mathematical proof writing validator for a strict first-year Discrete Math course.
 
     ### OBJECTIVE
     Analyze the "CURRENT SENTENCE" for proof writing and grammar errors only.
     You are NOT checking logical correctness — only how the sentence is written.
-
-    ---
-    STATEMENT TO PROVE:
-    {request.provingStatement}
-
-    FULL PROOF CONTEXT (for referents and phrasing; focus your flags on CURRENT SENTENCE):
-    {request.content}
 
     CURRENT SENTENCE:
     {request.currentSentence}
@@ -226,7 +219,7 @@ def constructPrompt3(request: AnalyzeBody) -> str:
     6. Quantifier Check: Flag MISSING_QUANTIFIER if a variable is used without specifying scope.
 
     ### PHASE 1: ANALYSIS & PHASE 2: CRITIQUE
-    - Read the sentence in isolation, then in the context of the full proof.
+    - Judge the sentence on its own as formal mathematical writing.
     - SKEPTICAL CRITIQUE: Ask "Is this sentence precise enough for a formal proof?" and "Did I miss any subtle writing issue?"
 
     ---
@@ -248,4 +241,4 @@ def constructPrompt3(request: AnalyzeBody) -> str:
     If no errors, return [].
 
     """
-    return prompt
+    return textwrap.dedent(prompt).strip()

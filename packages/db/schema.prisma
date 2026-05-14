@@ -151,7 +151,6 @@ model Document {
   documentBody                  DocumentBody? // One-to-one
   proofAttempts                 ProofAttempt[]
   errors                        Error[]
-  hints                         Hint[]
   documentMathStatements        DocumentMathStatements[]
 }
 
@@ -196,29 +195,6 @@ model ProofAttempt {
   createdAt                     DateTime                        @default(now())
 }
 
-model Hint {
-  // A hint anchored to a slice of proof content: indices, model id, resolution state.
-  privateId                     Int                             @id @default(autoincrement())
-  publicId                      String                          @unique @default(cuid())
-
-  // Document this hint belongs to.
-  privateDocumentId             Int
-  document                      Document                        @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
-
-  // Hint body and span inside the proof text; model identifies which assistant/model produced it.
-  content                       String?
-  startIndex                    Int
-  endIndex                      Int
-  model                         String
-
-  // User dismissed or resolved the hint; createdAt for ordering and audits.
-  resolvedAt                    DateTime?
-  dismissedAt                   DateTime?
-  createdAt                     DateTime                        @default(now())
-
-  // Populated from the junction table when this hint is tied to documents/math statements.
-  usageRecords                  DocumentMathStatements[]
-}
 
 enum ErrorType {
   INCORRECT_NEGATION
@@ -281,28 +257,35 @@ model Error {
   privateId                     Int                             @id @default(autoincrement())
   publicId                      String                          @unique @default(cuid())
 
-  // Character range inside the proof JSON/content that this error refers to; suggestedFix is structured guidance.
+  // Character range inside the proof body this error refers to (anchored against the full proof content).
   startIndexError               Int
   endIndexError                 Int
-  errorContent                  String
 
-  // Suggestion Info
+  // Human-readable description shown in the UI. ``@map("errorContent")`` keeps the existing DB column name
+  // so older rows survive the rename — the Prisma client surface uses ``errorMessage`` everywhere.
+  errorMessage                  String                          @map("errorContent")
+
+  // The exact substring of the proof body that was flagged. Mirrors ``ErrorState.problematicContent`` on
+  // the websocket so we can rehydrate the in-memory state on rejoin without re-slicing from content.
+  problematicContent            String?
+
+  // Suggestion Info (flattened — see ``Suggestion`` interface on the websocket side).
   suggestionContent             String?
   startIndexSuggestion          Int
-  endIndexSuggestion            Int 
+  endIndexSuggestion            Int
 
   // Owning document for navigation and permissions.
   privateDocumentId             Int
   document                      Document                        @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
 
-  // Taxonomy: kind of mistake, band, validation pipeline stage, and originating model id.
-  type                          ErrorType
+  // Taxonomy: kind of mistake plus which validation layer produced it.
+  // ``@map("type")`` keeps the existing DB column, exposed to the client as ``errortype``.
+  errortype                     ErrorType                       @map("type")
   layer                         ValidationLayer
 
   resolvedAt                    DateTime?
   dismissedAt                   DateTime?
   createdAt                     DateTime                        @default(now())
-
 }
 
 enum Library {
@@ -321,15 +304,14 @@ enum Textbook {
 }
 
 model DocumentMathStatements {
-  // Junction: connects a Document, a MathStatement, and an optional Hint with usage metadata.
+  // Junction: Document ↔ MathStatement with optional free-text hint and usage metadata.
   privateDocumentId             Int
   document                      Document                        @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
 
   privateMathStatementId        Int
   mathstatement                 MathStatement                   @relation(fields: [privateMathStatementId], references: [privateId], onDelete: Cascade)
 
-  privateHintId                 Int
-  hint                          Hint                            @relation(fields: [privateHintId], references: [privateId], onDelete: Cascade)
+  hint                          String?                          
 
   // Whether the hint was acted on and when it was cleared or ignored.
   wasUsed                       Boolean                         @default(false)
@@ -338,7 +320,7 @@ model DocumentMathStatements {
   createdAt                     DateTime                        @default(now())
 
   // Composite primary key over the three foreign keys.
-  @@id([privateDocumentId, privateMathStatementId, privateHintId])
+  @@id([privateDocumentId, privateMathStatementId])
 }
 
 model MathStatement {
@@ -350,6 +332,8 @@ model MathStatement {
   type                          Library
   name                          String
   content                       String
+  // Short ML / UI hint for how to use this statement in-context (separate from formal ``content``).
+  hint                          String                          @default("")
   privateCourseId               Int
   course                        Course                          @relation(fields: [privateCourseId], references: [privateId], onDelete: Cascade)
   textbook                      Textbook

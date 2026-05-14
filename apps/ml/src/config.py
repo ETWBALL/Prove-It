@@ -1,8 +1,10 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 # Explains what is expected of the env variables.
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(extra="ignore")
+
     # Question analysis model provider. We can swap this to change model providers.
     QUESTION_ANALYSIS_MODEL: str = "gemini"
 
@@ -10,7 +12,7 @@ class Settings(BaseSettings):
     BODY_ANALYSIS_MODEL: str = "gemini"
     SENTENCE_ANALYSIS_MODEL: str = "gemini"
 
-    # API Keys
+    # API Keys    
     GEMINI_API_KEY: str = ""
 
     # Redis TCP settings for local/compose redis service.
@@ -24,9 +26,6 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "postgres"
     DB_HOST: str = "postgres" 
     
-
-    class Config:
-        env_file = ".env"
 
 
 settings = Settings()
