@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prove-It API Sandbox</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        pre { background-color: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; font-size: 0.875rem; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans p-8">
+
+    <div class="max-w-6xl mx-auto space-y-8">
+        <header class="text-center">
+            <h1 class="text-3xl font-bold text-gray-900">API Testing Sandbox</h1>
+            <p class="text-gray-500 mt-2">Running on exactly the same origin to bypass CORS.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <!-- Controls Column -->
+            <div class="space-y-6 flex flex-col">
+                
+                <!-- Auth Section -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <h2 class="text-xl font-semibold mb-4 text-blue-600">1. Authentication (v1)</h2>
+                    <div class="space-y-3">
+                        <input type="email" id="email" placeholder="Email" class="w-full p-2 border rounded" value="test@utoronto.ca">
+                        <input type="password" id="password" placeholder="Password" class="w-full p-2 border rounded" value="Password123!">
+                        
+                        <div class="flex gap-2">
+                            <button onclick="testAPI('POST', '/api/v1/auth/signup', { email: getVal('email'), password: getVal('password') })" class="flex-1 bg-gray-800 text-white py-2 rounded hover:bg-gray-700">Sign Up</button>
+                            <button onclick="testAPI('POST', '/api/v1/auth/login', { email: getVal('email'), password: getVal('password') })" class="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Login</button>
+                        </div>
+                        <button onclick="testAPI('POST', '/api/v1/auth/refresh')" class="w-full bg-blue-100 text-blue-700 py-2 rounded font-medium hover:bg-blue-200">Refresh Token</button>
+                    </div>
+                </div>
+
+                <!-- Documents Section -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <h2 class="text-xl font-semibold mb-4 text-green-600">2. Documents CRUD (v1)</h2>
+                    
+                    <div class="space-y-4">
+                        <button onclick="testAPI('GET', '/api/v1/documents')" class="w-full bg-green-100 text-green-700 py-2 rounded font-medium hover:bg-green-200">GET All Documents</button>
+                        
+                        <div class="border-t pt-4">
+                            <input type="text" id="doc-title" placeholder="New Document Title" class="w-full p-2 border rounded mb-2" value="My Math Proof">
+                            <button onclick="testAPI('POST', '/api/v1/documents', { title: getVal('doc-title') })" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700">POST Create Document</button>
+                        </div>
+
+                        <div class="border-t pt-4 space-y-2">
+                            <input type="text" id="doc-id" placeholder="Document ID (publicId)" class="w-full p-2 border rounded font-mono text-sm text-blue-600 font-bold">
+                            <button onclick="testAPI('GET', '/api/v1/documents/' + getVal('doc-id'))" class="w-full bg-gray-200 py-2 rounded hover:bg-gray-300">GET Single Document</button>
+                            
+                            <input type="text" id="doc-content" placeholder="Update Body Content..." class="w-full p-2 border rounded mt-2" value="Assume n is an even integer...">
+                            <button onclick="testAPI('PATCH', '/api/v1/documents/' + getVal('doc-id'), { content: getVal('doc-content') })" class="w-full bg-yellow-500 text-white py-2 rounded hover:bg-yellow-600">PATCH Update Document</button>
+                            
+                            <button onclick="testAPI('DELETE', '/api/v1/documents/' + getVal('doc-id'))" class="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600 mt-2">DELETE Document</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Console Column -->
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-gray-800">Response Console</h2>
+                    <button onclick="document.getElementById('output').innerHTML = ''" class="text-sm text-gray-500 hover:text-red-500">Clear</button>
+                </div>
+                <pre id="output" class="flex-1 h-full min-h-[600px] whitespace-pre-wrap"></pre>
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+        const getVal = (id) => document.getElementById(id).value;
+
+        async function testAPI(method, endpoint, body = null) {
+            const outputEl = document.getElementById('output');
+            outputEl.innerHTML = `<span style="color: #4ade80">Sending ${method} request to ${endpoint}...</span>\n`;
+
+            try {
+                const options = {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin' 
+                };
+
+                if (body && (method === 'POST' || method === 'PATCH')) {
+                    options.body = JSON.stringify(body);
+                }
+
+                const response = await fetch(endpoint, options);
+                
+                let data;
+                try {
+                    data = await response.json();
+                } catch {
+                    data = await response.text();
+                }
+
+                const statusColor = response.ok ? '#4ade80' : '#f87171';
+                
+                outputEl.innerHTML += `<span style="color: ${statusColor}">Status: ${response.status} ${response.statusText}</span>\n\n`;
+                outputEl.innerHTML += JSON.stringify(data, null, 2);
+
+                // Auto-fill Document ID input if we just created a document
+                if (method === 'POST' && endpoint === '/api/v1/documents' && response.ok && data.document) {
+                    document.getElementById('doc-id').value = data.document.publicId;
+                }
+
+            } catch (error) {
+                outputEl.innerHTML += `<span style="color: #f87171">Network Error: ${error.message}</span>\nIs your Next.js server running?`;
+            }
+        }
+    </script>
+</body>
+</html>

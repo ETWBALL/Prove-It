@@ -1,0 +1,191 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-prove-it-auth",
+    "name": "Prove-It — Auth (login)",
+    "description": "Local login tests for `POST /api/v1/auth/login`. Set **loginEmail** / **loginPassword** on the collection (or an environment) to match a real user. Cookies (`accessToken`, `refreshToken`) are stored in Postman’s cookie jar for `localhost`.\n\nNote: The seeded user in `packages/db/seed.ts` may store a plaintext password while login expects bcrypt — use **Signup** first or fix the seed if login fails.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "loginEmail",
+      "value": "you@example.com"
+    },
+    {
+      "key": "loginPassword",
+      "value": "ChangeMe1!"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Login — success",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('JSON body indicates success', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body).to.have.property('success', true);",
+              "});",
+              "",
+              "pm.test('Sets accessToken cookie (cookie jar)', function () {",
+              "  pm.expect(pm.cookies.has('accessToken')).to.be.true;",
+              "});",
+              "",
+              "pm.test('Sets refreshToken cookie (cookie jar)', function () {",
+              "  pm.expect(pm.cookies.has('refreshToken')).to.be.true;",
+              "});",
+              "",
+              "const access = pm.cookies.get('accessToken');",
+              "if (access) {",
+              "  pm.collectionVariables.set('accessToken', access);",
+              "}",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"{{loginPassword}}\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/auth/login",
+        "description": "Successful login sets httpOnly cookies. After this runs, **collection variable accessToken** is filled from the cookie jar for convenience (e.g. copy into browser localStorage for Socket.IO dev)."
+      },
+      "response": []
+    },
+    {
+      "name": "Login — invalid credentials",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 401', function () {",
+              "  pm.response.to.have.status(401);",
+              "});",
+              "",
+              "pm.test('Error message present', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body).to.have.property('error');",
+              "});",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"definitely-wrong-password-xxxxxxxx\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/auth/login"
+      },
+      "response": []
+    },
+    {
+      "name": "Login — validation error (bad email)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 400', function () {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('Field errors for email', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body).to.have.property('error');",
+              "  pm.expect(body.error).to.have.property('email');",
+              "});",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"not-an-email\",\n  \"password\": \"anything\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/auth/login"
+      },
+      "response": []
+    },
+    {
+      "name": "Login — invalid JSON body",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 400', function () {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('Invalid JSON message', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.error).to.eql('Invalid JSON body');",
+              "});",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ broken json"
+        },
+        "url": "{{baseUrl}}/api/v1/auth/login"
+      },
+      "response": []
+    }
+  ]
+}

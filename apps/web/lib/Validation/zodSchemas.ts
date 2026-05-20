@@ -58,12 +58,14 @@ export const envSchema = z.object({
     ACCESS_TOKEN_EXPIRES_IN: joseCompatibleTimeSpan,
     REFRESH_TOKEN_JWT_SECRET: z.string().min(32, 'REFRESH_TOKEN_JWT_SECRET must be at least 32 characters'),
     REFRESH_TOKEN_EXPIRES_IN: joseCompatibleTimeSpan,
-    UPSTASH_REDIS_REST_URL: z.string(),
-    UPSTASH_REDIS_REST_TOKEN: z.string(),
+    // Optional for local dev when rate limiting is disabled.
+    UPSTASH_REDIS_REST_URL: z.string().default(""),
+    UPSTASH_REDIS_REST_TOKEN: z.string().default(""),
     NEXT_PUBLIC_APP_URL: z.string(),
-    NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string(),
-    TURNSTILE_SECRET_KEY: z.string(),
-    RESEND_API_KEY: z.string(),
+    // Optional for local dev; set real values when Turnstile / Resend are wired up.
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().default(""),
+    TURNSTILE_SECRET_KEY: z.string().default(""),
+    RESEND_API_KEY: z.string().default(""),
     APP_URL: z.string(),
   })
 

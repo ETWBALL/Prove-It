@@ -14,8 +14,8 @@ const SERVER_URL = "http://127.0.0.1:3001"
 const CONNECT_TIMEOUT_MS = 5000
 
 // IMPORTANT: Update these IDs to match your seeded DB.
-const USER_PUBLIC_ID = "cmostgrdm0004suyxpeg1eqtr"
-const SESSION_PUBLIC_ID = "cmostgrdm0005suyxhpl8yg4m"
+const USER_PUBLIC_ID = "cmovkq80m0001su7yhycdliwn"
+const SESSION_PUBLIC_ID = "cmovkq80x0003su7yshtt4z7s"
 const DOCUMENT_PUBLIC_ID = "cmostgreo0007suyx6kn89hp3"
 const SECOND_DOCUMENT_PUBLIC_ID = "cmostgrh9000asuyxk3dzpw10"
 
@@ -383,6 +383,145 @@ async function main() {
             } catch (error) {
                 return {
                     name: "onDelta INDEX_OUT_OF_BOUNDS when indices exceed content length",
+                    passed: false,
+                    details: String(error),
+                }
+            } finally {
+                disconnectQuietly(socket)
+            }
+        },
+
+        // Test 7: Valid insert updates hot RAM state (content + revision) and is visible on idempotent re-join.
+        async () => {
+            const socket = await createAuthedSocket()
+            try {
+                await waitForConnect(socket)
+
+                const firstJoin = await joinDocument(socket, DOCUMENT_PUBLIC_ID)
+                const initialContent = firstJoin?.content ?? ""
+                const initialRevision = firstJoin?.revision ?? 0
+
+                const inserted = "HOT_STATE_INSERT"
+                const delta: Delta = {
+                    type: "insert",
+                    startIndex: 0,
+                    endIndex: 0,
+                    content: inserted,
+                    documentId: DOCUMENT_PUBLIC_ID,
+                    revision: initialRevision + 1,
+                }
+
+                const result = await sendDeltaExpectAckOrError(socket, delta)
+                if ("code" in result) {
+                    return {
+                        name: "onDelta insert updates hot RAM state",
+                        passed: false,
+                        details: `Expected ack, got error: ${JSON.stringify(result)}`,
+                    }
+                }
+
+                // Idempotent join returns state from in-memory map for this socket/document.
+                const secondJoin = await joinDocument(socket, DOCUMENT_PUBLIC_ID)
+                const expectedContent = inserted + initialContent
+                const expectedRevision = initialRevision + 1
+
+                const passed =
+                    secondJoin?.content === expectedContent &&
+                    secondJoin?.revision === expectedRevision
+
+                return {
+                    name: "onDelta insert updates hot RAM state",
+                    passed,
+                    details: passed
+                        ? "Content and revision reflected updated in-memory state."
+                        : `Unexpected re-join state: ${JSON.stringify({
+                              expectedContentPrefix: inserted,
+                              expectedRevision,
+                              gotContent: secondJoin?.content,
+                              gotRevision: secondJoin?.revision,
+                          })}`,
+                }
+            } catch (error) {
+                return {
+                    name: "onDelta insert updates hot RAM state",
+                    passed: false,
+                    details: String(error),
+                }
+            } finally {
+                disconnectQuietly(socket)
+            }
+        },
+
+        // Test 8: 30 valid inserts should trigger immediate persistence event.
+        async () => {
+            const socket = await createAuthedSocket()
+            try {
+                await waitForConnect(socket)
+
+                const joinSuccess = await joinDocument(socket, DOCUMENT_PUBLIC_ID)
+                const startRevision = joinSuccess?.revision ?? 0
+
+                // Send first 29 inserts and expect ack each time.
+                for (let i = 1; i <= 29; i++) {
+                    const delta: Delta = {
+                        type: "insert",
+                        startIndex: 0,
+                        endIndex: 0,
+                        content: `A${i}`,
+                        documentId: DOCUMENT_PUBLIC_ID,
+                        revision: startRevision + i,
+                    }
+
+                    const result = await sendDeltaExpectAckOrError(socket, delta)
+                    if ("code" in result) {
+                        return {
+                            name: "onDelta persists when buffer reaches 30 inserts",
+                            passed: false,
+                            details: `Insert ${i} failed: ${JSON.stringify(result)}`,
+                        }
+                    }
+                }
+
+                // Set listener before the 30th insert to avoid missing the persisted event.
+                const persistedPromise = waitForEvent<{ message?: string }>(
+                    socket,
+                    "document:delta:persisted",
+                    10000
+                )
+
+                const thirtiethDelta: Delta = {
+                    type: "insert",
+                    startIndex: 0,
+                    endIndex: 0,
+                    content: "A30",
+                    documentId: DOCUMENT_PUBLIC_ID,
+                    revision: startRevision + 30,
+                }
+
+                const finalResult = await sendDeltaExpectAckOrError(socket, thirtiethDelta)
+                if ("code" in finalResult) {
+                    return {
+                        name: "onDelta persists when buffer reaches 30 inserts",
+                        passed: false,
+                        details: `30th insert failed: ${JSON.stringify(finalResult)}`,
+                    }
+                }
+
+                const persisted = await persistedPromise
+                const passed =
+                    typeof persisted?.message === "string" &&
+                    persisted.message.includes("persisted")
+
+                return {
+                    name: "onDelta persists when buffer reaches 30 inserts",
+                    passed,
+                    details: passed
+                        ? "Received document:delta:persisted after 30th insert."
+                        : `Unexpected persisted payload: ${JSON.stringify(persisted)}`,
+                }
+            } catch (error) {
+                return {
+                    name: "onDelta persists when buffer reaches 30 inserts",
                     passed: false,
                     details: String(error),
                 }

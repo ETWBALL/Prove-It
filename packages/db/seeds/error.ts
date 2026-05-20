@@ -1,12 +1,15 @@
 import { prisma, type Error as DbError } from "../index"
+import type { ErrorType, ValidationLayer } from "../generated/prisma"
 
 type ErrorSeedInput = {
     anchor: string
-    errorContent: string
+    // Renamed Prisma field: DB column is still ``errorContent`` (via @map); client surface is ``errorMessage``.
+    errorMessage: string
     suggestionContent: string | null
     suggestionStart: number
     suggestionEnd: number
-    type: "MISSING_JUSTIFICATION" | "INFORMAL_LANGUAGE" | "ASSUMING_THE_CONVERSE" | "INCOMPLETE_SENTENCE"
+    errortype: Extract<ErrorType, "IMPLICIT_ASSUMPTION" | "INFORMAL_LANGUAGE" | "ASSUMING_THE_CONVERSE" | "INCOMPLETE_SENTENCE">
+    layer: ValidationLayer
 }
 
 function buildErrorSeedsForContent(content: string): ErrorSeedInput[] {
@@ -15,19 +18,22 @@ function buildErrorSeedsForContent(content: string): ErrorSeedInput[] {
         return [
             {
                 anchor: "x = 2k",
-                errorContent: "Missing justification for introducing k",
+                errorMessage: "Missing justification for introducing k",
                 suggestionContent: "By definition of even, there exists an integer k such that x = 2k.",
                 suggestionStart: 2,
                 suggestionEnd: 28,
-                type: "MISSING_JUSTIFICATION",
+                // ``MISSING_JUSTIFICATION`` was removed from the ErrorType enum; closest current match.
+                errortype: "IMPLICIT_ASSUMPTION",
+                layer: "LOGIC_CHAIN",
             },
             {
                 anchor: "This clearly works.",
-                errorContent: "Informal phrasing weakens proof rigor",
+                errorMessage: "Informal phrasing weakens proof rigor",
                 suggestionContent: null,
                 suggestionStart: 0,
                 suggestionEnd: 1,
-                type: "INFORMAL_LANGUAGE",
+                errortype: "INFORMAL_LANGUAGE",
+                layer: "PROOF_GRAMMER",
             },
         ]
     }
@@ -35,19 +41,21 @@ function buildErrorSeedsForContent(content: string): ErrorSeedInput[] {
     return [
         {
             anchor: "if y is odd",
-            errorContent: "Assuming converse without proof",
+            errorMessage: "Assuming converse without proof",
             suggestionContent: "Use the odd definition directly: y = 2k + 1 for some integer k.",
             suggestionStart: 5,
             suggestionEnd: 35,
-            type: "ASSUMING_THE_CONVERSE",
+            errortype: "ASSUMING_THE_CONVERSE",
+            layer: "LOGIC_CHAIN",
         },
         {
             anchor: "Hence done",
-            errorContent: "Conclusion sentence is incomplete",
+            errorMessage: "Conclusion sentence is incomplete",
             suggestionContent: "Hence, the proposition is proven by direct construction.",
             suggestionStart: 0,
             suggestionEnd: 22,
-            type: "INCOMPLETE_SENTENCE",
+            errortype: "INCOMPLETE_SENTENCE",
+            layer: "PROOF_GRAMMER",
         },
     ]
 }
@@ -71,13 +79,14 @@ export default async function seedErrors(
                 data: {
                     startIndexError,
                     endIndexError,
-                    errorContent: seed.errorContent,
+                    errorMessage: seed.errorMessage,
+                    problematicContent: seed.anchor,
                     suggestionContent: seed.suggestionContent,
                     startIndexSuggestion: seed.suggestionStart,
                     endIndexSuggestion: seed.suggestionEnd,
                     privateDocumentId,
-                    type: seed.type,
-                    layer: "LOGIC_CHAIN",
+                    errortype: seed.errortype,
+                    layer: seed.layer,
                 },
             })
 

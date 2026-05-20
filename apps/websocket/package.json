@@ -11,16 +11,17 @@
     "test:helpers": "node --env-file=../../.env -r ts-node/register test/testHelpers.ts"
   },
   "dependencies": {
-    "jose": "^6.2.3",
-    "dotenv": "^16.4.7",
     "@prove-it/auth": "workspace:*",
     "@prove-it/db": "workspace:*",
-    "@upstash/redis": "^1.37.0",
+    "dotenv": "^16.4.7",
+    "ioredis": "^5.10.1",
+    "jose": "^6.2.3",
     "jsonwebtoken": "^9.0.3",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
+    "@types/ioredis": "^5.0.0",
     "nodemon": "^3.1.14",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"

@@ -1,19 +1,35 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Reads the env automatically and validates all fields exists
 
+# Explains what is expected of the env variables.
 class Settings(BaseSettings):
-    # Model provider. We can swap this to change model providers
-    MODEL_PROVIDER: str = "gemini"
-    
-    # API Keys
-    GEMINI_API_KEY: str = ""
-    
-    # Redis
-    UPSTASH_REDIS_REST_URL: str = ""
-    UPSTASH_REDIS_REST_TOKEN: str = ""
+    model_config = SettingsConfigDict(extra="ignore")
 
-    class Config:
-        env_file = ".env"
+    # Question analysis model provider. We can swap this to change model providers.
+    QUESTION_ANALYSIS_MODEL: str = "gemini"
+
+    # Body and sentence analysis share the same payload model; ``taskType`` selects the prompt.
+    BODY_ANALYSIS_MODEL: str = "gemini"
+    SENTENCE_ANALYSIS_MODEL: str = "gemini"
+
+    # API Keys    
+    GEMINI_API_KEY: str = ""
+
+    # Redis TCP settings for local/compose redis service.
+    REDIS_HOST: str = "redis"
+    REDIS_PORT: int = 6379
+    REDIS_PASSWORD: str = ""
+
+    # Postgres settings. 
+    POSTGRES_USER: str = "postgres"
+    POSTGRES_PASSWORD: str = "postgres"
+    POSTGRES_DB: str = "postgres"
+    DB_HOST: str = "postgres" 
+    
+
 
 settings = Settings()
+
+
+
+

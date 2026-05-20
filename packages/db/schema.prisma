@@ -5,8 +5,9 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "./generated/prisma"
+  provider      = "prisma-client-js"
+  output        = "./generated/prisma"
+  binaryTargets = ["native", "darwin", "windows"]
 }
 
 datasource db {
@@ -96,12 +97,15 @@ model Sessions {
   refreshToken                  String?                         @unique
 
   // Short label for the client (browser name, OS, etc.) for auditing and revoke UX.
-  device                        String
+  device                        String                        
 
   // Token validity window and last activity for idle-timeout policies.
   tokenExpiresAt                DateTime
   lastActiveAt                  DateTime
   createdAt                     DateTime                        @default(now())
+
+  // A user can have many unique devices:
+  @@unique([privateUserId, device])
 
 }
 
@@ -144,7 +148,6 @@ model Document {
 
   // Soft delete and editor/compiler bookkeeping.
   deletedAt                     DateTime?
-  lastCompiled                  DateTime?
   lastEdited                    DateTime                        @updatedAt
   createdAt                     DateTime                        @default(now())
 
@@ -162,11 +165,12 @@ model Document {
 }
 
 model DocumentBody {
-  // Versioned body content for a Document: JSON payload keyed by internal ids.
+  // Versioned body content for a Document: String payload keyed by internal ids.
   privateId                     Int                             @id @default(autoincrement())
   publicId                      String                          @unique @default(cuid())
 
   // Serialized editor/proof content (structure defined by the application layer).
+  provingStatement              String
   content                       String
 
   // Parent document this body belongs to.
@@ -190,8 +194,13 @@ model ProofAttempt {
   document                      Document                        @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
 
   // Proof payload and optional named version; manualSave distinguishes autosave vs explicit save.
+<<<<<<< HEAD
   content                       Json
   versionName                   String?                         @default("")  
+=======
+  content                       String
+  versionName                   String?
+>>>>>>> RAG
   manualSave                    Boolean                         @default(false)
 
   // Diagnostics captured with this snapshot (e.g. error counts and opaque analytics Json).
@@ -201,10 +210,13 @@ model ProofAttempt {
   createdAt                     DateTime                        @default(now())
 }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> RAG
 
 enum ErrorType {
-  INCORRECTLY_NEGATING_A_STATEMENT
+  INCORRECT_NEGATION
   ASSUMING_THE_CONVERSE
   EQUIVOCATION
   FALSE_DICHOTOMY_IN_CASE_ANALYSIS
@@ -221,6 +233,19 @@ enum ErrorType {
   CIRCULAR_REASONING
   JUMPING_TO_CONCLUSIONS
   IMPROPER_GENERALIZATION
+  IMPLICIT_ASSUMPTION
+  CONTRADICTS_PREVIOUS_STATEMENT
+  SCOPE_ERROR
+  NON_SEQUITUR
+  VACUOUS_PROOF_FALLACY
+  EXISTENTIAL_INSTANTIATION_ERROR
+  ASSUMING_THE_GOAL
+  VARIABLE_SHADOWING
+  PROOF_BY_EXAMPLE
+  ILLEGAL_OPERATION
+  VACUOUS_NEGATION
+  STRUCTURE_ERROR
+
   INFORMAL_LANGUAGE
   AMBIGUOUS_PRONOUN
   MISSING_PUNCTUATION
@@ -229,10 +254,13 @@ enum ErrorType {
   UNEXPANDED_ACRONYM
   INCONSISTENT_NOTATION
   UNDEFINED_TERM_USED
-  MISSING_QUANTIFIER 
-  IMPLICIT_ASSUMPTION
-  MISSING_JUSTIFICATION
-
+  MISSING_QUANTIFIER
+  WRONG_LOGICAL_CONNECTIVE
+  REDUNDANT_STATEMENT
+  TYPE_MISMATCH
+  DANGLING_VARIABLE
+  SYMBOL_AS_VERB
+  UNFOLDING_FAILURE
 }
 
 enum ValidationLayer {
@@ -248,28 +276,42 @@ model Error {
   privateId                     Int                             @id @default(autoincrement())
   publicId                      String                          @unique @default(cuid())
 
-  // Character range inside the proof JSON/content that this error refers to; suggestedFix is structured guidance.
+  // Character range inside the proof body this error refers to (anchored against the full proof content).
   startIndexError               Int
   endIndexError                 Int
-  errorContent                  String
 
+<<<<<<< HEAD
   // Suggestion Info
   suggestionContent             String?                         @default("")
   startIndexSuggestion          Int?
   endIndexSuggestion            Int?
+=======
+  // Human-readable description shown in the UI. ``@map("errorContent")`` keeps the existing DB column name
+  // so older rows survive the rename — the Prisma client surface uses ``errorMessage`` everywhere.
+  errorMessage                  String                          @map("errorContent")
+
+  // The exact substring of the proof body that was flagged. Mirrors ``ErrorState.problematicContent`` on
+  // the websocket so we can rehydrate the in-memory state on rejoin without re-slicing from content.
+  problematicContent            String?
+
+  // Suggestion Info (flattened — see ``Suggestion`` interface on the websocket side).
+  suggestionContent             String?
+  startIndexSuggestion          Int
+  endIndexSuggestion            Int
+>>>>>>> RAG
 
   // Owning document for navigation and permissions.
   privateDocumentId             Int
   document                      Document                        @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
 
-  // Taxonomy: kind of mistake, band, validation pipeline stage, and originating model id.
-  type                          ErrorType
+  // Taxonomy: kind of mistake plus which validation layer produced it.
+  // ``@map("type")`` keeps the existing DB column, exposed to the client as ``errortype``.
+  errortype                     ErrorType                       @map("type")
   layer                         ValidationLayer
 
   resolvedAt                    DateTime?
   dismissedAt                   DateTime?
   createdAt                     DateTime                        @default(now())
-
 }
 
 enum Library {
@@ -292,12 +334,22 @@ enum Sufficiency {
 }
 
 model DocumentMathStatements {
+<<<<<<< HEAD
   // Junction: connects a Document, a MathStatement
+=======
+  // Junction: Document ↔ MathStatement with optional free-text hint and usage metadata.
+>>>>>>> RAG
   privateDocumentId             Int
   document                      Document                        @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
 
   privateMathStatementId        Int
+<<<<<<< HEAD
   mathStatement                 MathStatement                   @relation(fields: [privateMathStatementId], references: [privateId], onDelete: Cascade)
+=======
+  mathstatement                 MathStatement                   @relation(fields: [privateMathStatementId], references: [privateId], onDelete: Cascade)
+
+  hint                          String?                          
+>>>>>>> RAG
 
   // Whether the hint was acted on and when it was cleared or ignored.
   hintContent                   String?                         @default("")     
@@ -340,11 +392,21 @@ model MathStatement {
   // Classification, display name, formal content; course ties statements to a curriculum; textbook and order for sorting.
   type                          Library
   name                          String
+<<<<<<< HEAD
   content                       Json
   privateCourseId               Int?
   course                        Course?                         @relation(fields: [privateCourseId], references: [privateId], onDelete: Cascade)
   textbook                      Textbook?
   orderIndex                    Int?
+=======
+  content                       String
+  // Short ML / UI hint for how to use this statement in-context (separate from formal ``content``).
+  hint                          String                          @default("")
+  privateCourseId               Int
+  course                        Course                          @relation(fields: [privateCourseId], references: [privateId], onDelete: Cascade)
+  textbook                      Textbook
+  orderIndex                    Int
+>>>>>>> RAG
 
   // Reverse relation: where this statement appears across documents (via junction table).
   usageInDocs                   DocumentMathStatements[]

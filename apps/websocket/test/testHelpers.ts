@@ -179,6 +179,9 @@ async function main() {
 
     function baseDocState(overrides: Partial<DocumentState> = {}): DocumentState {
         return {
+            questionContent: "",
+            questionRevision: 0,
+            questionBuffer: [],
             content: "Updated test content",
             contentId: "placeholder-content-id",
             revision: 1,
@@ -193,6 +196,11 @@ async function main() {
                 },
             ],
             errors: [],
+            // Required fields on ``DocumentState`` — keep null so the tests don't depend on
+            // course/proof-type/math-statement state they don't seed.
+            coursePublicId: null,
+            proofType: null,
+            selectedMathStatements: null,
             ...overrides,
         }
     }
@@ -369,8 +377,9 @@ async function main() {
                     publicId: "missing-error-public-id",
                     startIndexError: 0,
                     endIndexError: 1,
-                    errorContent: "x",
-                    suggestion: null,
+                    errorMessage: "x",
+                    errortype: "INFORMAL_LANGUAGE",
+                    suggestion: undefined,
                     resolvedAt: null,
                     dismissedAt: null,
                 },
@@ -429,7 +438,8 @@ async function main() {
                     publicId: existingError.publicId,
                     startIndexError: 0,
                     endIndexError: 1,
-                    errorContent: "x",
+                    errorMessage: "x",
+                    errortype: "INFORMAL_LANGUAGE",
                     suggestion: {
                         suggestionContent: "bad",
                         startIndexSuggestion: "abc" as unknown as number,
@@ -592,7 +602,8 @@ async function main() {
                     publicId: existingError.publicId,
                     startIndexError: nextStart,
                     endIndexError: nextEnd,
-                    errorContent: existingError.errorContent,
+                    errorMessage: existingError.errorMessage,
+                    errortype: existingError.errortype,
                     suggestion: {
                         suggestionContent: nextSuggestionContent,
                         startIndexSuggestion: 3,
@@ -760,8 +771,9 @@ async function main() {
                     publicId: existingError.publicId,
                     startIndexError: existingError.startIndexError,
                     endIndexError: existingError.endIndexError,
-                    errorContent: existingError.errorContent,
-                    suggestion: null,
+                    errorMessage: existingError.errorMessage,
+                    errortype: existingError.errortype,
+                    suggestion: undefined,
                     resolvedAt: null,
                     dismissedAt: null,
                 },
@@ -779,7 +791,8 @@ async function main() {
                     publicId: existingError.publicId,
                     startIndexError: existingError.startIndexError,
                     endIndexError: existingError.endIndexError,
-                    errorContent: existingError.errorContent,
+                    errorMessage: existingError.errorMessage,
+                    errortype: existingError.errortype,
                     suggestion: {
                         suggestionContent: "Now add a concrete suggestion",
                         startIndexSuggestion: 4,
@@ -802,8 +815,9 @@ async function main() {
                     publicId: existingError.publicId,
                     startIndexError: existingError.startIndexError,
                     endIndexError: existingError.endIndexError,
-                    errorContent: existingError.errorContent,
-                    suggestion: null,
+                    errorMessage: existingError.errorMessage,
+                    errortype: existingError.errortype,
+                    suggestion: undefined,
                     resolvedAt: null,
                     dismissedAt: null,
                 },

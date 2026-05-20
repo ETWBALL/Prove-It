@@ -1,4 +1,5 @@
 import { prisma, User } from "../index"
+import { hashPassword } from "@prove-it/auth"
 
 /**
  * Seed the database with a user
@@ -12,7 +13,7 @@ export default async function seedUser(name: string, email: string, password: st
             data: {
                 name: name,
                 email: email,
-                password: password,
+                password: await hashPassword(password),
                 sessions: {
                     create: {
                         device: 'Nokia 3310',

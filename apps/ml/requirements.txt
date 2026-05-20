@@ -3,5 +3,13 @@ uvicorn
 pydantic
 pydantic-settings
 anthropic
-google-generativeai
-upstash-redis
+google-genai
+redis
+llama-index
+llama-index-embeddings-openai
+llama-index-vector-stores-postgres
+psycopg[binary,pool]
+openai
+numpy
+pgvector
+sentence-transformers

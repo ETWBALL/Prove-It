@@ -1,9 +1,13 @@
 import { SignJWT, errors, jwtVerify } from "jose";
 import { authEnv } from "./lib/envSchema";
-import type { User, Sessions } from '@prove-it/db'
+
+type AuthTokenPayload = {
+    publicId: string
+    sessionPublicId: string
+}
 
 // ACCESS TOKEN GENERATION: Returns a new token with payload and expiry time
-export async function generateAccessToken(payload: { publicId: User['publicId'] , sessionPublicId: Sessions['publicId'] }){
+export async function generateAccessToken(payload: AuthTokenPayload){
     return await new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -35,7 +39,7 @@ export async function verifyAccessToken(token: string){
 }
 
 // REFRESH TOKEN GENERATION: Returns a new token with payload and expiry time
-export async function generateRefreshToken(payload: { publicId: User['publicId'] , sessionPublicId: Sessions['publicId'] }){
+export async function generateRefreshToken(payload: AuthTokenPayload){
     return await new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
