@@ -160,11 +160,11 @@ exports.Prisma.SessionsScalarFieldEnum = {
 exports.Prisma.DocumentScalarFieldEnum = {
   privateId: 'privateId',
   publicId: 'publicId',
+  status: 'status',
   title: 'title',
   privateOwnerId: 'privateOwnerId',
   proofType: 'proofType',
   privateCourseId: 'privateCourseId',
-  numErrors: 'numErrors',
   deletedAt: 'deletedAt',
   lastCompiled: 'lastCompiled',
   lastEdited: 'lastEdited',
@@ -191,19 +191,6 @@ exports.Prisma.ProofAttemptScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
-exports.Prisma.HintScalarFieldEnum = {
-  privateId: 'privateId',
-  publicId: 'publicId',
-  privateDocumentId: 'privateDocumentId',
-  content: 'content',
-  startIndex: 'startIndex',
-  endIndex: 'endIndex',
-  model: 'model',
-  resolvedAt: 'resolvedAt',
-  dismissedAt: 'dismissedAt',
-  createdAt: 'createdAt'
-};
-
 exports.Prisma.ErrorScalarFieldEnum = {
   privateId: 'privateId',
   publicId: 'publicId',
@@ -224,22 +211,44 @@ exports.Prisma.ErrorScalarFieldEnum = {
 exports.Prisma.DocumentMathStatementsScalarFieldEnum = {
   privateDocumentId: 'privateDocumentId',
   privateMathStatementId: 'privateMathStatementId',
-  privateHintId: 'privateHintId',
+  hintContent: 'hintContent',
   wasUsed: 'wasUsed',
   resolvedAt: 'resolvedAt',
   dismissedAt: 'dismissedAt',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  sufficient: 'sufficient'
+};
+
+exports.Prisma.DocumentLemmaScalarFieldEnum = {
+  privateDocumentId: 'privateDocumentId',
+  privateLemmaId: 'privateLemmaId',
+  lemmaStatus: 'lemmaStatus',
+  lemmaManualOverride: 'lemmaManualOverride'
 };
 
 exports.Prisma.MathStatementScalarFieldEnum = {
   privateId: 'privateId',
   publicId: 'publicId',
+  privateOwnerId: 'privateOwnerId',
   type: 'type',
   name: 'name',
   content: 'content',
   privateCourseId: 'privateCourseId',
   textbook: 'textbook',
   orderIndex: 'orderIndex',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.LemmaScalarFieldEnum = {
+  privateId: 'privateId',
+  publicId: 'publicId',
+  privateOwnerId: 'privateOwnerId',
+  name: 'name',
+  content: 'content',
+  privateCourseId: 'privateCourseId',
+  textbook: 'textbook',
+  orderIndex: 'orderIndex',
+  privateDocumentId: 'privateDocumentId',
   createdAt: 'createdAt'
 };
 
@@ -281,8 +290,8 @@ exports.Prisma.PlanScalarFieldEnum = {
   monthlyPrice: 'monthlyPrice',
   isActive: 'isActive',
   dailyDocLimit: 'dailyDocLimit',
-  hintsPerDefLimit: 'hintsPerDefLimit',
-  suggestionLimit: 'suggestionLimit',
+  mathStatementsLimit: 'mathStatementsLimit',
+  errorsLimit: 'errorsLimit',
   errorVisibility: 'errorVisibility',
   createdAt: 'createdAt'
 };
@@ -337,6 +346,11 @@ exports.Prisma.JsonNullValueFilter = {
   JsonNull: Prisma.JsonNull,
   AnyNull: Prisma.AnyNull
 };
+exports.ProofStatus = exports.$Enums.ProofStatus = {
+  COMPLETE: 'COMPLETE',
+  INCOMPLETE: 'INCOMPLETE'
+};
+
 exports.ProofType = exports.$Enums.ProofType = {
   DIRECT: 'DIRECT',
   CONTRADICTION: 'CONTRADICTION',
@@ -382,14 +396,18 @@ exports.ErrorType = exports.$Enums.ErrorType = {
 };
 
 exports.ValidationLayer = exports.$Enums.ValidationLayer = {
-  PROOF_GRAMMER: 'PROOF_GRAMMER',
+  PROOF_GRAMMAR: 'PROOF_GRAMMAR',
   LOGIC_CHAIN: 'LOGIC_CHAIN'
+};
+
+exports.Sufficiency = exports.$Enums.Sufficiency = {
+  INSUFFICIENT: 'INSUFFICIENT',
+  SUFFICIENT: 'SUFFICIENT'
 };
 
 exports.Library = exports.$Enums.Library = {
   DEFINITION: 'DEFINITION',
   THEOREM: 'THEOREM',
-  LEMMA: 'LEMMA',
   PROPERTY: 'PROPERTY',
   AXIOM: 'AXIOM',
   COROLLARY: 'COROLLARY',
@@ -424,11 +442,12 @@ exports.Prisma.ModelName = {
   Document: 'Document',
   DocumentBody: 'DocumentBody',
   ProofAttempt: 'ProofAttempt',
-  Hint: 'Hint',
   Error: 'Error',
   DocumentMathStatements: 'DocumentMathStatements',
+  DocumentLemma: 'DocumentLemma',
   MathStatement: 'MathStatement',
-  userCourse: 'userCourse',
+  Lemma: 'Lemma',
+  UserCourse: 'UserCourse',
   Course: 'Course',
   University: 'University',
   UniversityDomain: 'UniversityDomain',

@@ -20,7 +20,7 @@
   },
   "prisma": {
     "seed": "node --env-file=../../.env -r ts-node/register seed.ts",
-    "schema": "prisma generate --schema=./schema.prisma"
+    "schema": "./schema.prisma"
   }
 
 }
