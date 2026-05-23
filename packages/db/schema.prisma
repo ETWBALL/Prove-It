@@ -27,12 +27,12 @@ model User {
   // Profile and sign-in:
   // Display name; username (unique URL slug); unique email; bcrypt-hashed password;
   // optional bio and avatar image URL.
-  name                          String?
+  name                          String                          @default("")  
   username                      String?                         @unique
   email                         String                          @unique
   password                      String?
-  bio                           String?
-  avatarUrl                     String?
+  bio                           String                          @default("")
+  avatarUrl                     String                          @default("")
 
   // Optional link to the university the user is associated with (tenant context).
   privateUniversityId           Int?
@@ -48,8 +48,10 @@ model User {
   oauthAccounts                 OAuthAccount[]
   sessions                      Sessions[]
   documents                     Document[]
-  enrollments                   userCourse[]
+  enrollments                   UserCourse[]
   dailyUsages                   DailyUsage[]
+  mathStatements                MathStatement[]
+  lemmas                        Lemma[]
   // At most one Subscription row per user (enforced by @@unique on Subscription.privateUserId).
   subscription                  Subscription?
 
@@ -121,6 +123,17 @@ enum ProofType {
   CASE_ANALYSIS
 }
 
+enum ProofStatus {
+  COMPLETE
+  INCOMPLETE
+  FAILED_COMPILATION
+}
+
+enum Provability {
+  PROVABLE
+  UNPROVABLE
+  UNKNOWN
+}
 
 model Document {
   // A proof document owned by a user: metadata, course scope, and compile/edit timestamps.
@@ -130,13 +143,15 @@ model Document {
   publicId                      String                          @unique @default(cuid())
 
   // Title and ownership; proof strategy type; optional course context when relevant.
+  provability                   Provability
+  status                        ProofStatus
   title                         String
   privateOwnerId                Int
   user                          User                            @relation(fields: [privateOwnerId], references: [privateId], onDelete: Cascade)
   proofType                     ProofType
   privateCourseId               Int?
   course                        Course?                         @relation(fields: [privateCourseId], references: [privateId], onDelete: SetNull)
-  numErrors                     Int                             @default(0)
+
 
   // Soft delete and editor/compiler bookkeeping.
   deletedAt                     DateTime?
@@ -152,6 +167,8 @@ model Document {
   proofAttempts                 ProofAttempt[]
   errors                        Error[]
   documentMathStatements        DocumentMathStatements[]
+  usedLemmas                    DocumentLemma[]
+  provingLemma                  Lemma?                          @relation("LemmaProof")
 }
 
 model DocumentBody {
@@ -184,8 +201,8 @@ model ProofAttempt {
   document                      Document                        @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
 
   // Proof payload and optional named version; manualSave distinguishes autosave vs explicit save.
-  content                       String
-  versionName                   String?
+  content                       Json
+  versionName                   String?                         @default("")  
   manualSave                    Boolean                         @default(false)
 
   // Diagnostics captured with this snapshot (e.g. error counts and opaque analytics Json).
@@ -246,7 +263,7 @@ enum ErrorType {
 
 enum ValidationLayer {
   // Surface-level grammar and wording checks only.
-  PROOF_GRAMMER
+  PROOF_GRAMMAR
   
   // Full pipeline including logical consistency of the proof chain.
   LOGIC_CHAIN
@@ -261,18 +278,10 @@ model Error {
   startIndexError               Int
   endIndexError                 Int
 
-  // Human-readable description shown in the UI. ``@map("errorContent")`` keeps the existing DB column name
-  // so older rows survive the rename — the Prisma client surface uses ``errorMessage`` everywhere.
-  errorMessage                  String                          @map("errorContent")
-
-  // The exact substring of the proof body that was flagged. Mirrors ``ErrorState.problematicContent`` on
-  // the websocket so we can rehydrate the in-memory state on rejoin without re-slicing from content.
-  problematicContent            String?
-
-  // Suggestion Info (flattened — see ``Suggestion`` interface on the websocket side).
-  suggestionContent             String?
-  startIndexSuggestion          Int
-  endIndexSuggestion            Int
+  // Suggestion Info
+  suggestionContent             String?                         @default("")
+  startIndexSuggestion          Int?
+  endIndexSuggestion            Int?
 
   // Owning document for navigation and permissions.
   privateDocumentId             Int
@@ -291,7 +300,6 @@ model Error {
 enum Library {
   DEFINITION
   THEOREM
-  LEMMA
   PROPERTY
   AXIOM
   COROLLARY
@@ -303,41 +311,66 @@ enum Textbook {
   Fuchs_102
 }
 
+enum Sufficiency {
+  INSUFFICIENT
+  SUFFICIENT
+  UNCHECKED
+}
+
 model DocumentMathStatements {
-  // Junction: Document ↔ MathStatement with optional free-text hint and usage metadata.
+  // Junction: connects a Document, a MathStatement
   privateDocumentId             Int
   document                      Document                        @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
 
   privateMathStatementId        Int
-  mathstatement                 MathStatement                   @relation(fields: [privateMathStatementId], references: [privateId], onDelete: Cascade)
-
-  hint                          String?                          
+  mathStatement                 MathStatement                   @relation(fields: [privateMathStatementId], references: [privateId], onDelete: Cascade)
 
   // Whether the hint was acted on and when it was cleared or ignored.
+  hintContent                   String?                         @default("")     
   wasUsed                       Boolean                         @default(false)
   resolvedAt                    DateTime?
   dismissedAt                   DateTime?
   createdAt                     DateTime                        @default(now())
 
+  // If this definition is sufficient enough for the proof if introduced
+  sufficient                    Sufficiency                     @default(INSUFFICIENT)
+
   // Composite primary key over the three foreign keys.
   @@id([privateDocumentId, privateMathStatementId])
 }
+
+model DocumentLemma {
+  privateDocumentId   Int
+  document            Document  @relation(fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
+  
+  privateLemmaId      Int
+  lemma               Lemma     @relation(fields: [privateLemmaId], references: [privateId], onDelete: Cascade)
+
+  // The status belongs to THIS student's document, not the global lemma
+  lemmaStatus         ProofStatus @default(INCOMPLETE)
+  lemmaManualOverride Boolean     @default(false)
+
+  @@id([privateDocumentId, privateLemmaId])
+}
+
 
 model MathStatement {
   // Reusable mathematical statement (definition, theorem, …) scoped to a course and textbook ordering.
   privateId                     Int                             @id @default(autoincrement())
   publicId                      String                          @unique @default(cuid())
 
+  // Could be a user defined math statement. If privateOwnerId is null, then it is a system defined math statement. If privateOwnerId is not null, then it is a user defined math statement and privateOwnerId references the user that created it
+  privateOwnerId                Int?
+  user                          User?                           @relation(fields: [privateOwnerId], references: [privateId], onDelete: Cascade)
+
   // Classification, display name, formal content; course ties statements to a curriculum; textbook and order for sorting.
   type                          Library
   name                          String
-  content                       String
-  // Short ML / UI hint for how to use this statement in-context (separate from formal ``content``).
-  hint                          String                          @default("")
-  privateCourseId               Int
-  course                        Course                          @relation(fields: [privateCourseId], references: [privateId], onDelete: Cascade)
-  textbook                      Textbook
-  orderIndex                    Int
+  content                       Json
+  privateCourseId               Int?
+  course                        Course?                         @relation(fields: [privateCourseId], references: [privateId], onDelete: Cascade)
+  textbook                      Textbook?
+  orderIndex                    Int?
 
   // Reverse relation: where this statement appears across documents (via junction table).
   usageInDocs                   DocumentMathStatements[]
@@ -345,7 +378,36 @@ model MathStatement {
   createdAt                     DateTime                        @default(now())
 }
 
-model userCourse {
+model Lemma {
+  // A lemma is a special type of MathStatement that can be introduced mid-proof and has a status tracked per Document. Can be user defined or not
+  privateId                     Int                             @id @default(autoincrement())
+  publicId                      String                          @unique @default(cuid())
+
+  // Could be a user defined lemma. If privateOwnerId is null, then it is a system defined lemma. If privateOwnerId is not null, then it is a user defined lemma and privateOwnerId references the user that created it
+  privateOwnerId                Int?
+  user                          User?                           @relation(fields: [privateOwnerId], references: [privateId], onDelete: Cascade)
+
+  // Classification, display name, formal content; course ties statements to a curriculum; textbook and order for sorting.
+  name                          String
+  content                       Json
+  privateCourseId               Int?
+  course                        Course?                         @relation(fields: [privateCourseId], references: [privateId], onDelete: Cascade)
+  textbook                      Textbook?
+  orderIndex                    Int?
+
+  // Reverse relation: where this statement appears across documents (via junction table).
+  usageInDocs                   DocumentLemma[]
+
+  // The proof document for this lemma (if it has one)
+  privateDocumentId             Int?                            @unique
+  document                      Document?                       @relation("LemmaProof", fields: [privateDocumentId], references: [privateId], onDelete: Cascade)
+
+  createdAt                     DateTime                        @default(now())
+}
+
+
+
+model UserCourse {
   // Enrollment of a User in a Course; supports soft unenroll via timestamp.
   privateUserId                 Int
   user                          User                            @relation(fields: [privateUserId], references: [privateId], onDelete: Cascade)
@@ -376,7 +438,8 @@ model Course {
   // Inverse relations for Prisma navigation (not extra columns).
   documents                     Document[]
   mathStatements                MathStatement[]
-  enrollments                   userCourse[]
+  enrollments                   UserCourse[]
+  lemmas                        Lemma[]
 
   // Course titles need only be unique within a university (not globally).
   @@unique([universityId, name])
@@ -430,11 +493,11 @@ model Plan {
   monthlyPrice                  Decimal                         @default(0.0)
   isActive                      Boolean                         @default(true)
 
-  // Usage caps enforced by the app: documents per day, hints per definition, suggestions per proof,
+  // Usage caps enforced by the app: documents per day, suggestions per proof,
   // and which class of proof errors the user is allowed to see (tier-gated feedback).
   dailyDocLimit                 Int
-  hintsPerDefLimit              Int
-  suggestionLimit               Int
+  mathStatementsLimit           Int
+  errorsLimit                   Int
   errorVisibility               ValidationLayer
 
   createdAt                     DateTime                        @default(now())
