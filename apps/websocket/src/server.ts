@@ -3,6 +3,8 @@ import { Server } from 'socket.io'
 import { authenticate, authorizeSocket} from './lib/serverHelpers'
 import { Registry } from './lib/Registry'
 import * as events from './events'
+import { Delta } from './lib/types'
+import { GlobalLibraryRegistry } from './lib/globalLibraryRegistry'
 
 
 
@@ -16,6 +18,7 @@ const io = new Server(httpServer, {
     maxHttpBufferSize: 10 * 1024 * 1024, // large document payloads on join/success
 })
 
+
 // (3) Set up Registry
 const messenger = {
     broadcastToDocument: (eventName: string, documentId: number, payload: any) => {
@@ -26,7 +29,7 @@ const isSocketAlive = (socketId: string) => io.sockets.sockets.has(socketId)
 const disconnectSocket = (socketId: string) => io.sockets.sockets.get(socketId)?.disconnect(true)
 
 const registry = new Registry(messenger, isSocketAlive, disconnectSocket)
-
+await GlobalLibraryRegistry.bootstrap()
 
 // (4) Set up Middleware for authentication
 authenticate(io)
@@ -36,7 +39,7 @@ io.on('connection', (clientSocket) => {
     console.log(`Client connected: ${clientSocket.id}`)
 
     // (1) OnJoin: Unprotected Gateway
-    clientSocket.on('join', (documentId: number) => {events.onJoin(clientSocket, registry, documentId)})
+    clientSocket.on('document:join', (documentId: number) => {events.Join(clientSocket, registry, documentId)})
 
     // (2) OnDelta: Protected. Users can send doc edits
     // (3) OnLeave: Protected. Users can leave 
@@ -44,11 +47,17 @@ io.on('connection', (clientSocket) => {
     // (4) OnQuestionDelta: Protected. Users can send question edits
     // (5) onAcceptSuggestion: Protected. Server needs to change doc state
     // (6) onRejectSuggestion: Protected. Server needs to change doc state
+
+    // State changes
+    // (4) OnQuestionDelta: Protected. Users can send question edits
+    clientSocket.on('document:question:delta', (delta: Delta) => {events.QuestionDelta(clientSocket, registry, delta)})
     // (7) onMathStatementAdded: Protected. Users can add definitions that impact doc state
+
     // (8) onProofTypeUpdate: Protected. Users can update the proof type of a question, which impacts doc state
     // (9) onLemmaAdded: Protected. Users can add lemmas that impact doc state
     // (10) onLemmaUpdated: Protected. Users can update lemmas that impact doc state
     // (11) onMathStatementUpdated: Protected. Users can update math statements that impact doc state
+    
     
 
     // SERVER sends

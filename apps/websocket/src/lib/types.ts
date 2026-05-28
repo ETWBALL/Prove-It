@@ -1,107 +1,189 @@
 import { DocumentOrchestrator } from "./documentOrchestrator";
 import { Scheduler } from "./Scheduler";
 import { Socket } from "socket.io";
-import { ProofStatus, ProofType, Sufficiency, Provability} from "@prove-it/db";
+import { ProofStatus, ProofType, Sufficiency, MathStatement, Library, Provability, ValidationLayer, ErrorType} from "@prove-it/db";
 
 
 
-// User information. Not authenticated
+
+// ==== (1) Socket Information ====
+
 export interface User{
     publicId: string;
     sessionPublicId: string;
 }
-
-// ==== (1) Socket Information ====
-// Socket with authenticated user information in the `data` property
 export interface AuthenticatedSocket extends Socket {
   data: {
     user: User; 
   };
 }
-
 export interface AuthorizedSocket extends Socket {
   data: {
     user: User;
     // We attach these here to guarantee this socket has cleared the security gate!
-    authorizedDocumentId: number;
+    authorizedDocumentId: string;
     authorizedAt: Date;
   };
 }
 
 
+
+
 // ==== (2) Document Information ====
-
-
 export interface HotDocumentState{
-  title: string;
+  publicId: string;
   coursePublicId: string | null;
+  title: string;
   status: ProofStatus;
+  provability: Provability;
   proofType: ProofType;
   settings: ProofSettingState;
 
   // DocBody
-  question: Question;
-  content: Content;
+  body: DocBodyState;
+  question: QuestionState;
 }
-
-
-// Stores all user settings for this document
 export interface ProofSettingState {
    isOpen: boolean;
 }
-
-
-
-// ==== (3) Question and Content (DOCBODY) Information ====
-// Question information
-export interface Question {
-  isComplete: boolean;
-  provability: Provability;
+export interface Content{
+  content: string;
   revision: number;
-  sufficiency: Sufficiency;
-  
-
-  text: string;
-  buffer: Delta[];
-  currentStatements: MathStatement[];
-  currentLemmas: ActiveLemma[];
 }
-
-
-export interface QuestionCanvasState {
-  
+export interface DocBodyState extends Content{
+  errors: ErrorState[]; 
 }
-
-
-// Math Statement information
-export interface MathStatement {
-  publicId: 
+export interface QuestionState extends Content {
+  selectedMathStatements: SelectedMathStatement[];
+  selectedLemmas: SelectedLemma[];
 }
+export interface Suggestion {
+  content: string;
+  startIndex: number;
+  endIndex: number;
+}
+export interface ErrorInformation{
+  errorType: ErrorType;
+  message: string;
+  layer: ValidationLayer;
+
+  problematicContent: string;
+  startIndex: number;
+  endIndex: number;
+}
+export interface ErrorState {
+  publicId: string | undefined; 
+  info: ErrorInformation;
+
+  suggestion: Suggestion | undefined;
+
+  resolvedAt: Date | null;
+  dismissedAt: Date | null;
+  isPendingReevaluation: boolean; // For errors that are resolved but need to be re-evaluated after a doc change
 
 
-
+}
 export interface DocumentSession {
   userId: string;
   joinedAt: Date;
 }
 
-export interface Buffer {
-  content: string, 
-  
+
+
+
+
+
+// ==== (3) Math Statement information ====
+
+// Every statement selected in a document needs tracking metadata, regardless of origin.
+interface BaseSelectedStatement {
+    hintContent: string | null;
+    wasUsed: boolean;
+    sufficient: Sufficiency; 
+    resolvedAt: Date | null;
+    dismissedAt: Date | null;
 }
+export interface CourseMathStatement extends BaseSelectedStatement {
+    origin: 'course';
+    textbook: string;
+    orderIndex: number;
+    publicId: string; // Corresponds to the publicId in the MathStatement table
+}
+export interface UserDefinedMathStatement extends BaseSelectedStatement {
+    origin: 'user';
+    publicId: string | undefined; // Optional, as user-defined statements may not have a publicId until persisted
+    name: string;
+    type: Library;
+    content: string;
+}
+export type SelectedMathStatement = CourseMathStatement | UserDefinedMathStatement;
 
 
 
 
 
+// ==== (4) Lemma Information ====
+interface BaseSelectedLemma {
+  documentId: string;
+  lemmaStatus: ProofStatus;
+  lemmaManualOverride: boolean; // Users may not want to prove this statement
+}
+export interface CourseLemma extends BaseSelectedLemma {
+  origin: 'course';
+  textbook: string;
+  orderIndex: number;
+  publicId: string; // Corresponds to the publicId in the Lemma table
+}
+export interface UserDefinedLemma extends BaseSelectedLemma {
+  origin: 'user';
+  publicId: string | undefined; // Optional, as user-defined lemmas may not have a publicId until persisted
+  name: string;
+  content: string;
+}
+export type SelectedLemma = CourseLemma | UserDefinedLemma;
+
+
+
+// ==== (5) Deltas ====
+// Base properties every single delta must have
+
+export type Target = 'question' | 'content';
+interface BaseDelta {
+    target: Target;
+    id: string;               // UUID for idempotency (prevents double-processing)
+    documentId: string;
+    revision: number;         // For strict ordering
+    timestamp: number;        // Epoch time for auditing/latency tracking
+}
+export interface InsertDelta extends BaseDelta {
+    type: 'insert';
+    index: number;            // Inserts only need one index
+    content: string;
+}
+export interface DeleteDelta extends BaseDelta {
+    type: 'delete';
+    startIndex: number;
+    endIndex: number;
+}
+export interface ReplaceDelta extends BaseDelta {
+    type: 'replace';
+    startIndex: number;
+    endIndex: number;
+    content: string;
+}
+export type Delta = InsertDelta | DeleteDelta | ReplaceDelta; 
+
+
+
+
+
+// ==== (6) Other ====
 // DocumentSessionRegistry: Information about a user's document information per socket
 export interface WorkspaceEntry {
   orchestrator: DocumentOrchestrator;
   session: DocumentSession;
   activeSockets: Set<string>; 
 }
-
-
 // Information to send in every emit to clients.
 export interface Messenger {
     broadcastToDocument: (eventName: string, documentId: number, payload: any) => void;

@@ -2,7 +2,7 @@ import { Socket } from 'socket.io';
 import { Registry } from '../lib/Registry';
 
 
-export async function onJoin(clientSocket: Socket, registry: Registry, documentId: number) {
+export async function Join(clientSocket: Socket, registry: Registry, documentId: number) {
     /**
      * Authorize the user to join the document and make edits.
      */

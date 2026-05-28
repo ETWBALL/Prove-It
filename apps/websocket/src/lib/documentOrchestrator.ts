@@ -1,8 +1,11 @@
-import { MLOrchestrator } from "./MLOrchestrator";
 import { Scheduler } from "./Scheduler";
-import { HotDocumentState } from "./types";
+import { Delta, HotDocumentState } from "./types";
+
+const QUESTION_DELTA_THRESHOLD = 50;
+const BODY_DELTA_THRESHOLD = 30;
 
 
+// TODO ask cursor or vscode to put semicolons and fix spacing/formatting everywhere
 export class DocumentOrchestrator {
     /**
      * === Responsibilities ===
@@ -15,19 +18,21 @@ export class DocumentOrchestrator {
      * - state: The single source of truth for document state in RAM. Mutated by orchestrator methods and broadcasted to clients on every change.
      * - timers: Manages scheduling and cancellation of asynchronous tasks.
      * - messenger: A function to send messages back to the client associated with this document.
+     * - deltas: Keeps track of the number of deltas received for both question and body to determine when to persist to the database.
      */ 
     #state: HotDocumentState;
     #timers: Scheduler;
-    #messenger: (eventName: string, documentId: number, payload: any) => void;
-    #mlTrigger: MLOrchestrator;
+    #messenger: (eventName: string, documentId: string, payload: any) => void;
+    #deltas: {question: number, body: number}; 
+
 
 
     // TODO implement this
-    constructor(initialState: HotDocumentState, messenger: (eventName: string, documentId: number, payload: any) => void) {
+    constructor(initialState: HotDocumentState, messenger: (eventName: string, documentId: string, payload: any) => void) {
         this.#state = initialState;
         this.#messenger = messenger;
         this.#timers = new Scheduler();
-        this.#mlTrigger = new MLOrchestrator();
+        this.#deltas = {question: 0, body: 0};
     }
 
     // TODO implement this
@@ -39,8 +44,10 @@ export class DocumentOrchestrator {
         this.abortMLPipeline();
         
         // TODO come back to this and decide to have a ml trigger class
-        if (this.isProvable()){
-            this.#schduleMLTrigger(800);
+        if (this.#checkProvabilityConditions(this.#state.question.text, this.#state.question.currentLemmas)) {
+
+            // Check provability 
+            this.#mlTrigger.isProvable(800);
         }
     }
     
@@ -56,13 +63,27 @@ export class DocumentOrchestrator {
     }
 
     // TODO implement this
-    public isProvable(): boolean {
+    public addLemma(lemma: Lemma): void {
         /**
-         * Check if the question is provable. If: (1) The question is empty. (2) Atleast one lemma is incomplete, return false immediately 
-         * Otherwise, return ML's result (true or false) by packaging (question, math statements, proof type) and sending to ML service. 
+         * Add lemma to document state. 
          */
-        return false;
     }
+
+    // TODO implement this
+    public addMathStatement(mathStatement: MathStatement): void {
+        /**
+         * This can either be user-defined or a course math statement.
+         * Regardless, add the math statement to the document state.
+         */
+    }
+
+    // TODO implement this
+    public changeProofType(proofType: ProofType): void {
+        /**
+         * Update the proof type of the question. 
+         */
+    }
+
 
     // TODO implement this
     public checkLemmas(): boolean {
@@ -75,5 +96,92 @@ export class DocumentOrchestrator {
     
     }
 
+    // ==== Delta Management ====
+
+    // TODO implement this
+    public applyDelta(delta: Delta): void {
+        /**
+         * Apply the delta by first validating it, then storing it into the hot
+         * doc state. Target is either 'question' or 'content'.
+         * 
+        */
+       // (1) Validate the delta. Check if the delta is well-formed, if the revision number is correct, and if the delta can be applied to the current state without conflicts.
+       
+       // (2) Apply the delta to the in-memory document state. This involves updating the question text or content based on the type of delta (insert, delete, replace) and its target.
+
+    }
+
+    #validateDelta(delta: Delta): boolean {
+        /**
+         * Check if the delta is well-formed, if the revision number is correct, and if the delta can be applied to the current state without conflicts.
+         * Return true if valid, false otherwise.
+         */
+        return false;
+    }
+
+    public persistNeeded(): boolean {
+        /**
+         * Return true if # of deltas (for both question and content) has exceeded macros.
+         */
+        return false;
+    }
+
+    // ==== ML Trigger Management ====
+
+    // TODO implement this
+    public isProvable(document: HotDocumentState): string | null {
+        /** 
+        * Depending on doc state, give the correct prompt to ML
+        * Choose correct prompt. ML should return <true> if the question is provable and <false> if not.
+        * Note if its provable, 
+        */
+
+        // (1) Select the correct prompt. Recieve {prompt: string, format: string} obj
+        // (2) Send the ml result 
+        // (3) Recieve the ml result and store it in the doc state
+        // (4) Depending on the format, store it exactly into the doc state
+
+        return null;
+    }
+
+        // TODO implement this
+    #checkProvabilityConditions(question: string, lemmas: Lemma[]): boolean {
+        /**
+         * If: (1) The question is empty. (2) Atleast one lemma is incomplete, return false immediately 
+         * Else, return true
+         */
+    
+    }
+
+    
+    #selectPrompt(document: HotDocumentState): {prompt: string, expectedResponseFormat: string} {
+        /**
+         * Depending on doc state, give the correct prompt to ML
+         * Prompts should change according to the following:
+         * (1) Question is set. 
+         * (2) Question AND ProofType is set
+         * (3) Question AND MathStatents are set
+         * (4) Question AND ProofType AND MathStatements are set
+         */
+        return {prompt: "", expectedResponseFormat: ""};
+    }
+
+    // TODO implement this
+    // TODO small note: MAke sure to format the json file correclty to put it directly back into doc state easily
+    #prompt1(question: string): string | null{
+        /**
+         * Prompt to check provability when only the question is set. 
+         * Else, return null
+         */
+        return null;
+    }
+
+    #prompt2(question: string, proofType: string): string{
+        /**
+         * Prompt to check provability when the question and proof type are set. Ask for a binary classification of whether the question is provable or not, along with reasoning.
+         * If the question is provable, return <true>. If not, return <false>.
+         */
+        return "";
+    }
 
 }

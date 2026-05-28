@@ -112,7 +112,7 @@ model Sessions {
 
 enum ProofType {
   DIRECT
-  CONTRADICTION
+  CONTRADICTION 
   CONTRAPOSITIVE
   WEAK_INDUCTION
   STRONG_INDUCTION
@@ -282,6 +282,9 @@ model Error {
   suggestionContent             String?                         @default("")
   startIndexSuggestion          Int?
   endIndexSuggestion            Int?
+
+  // Error Information
+  errorMessage                  String?
 
   // Owning document for navigation and permissions.
   privateDocumentId             Int

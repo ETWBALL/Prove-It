@@ -1,1 +1,2 @@
-export { onJoin } from './onJoin'
+export { Join } from './Join'
+export { QuestionDelta } from './Question'
