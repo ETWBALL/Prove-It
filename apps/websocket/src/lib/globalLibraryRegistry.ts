@@ -1,4 +1,4 @@
-import { CourseMathStatement, CourseLemma } from "./types";
+import { CourseMathStatement, CourseLemma } from "./types/MathStatements";
 
 
 export class GlobalLibraryRegistry {
@@ -6,11 +6,11 @@ export class GlobalLibraryRegistry {
      * Stores course related information. Such as, math statements, lemmas, and textbook information
      * 
      * ==== Private Attributes ====
-     * - #courseMathStatements: (courseID, (mathstatmentID, MathStatement)).
-     * - #courseLemmas: (courseID, (lemmaID, Lemma)).
+     * - #courseMathStatements: (courseID, (textbookName, (mathStatementID, MathStatement))).
+     * - #courseLemmas: (courseID, (textbookName, (lemmaID, Lemma))).
      */
-    #courseMathStatements: Map<string, Map<string, CourseMathStatement[]>>; // courseId -> id -> math statement
-    #courseLemmas: Map<string, Map<string, CourseLemma[]>>; // courseId -> id -> lemma
+    #courseMathStatements: Map<string, Map<string, Map<string, CourseMathStatement[]>>>; 
+    #courseLemmas: Map<string, Map<string, Map<string, CourseLemma[]>>>; 
 
     // TODO: For each course, populate the attributes above
     public static async bootstrap(): Promise<GlobalLibraryRegistry> {
