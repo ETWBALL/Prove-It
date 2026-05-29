@@ -1,36 +1,42 @@
-import { CourseMathStatement, CourseLemma } from "./types/MathStatements";
-
+import { CourseLemma, CourseMathStatement } from "./types";
 
 export class GlobalLibraryRegistry {
     /**
      * Stores course related information. Such as, math statements, lemmas, and textbook information
      * 
      * ==== Private Attributes ====
-     * - #courseMathStatements: (courseID, (textbookName, (mathStatementID, MathStatement))).
-     * - #courseLemmas: (courseID, (textbookName, (lemmaID, Lemma))).
+     * - #courseMathStatements: coursePublicId → statementPublicId → CourseMathStatement (catalog).
+     * - #courseLemmas: coursePublicId → lemmaPublicId → CourseLemma (catalog).
      */
-    #courseMathStatements: Map<string, Map<string, Map<string, CourseMathStatement[]>>>; 
-    #courseLemmas: Map<string, Map<string, Map<string, CourseLemma[]>>>; 
+    
+  #courseMathStatements = new Map<string, Map<string, CourseMathStatement>>();
+  #courseLemmas = new Map<string, Map<string, CourseLemma>>();
 
-    // TODO: For each course, populate the attributes above
-    public static async bootstrap(): Promise<GlobalLibraryRegistry> {
-        /**
-         * Populate the course and lemmas from the database.
-         */
-        return new GlobalLibraryRegistry()
-    }
+  // Singleton instance
+  private static _instance: GlobalLibraryRegistry | null = null;
 
-    public static getMathStatement(courseId: string, mathStatementId: string): CourseMathStatement | undefined {
-        /**
-         * Get a math statement given a courseId and mathStatementId. Return undefined if not found.
-         */
-        return this.#courseMathStatements.get(courseId)?.get(mathStatementId);
-    }
+  // TODO: Load from Prisma (privateOwnerId: null) per course
+  public static async bootstrap(): Promise<GlobalLibraryRegistry> {
+    /**
+     * Load all math statements and lemmas from the database into the global library registry.
+     */
+    GlobalLibraryRegistry._instance = new GlobalLibraryRegistry();
+    return GlobalLibraryRegistry._instance;
+  }
 
-    public static getLemma(courseId: string, lemmaId: string): CourseLemma | undefined {
-        /**
-         * Get a lemma given a courseId and lemmaId. Return undefined if not found.
-         */
-        return this.#courseLemmas.get(courseId)?.get(lemmaId);
-    }
+  public static getMathStatement(coursePublicId: string, statementPublicId: string): CourseMathStatement | undefined {
+    /**
+     * Given <coursePublicId> and <statementPublicId>, return the corresponding math statement that belongs to such course.
+     */
+    if (!GlobalLibraryRegistry._instance) return undefined;
+    return GlobalLibraryRegistry._instance.#courseMathStatements.get(coursePublicId)?.get(statementPublicId);
+  }
+
+  public static getLemma(coursePublicId: string, lemmaPublicId: string): CourseLemma | undefined {
+    /**
+     * Given <coursePublicId> and <lemmaPublicId>, return the corresponding lemma that belongs to such course.
+     */
+    if (!GlobalLibraryRegistry._instance) return undefined;
+    return GlobalLibraryRegistry._instance.#courseLemmas.get(coursePublicId)?.get(lemmaPublicId);
+  }
 }

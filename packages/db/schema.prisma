@@ -369,7 +369,7 @@ model MathStatement {
   // Classification, display name, formal content; course ties statements to a curriculum; textbook and order for sorting.
   type                          Library
   name                          String
-  content                       Json
+  content                       String
   privateCourseId               Int?
   course                        Course?                         @relation(fields: [privateCourseId], references: [privateId], onDelete: Cascade)
   textbook                      Textbook?
@@ -392,7 +392,7 @@ model Lemma {
 
   // Classification, display name, formal content; course ties statements to a curriculum; textbook and order for sorting.
   name                          String
-  content                       Json
+  content                       String
   privateCourseId               Int?
   course                        Course?                         @relation(fields: [privateCourseId], references: [privateId], onDelete: Cascade)
   textbook                      Textbook?

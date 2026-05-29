@@ -1,7 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { verifyAccessToken } from '@prove-it/auth';
-import { User, WorkspaceEntry } from './types';
-import { HotDocumentState } from './types';
+import { HotDocumentState, User, WorkspaceEntry } from "./types";
 import { Registry } from './Registry';
 
 export function authenticate(io: Server) {

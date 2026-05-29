@@ -3,7 +3,7 @@ import { Server } from 'socket.io'
 import { authenticate, authorizeSocket} from './lib/serverHelpers'
 import { Registry } from './lib/Registry'
 import * as events from './events'
-import { Delta } from './lib/types'
+import { Delta } from "./lib/types";
 import { GlobalLibraryRegistry } from './lib/globalLibraryRegistry'
 
 
