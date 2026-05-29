@@ -21,7 +21,7 @@ export class GlobalLibraryRegistry {
      * Load all math statements and lemmas from the database into the global library registry.
      */
     GlobalLibraryRegistry._instance = new GlobalLibraryRegistry();
-    return GlobalLibraryRegistry._instance;
+    return Promise.resolve(GlobalLibraryRegistry._instance);
   }
 
   public static getMathStatement(coursePublicId: string, statementPublicId: string): CourseMathStatement | undefined {

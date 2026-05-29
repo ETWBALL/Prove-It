@@ -38,7 +38,7 @@ export function authorizeSocket<Args extends any[]>(clientSocket: Socket, regist
     return async (...args: Args) => {
 
         // (1) Check if socket is in registry. If not, reject the request as unauthorized.
-        const workspaceEntry = registry.get(clientSocket.id);
+        const workspaceEntry = registry.getWorkspaceBySocket(clientSocket.id);
         if (!workspaceEntry) {
             console.warn(`[Security] Blocked unauthorized event from socket: ${clientSocket.id}`)
             clientSocket.emit("error", { message: "Unauthorized" }); 

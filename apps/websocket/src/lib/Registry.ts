@@ -65,13 +65,6 @@ export class Registry {
         return Promise.resolve()
     }
 
-    public get(socketId: string): WorkspaceEntry | undefined {
-        /**
-         * Get the workspace entry for the given <socketId>.
-         */
-        return this.#getWorkspaceBySocket(socketId);
-    }
-
     // TODO implement this
     async #fetchDocument(documentPublicId: string): Promise<WorkspaceEntry> {
         /**
@@ -87,7 +80,7 @@ export class Registry {
     }
 
 
-    #getWorkspaceBySocket(socketId: string): WorkspaceEntry | undefined {
+    getWorkspaceBySocket(socketId: string): WorkspaceEntry | undefined {
         /**
          * Given <socketId>, return the workspace entry associated with it.
          */
@@ -96,7 +89,7 @@ export class Registry {
         return this.#workspaces.get(documentPublicId);
     }
 
-    #getWorkspaceByDocument(documentPublicId: string): WorkspaceEntry | undefined {
+    getWorkspaceByDocument(documentPublicId: string): WorkspaceEntry | undefined {
         return this.#workspaces.get(documentPublicId);
     }
 
@@ -112,7 +105,7 @@ export class Registry {
         /**
          * Check if the user associated with <otherSocketId> is the same as <userId>.
          */
-        const entry = this.#getWorkspaceBySocket(otherSocketId)
+        const entry = this.getWorkspaceBySocket(otherSocketId)
         return entry?.session.userId === userId;
     }
 
@@ -120,7 +113,7 @@ export class Registry {
         /**
          * Check if the document associated with <otherSocketId> is the same as <documentPublicId>.
          */
-        const entry = this.#getWorkspaceBySocket(otherSocketId)
+        const entry = this.getWorkspaceBySocket(otherSocketId)
         return entry?.session.documentPublicId === documentPublicId;
     }
 
@@ -145,7 +138,7 @@ export class Registry {
          * <socketId>: The new socket trying to join
          * <documentPublicId>: The document the new socket is trying to join
          */
-        const workspace = this.#getWorkspaceByDocument(documentPublicId);
+        const workspace = this.getWorkspaceByDocument(documentPublicId);
         if (!workspace) return false;
         for (const id of workspace.registeredSocketIds) {
             if (id !== socketId) return true;

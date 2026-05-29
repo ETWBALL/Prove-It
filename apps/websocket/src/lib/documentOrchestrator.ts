@@ -1,5 +1,5 @@
 import { Scheduler } from "./Scheduler";
-import { Delta, HotDocumentState } from "./types";
+import { BroadcastToDocument, Delta, HotDocumentState } from "./types";
 
 const QUESTION_DELTA_THRESHOLD = 50;
 const BODY_DELTA_THRESHOLD = 30;
@@ -22,13 +22,13 @@ export class DocumentOrchestrator {
      */ 
     #state: HotDocumentState;
     #timers: Scheduler;
-    #messenger: (eventName: string, documentId: string, payload: any) => void;
+    #messenger: BroadcastToDocument;
     #deltas: {question: number, body: number}; 
 
 
 
     // TODO implement this
-    constructor(initialState: HotDocumentState, messenger: (eventName: string, documentId: string, payload: any) => void) {
+    constructor(initialState: HotDocumentState, messenger: BroadcastToDocument) {
         this.#state = initialState;
         this.#messenger = messenger;
         this.#timers = new Scheduler();

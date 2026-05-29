@@ -17,10 +17,14 @@ export interface WorkspaceEntry {
   registeredSocketIds: Set<string>;
 }
 
-export interface Messenger {
-  broadcastToDocument: (
+export interface BroadcastToDocument {
+  (
     eventName: string,
     documentPublicId: string,
     payload: unknown
-  ) => void;
+  ): void;
+}
+
+export interface Messenger {
+  broadcastToDocument: BroadcastToDocument;
 }

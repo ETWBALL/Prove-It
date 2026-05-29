@@ -14,17 +14,12 @@ export class Scheduler {
         autosave: NodeJS.Timeout | null, // Interval for periodic autosave
         ml: NodeJS.Timeout | null // Sliding window debounce for ML triggers
         lemma: NodeJS.Timeout | null // Sliding window debounce for lemma generation triggers
-    }
-
-    // Initialize a new timer manager with empty timers
-    constructor(){
-        this.#timers = {
-            grace: null,
-            autosave: null,
-            ml: null,
-            lemma: null
-        };
-    }
+    } = {
+        grace: null,
+        autosave: null,
+        ml: null,
+        lemma: null,
+    };
 
 
     // ==== Grace Period Management ====
