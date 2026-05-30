@@ -1,4 +1,5 @@
 export * from "./Analysis";
+export * from "./FlushScope";
 export * from "./Socket";
 export * from "./Document";
 export * from "./MathStatements";

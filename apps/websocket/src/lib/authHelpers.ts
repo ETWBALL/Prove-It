@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { verifyAccessToken } from '@prove-it/auth';
-import { HotDocumentState, User, WorkspaceEntry } from "./types";
+import { User, WorkspaceEntry } from "./types";
 import { Registry } from './Registry';
 
 export function authenticate(io: Server) {
@@ -48,14 +48,4 @@ export function authorizeSocket<Args extends any[]>(clientSocket: Socket, regist
         // (2) Authorized, let socket execute handler
         return handler(clientSocket, workspaceEntry, ...args);
     }
-}
-
-export async function flushStateToDatabase(documentPublicId: string, state: HotDocumentState): Promise<void> {
-    /**
-     * (1) Take the current state of the document and flush it to the database.
-     * (2) This is called when:
-     *     - A document session is evicted after the grace period expires, so we persist the latest state before eviction.
-     *     - A user makes significant edits to the document, so we persist the latest state after significant changes.
-     */
-    return Promise.resolve();
 }

@@ -52,27 +52,37 @@ export class Registry {
 
     // TODO implement this
     public handleLeaveRoom(socketId: string): void {
-
-    }
-
-    // TODO implement this
-    public updateDocumentStateDatabase(documentPublicId: string, clearBodyBuffer: boolean, clearQuestionBuffer: boolean): Promise<void> {
         /**
-         * Persist in-memory state to the database (not a WebSocket broadcast).
-         * Use DocumentOrchestrator.broadcastDocumentState() to push state to clients.
-        */
-        void documentPublicId;
-        void clearBodyBuffer;
-        void clearQuestionBuffer;
-        return Promise.resolve()
+         * Remove the <socketId> from the registry.
+         */
+        this.#deleteSocket(socketId);
     }
 
     #bindEmit(documentPublicId: string): EmitToDocument {
+        /**
+         * Close over <documentPublicId> so DocumentOrchestrator never stores a second copy of the id.
+         *
+         * - `documentPublicId`: Public id for the document (map key in #workspaces). Must match
+         *   WorkspaceEntry.session.documentPublicId and the Socket.IO room `document-${id}`.
+         *
+         * Returns: EmitToDocument — call as emit(eventName, payload) from the orchestrator.
+         * Only used when building a workspace (#createOrchestrator / #fetchDocument).
+         */
         return (eventName, payload) =>
             this.#broadcast(eventName, documentPublicId, payload);
     }
 
     #createOrchestrator(initialState: HotDocumentState, documentPublicId: string): DocumentOrchestrator {
+        /**
+         * Construct the per-document orchestrator with room-bound emit.
+         *
+         * - `initialState`: Loaded HotDocumentState from DB for this document.
+         * - `documentPublicId`: Id used for workspace map and Socket.IO room; sole source of truth
+         *   for which room broadcasts target.
+         *
+         * How to use: Call from #fetchDocument / registerUser after state is loaded. Store the
+         * returned instance on WorkspaceEntry.orchestrator. Do not construct DocumentOrchestrator elsewhere.
+         */
         return new DocumentOrchestrator(initialState, this.#bindEmit(documentPublicId));
     }
 
@@ -80,6 +90,8 @@ export class Registry {
     async #fetchDocument(documentPublicId: string): Promise<WorkspaceEntry> {
         /**
          * Fetch document details and populate workspace entry.
+         * Load state via DatabaseHelpers.loadHotDocumentState, then #createOrchestrator.
+         * Persist via DatabaseHelpers.flushStateToDatabase (not here).
          */
         void documentPublicId;
         return Promise.resolve({

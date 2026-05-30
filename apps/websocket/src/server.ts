@@ -7,7 +7,6 @@ import { BroadcastToDocument, Delta } from "./lib/types";
 import { GlobalLibraryRegistry } from './lib/globalLibraryRegistry'
 import { ProofSettingState } from './lib/types/Document'
 import { WorkspaceEntry } from './lib/types/Other'
-import { SettingsOpened } from './events/Abort/SettingsOpened'
 
 
 
@@ -68,7 +67,7 @@ void (async () => {
 
         // SERVER sends
         // (1) ProvableStatus: Send idle, analyizng, provabe, unprovable status to clients
-
+m
 
     })
 })()

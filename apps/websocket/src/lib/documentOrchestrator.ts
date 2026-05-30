@@ -30,30 +30,65 @@ export class DocumentOrchestrator {
      * - deltas: Keeps track of the number of deltas received for both question and body to determine when to persist to the database.
      */ 
     #state: HotDocumentState;
-    #timers: Scheduler;
+    timers: Scheduler = new Scheduler();
     #emit: EmitToDocument;
     #analysisRunId = 0;
-    #deltas: {question: number, body: number}; 
+    deltas: {question: number, body: number} = {question: 0, body: 0}; 
 
 
 
     // TODO implement this
+    
     constructor(initialState: HotDocumentState, emit: EmitToDocument) {
+        /**
+         * One orchestrator per document workspace. Do not call directly from event handlers —
+         * use Registry.#createOrchestrator when loading or joining a document.
+         *
+         * - `initialState`: Hot RAM snapshot for this document (from DB on join).
+         * - `emit`: Bound Socket.IO emit for this document's room only (Registry Option A).
+         *   Pass the result of Registry.#bindEmit(documentPublicId), not BroadcastToDocument.
+         */
+
         this.#state = initialState;
         this.#emit = emit;
-        this.#timers = new Scheduler();
-        this.#deltas = {question: 0, body: 0};
     }
 
     public getState(): HotDocumentState {
+        /**
+         * Simply return the current hotdocument state
+         */
         return this.#state;
     }
 
     public broadcastDocumentState(): void {
+        /**
+         * Push the full current HotDocumentState to every client in this document's room.
+         *
+         * Parameters: none (reads this.#state).
+         *
+         * When to call: After any mutation that clients must reflect (settings, proof type,
+         * math statements, lemmas, ML result written into state, etc.).
+         *
+         * Event: `document:state:updated` with payload = entire HotDocumentState.
+         * Do not use for loading-bar UI — use broadcastAnalysisStatus for that.
+         */
         this.#emit(DOCUMENT_STATE_UPDATED_EVENT, this.#state);
     }
 
     public broadcastAnalysisStatus(phase: AnalysisPhase): void {
+        /**
+         * Push ephemeral ML pipeline progress for the status bar (small payload).
+         *
+         * - `phase`: One of idle | checking | analyzing | aborted (see AnalysisPhase).
+         *   Pass `"checking"` when gates start, `"analyzing"` when ML HTTP starts,
+         *   `"idle"` when done with no error, `"aborted"` is also sent from abortMLPipeline.
+         *
+         * When to call: During requestAnalysis / ML flow — not after every doc field change.
+         * Includes current `#analysisRunId` so clients can ignore stale events.
+         *
+         * Event: `document:analysis:status` with AnalysisStatusPayload.
+         * Does not replace broadcastDocumentState — send both when ML updates provability in state.
+         */
         const payload: AnalysisStatusPayload = {
             phase,
             runId: this.#analysisRunId,
@@ -132,10 +167,10 @@ export class DocumentOrchestrator {
          * 
         */
        // (1) Validate the delta. Check if the delta is well-formed, if the revision number is correct, and if the delta can be applied to the current state without conflicts
-
+       
        // (2) Apply the delta to the in-memory document state. This involves updating the question text or content based on the type of delta (insert, delete, replace) and its target.
 
-       // (3) Put on the db timer
+
 
     }
 
@@ -147,11 +182,20 @@ export class DocumentOrchestrator {
         return false;
     }
 
-    public persistNeeded(): boolean {
+    public checkQuestionDeltaThreshold(): boolean {
         /**
-         * Return true if # of deltas (for both question and content) has exceeded macros.
+         * Return true if # of deltas (for question) has exceeded QUESTION_DELTA_THRESHOLD.
+         * Return false otherwise.
          */
-        return false;
+        return this.deltas.question >= QUESTION_DELTA_THRESHOLD;
+    }
+
+    public checkBodyDeltaThreshold(): boolean {
+        /**
+         * Return true if # of deltas (for body) has exceeded BODY_DELTA_THRESHOLD.
+         * Return false otherwise.
+         */
+        return this.deltas.body >= BODY_DELTA_THRESHOLD;
     }
 
     // ==== Abort ML Pipeline Management ====
@@ -159,10 +203,15 @@ export class DocumentOrchestrator {
     // TODO: What is the lemma poll timer for? Why call it here? What does cancelMLTrigger do here? also, does the abort controller live in the document orchestrator or somewheere else?
     public abortMLPipeline(): void {
         /**
-         * Abort the following:
-         * (1) cancelMLTrigger
-         * (2) Abort inflight HTTP/Gemini call using (AbortController)
-         * (3) Cancel lemma poll timer? idk
+         * Cancel scheduled and in-flight ML work for this document.
+         *
+         * Parameters: none.
+         *
+         * How to use: Call at the start of abort paths (settings opened, question delta,
+         * new state mutation) before starting a new run. Bumps `#analysisRunId` and emits
+         * `document:analysis:status` with phase `"aborted"` so clients hide the status bar.
+         *
+         * Also: (1) cancelMLTrigger on Scheduler, (2) AbortController for Gemini (TODO).
          */
         this.#timers.cancelMlTrigger();
         this.#analysisRunId += 1;
