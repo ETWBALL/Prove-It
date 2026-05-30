@@ -1,9 +1,17 @@
 import { Scheduler } from "./Scheduler";
-import { BroadcastToDocument, Delta, HotDocumentState } from "./types";
+import {
+    AnalysisPhase,
+    AnalysisStatusPayload,
+    Delta,
+    DOCUMENT_ANALYSIS_STATUS_EVENT,
+    DOCUMENT_STATE_UPDATED_EVENT,
+    EmitToDocument,
+    HotDocumentState,
+} from "./types";
 
 const QUESTION_DELTA_THRESHOLD = 50;
 const BODY_DELTA_THRESHOLD = 30;
-
+// TODO make sure you have put appropriate emits everywhere
 
 // TODO ask cursor or vscode to put semicolons and fix spacing/formatting everywhere
 export class DocumentOrchestrator {
@@ -17,22 +25,40 @@ export class DocumentOrchestrator {
      * === Private Attributes ===
      * - state: The single source of truth for document state in RAM. Mutated by orchestrator methods and broadcasted to clients on every change.
      * - timers: Manages scheduling and cancellation of asynchronous tasks.
-     * - messenger: A function to send messages back to the client associated with this document.
+     * - emit: Socket.IO emit with document room already bound (Registry Option A).
+     * - analysisRunId: Bumped on abort / new ML run; clients ignore stale analysis events.
      * - deltas: Keeps track of the number of deltas received for both question and body to determine when to persist to the database.
      */ 
     #state: HotDocumentState;
     #timers: Scheduler;
-    #messenger: BroadcastToDocument;
+    #emit: EmitToDocument;
+    #analysisRunId = 0;
     #deltas: {question: number, body: number}; 
 
 
 
     // TODO implement this
-    constructor(initialState: HotDocumentState, messenger: BroadcastToDocument) {
+    constructor(initialState: HotDocumentState, emit: EmitToDocument) {
         this.#state = initialState;
-        this.#messenger = messenger;
+        this.#emit = emit;
         this.#timers = new Scheduler();
         this.#deltas = {question: 0, body: 0};
+    }
+
+    public getState(): HotDocumentState {
+        return this.#state;
+    }
+
+    public broadcastDocumentState(): void {
+        this.#emit(DOCUMENT_STATE_UPDATED_EVENT, this.#state);
+    }
+
+    public broadcastAnalysisStatus(phase: AnalysisPhase): void {
+        const payload: AnalysisStatusPayload = {
+            phase,
+            runId: this.#analysisRunId,
+        };
+        this.#emit(DOCUMENT_ANALYSIS_STATUS_EVENT, payload);
     }
 
     // TODO implement this
@@ -105,9 +131,11 @@ export class DocumentOrchestrator {
          * doc state. Target is either 'question' or 'content'.
          * 
         */
-       // (1) Validate the delta. Check if the delta is well-formed, if the revision number is correct, and if the delta can be applied to the current state without conflicts.
-       
+       // (1) Validate the delta. Check if the delta is well-formed, if the revision number is correct, and if the delta can be applied to the current state without conflicts
+
        // (2) Apply the delta to the in-memory document state. This involves updating the question text or content based on the type of delta (insert, delete, replace) and its target.
+
+       // (3) Put on the db timer
 
     }
 
@@ -126,6 +154,32 @@ export class DocumentOrchestrator {
         return false;
     }
 
+    // ==== Abort ML Pipeline Management ====
+
+    // TODO: What is the lemma poll timer for? Why call it here? What does cancelMLTrigger do here? also, does the abort controller live in the document orchestrator or somewheere else?
+    public abortMLPipeline(): void {
+        /**
+         * Abort the following:
+         * (1) cancelMLTrigger
+         * (2) Abort inflight HTTP/Gemini call using (AbortController)
+         * (3) Cancel lemma poll timer? idk
+         */
+        this.#timers.cancelMlTrigger();
+        this.#analysisRunId += 1;
+        this.broadcastAnalysisStatus("aborted");
+    }
+
+    // ==== Settings Management ====
+    public openSettings(): void {
+        /**
+         * Force the settings state to be "open," abort ML, and broadcast.
+         */
+        this.#state.settings.isOpen = true;
+        this.abortMLPipeline();
+        this.broadcastDocumentState();
+    }
+
+    
     // ==== ML Trigger Management ====
 
     // TODO implement this
@@ -183,5 +237,6 @@ export class DocumentOrchestrator {
          */
         return "";
     }
+
 
 }

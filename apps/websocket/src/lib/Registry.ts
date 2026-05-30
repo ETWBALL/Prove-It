@@ -1,4 +1,5 @@
-import { Messenger, WorkspaceEntry } from "./types";
+import { DocumentOrchestrator } from "./documentOrchestrator";
+import { BroadcastToDocument, EmitToDocument, HotDocumentState, WorkspaceEntry } from "./types";
 
 export class Registry {
     /**
@@ -9,7 +10,7 @@ export class Registry {
      * - #workspaces: (documentPublicId, WorkspaceEntry). Workspace entry contains the orchestrator, session, socketId, and registeredSocketIds.
      * - #socketToDocument: (socketId, documentPublicId). Map socketId to documentPublicId for O(1) lookup on events and disconnect.
      * 
-     * - messenger: A function to send messages back to the client associated with this document.
+     * - broadcast: Emit to all clients in a document room (see BroadcastToDocument).
      * 
      * - isSocketAlive: A function to check if a socket is alive, used for cleaning up stale sockets on new connections.
      * 
@@ -18,15 +19,15 @@ export class Registry {
 
     #workspaces = new Map<string, WorkspaceEntry>();
     #socketToDocument = new Map<string, string>();
-    #messenger: Messenger;
+    #broadcast: BroadcastToDocument;
     #isSocketAlive: (socketId: string) => boolean;
     #disconnectSocket: (socketId: string) => void;
 
-    constructor(messenger: Messenger, isSocketAlive: (socketId: string) => boolean, disconnectSocket: (socketId: string) => void) {
+    constructor(broadcast: BroadcastToDocument, isSocketAlive: (socketId: string) => boolean, disconnectSocket: (socketId: string) => void) {
         /**
-         * Websocket boot up: Set up messengers and registry
+         * Websocket boot up: Set up broadcast and registry
          */
-        this.#messenger = messenger;
+        this.#broadcast = broadcast;
         this.#disconnectSocket = disconnectSocket;
         this.#isSocketAlive = isSocketAlive;
     }
@@ -55,14 +56,24 @@ export class Registry {
     }
 
     // TODO implement this
-    public updateDocumentState(documentPublicId: string, clearBodyBuffer: boolean, clearQuestionBuffer: boolean): Promise<void> {
+    public updateDocumentStateDatabase(documentPublicId: string, clearBodyBuffer: boolean, clearQuestionBuffer: boolean): Promise<void> {
         /**
-         * Take <documentPublicId> and save its state to db.
+         * Persist in-memory state to the database (not a WebSocket broadcast).
+         * Use DocumentOrchestrator.broadcastDocumentState() to push state to clients.
         */
         void documentPublicId;
         void clearBodyBuffer;
         void clearQuestionBuffer;
         return Promise.resolve()
+    }
+
+    #bindEmit(documentPublicId: string): EmitToDocument {
+        return (eventName, payload) =>
+            this.#broadcast(eventName, documentPublicId, payload);
+    }
+
+    #createOrchestrator(initialState: HotDocumentState, documentPublicId: string): DocumentOrchestrator {
+        return new DocumentOrchestrator(initialState, this.#bindEmit(documentPublicId));
     }
 
     // TODO implement this
@@ -80,7 +91,7 @@ export class Registry {
     }
 
 
-    getWorkspaceBySocket(socketId: string): WorkspaceEntry | undefined {
+    public getWorkspaceBySocket(socketId: string): WorkspaceEntry | undefined {
         /**
          * Given <socketId>, return the workspace entry associated with it.
          */
@@ -89,7 +100,7 @@ export class Registry {
         return this.#workspaces.get(documentPublicId);
     }
 
-    getWorkspaceByDocument(documentPublicId: string): WorkspaceEntry | undefined {
+    public getWorkspaceByDocument(documentPublicId: string): WorkspaceEntry | undefined {
         return this.#workspaces.get(documentPublicId);
     }
 

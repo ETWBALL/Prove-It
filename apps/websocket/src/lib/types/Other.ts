@@ -17,14 +17,20 @@ export interface WorkspaceEntry {
   registeredSocketIds: Set<string>;
 }
 
-export interface BroadcastToDocument {
-  (
-    eventName: string,
-    documentPublicId: string,
-    payload: unknown
-  ): void;
-}
+/**
+ * Send a Socket.IO event to every client in `document-${documentPublicId}`.
+ * Created once in server.ts; Registry binds documentPublicId per workspace.
+ */
+export type BroadcastToDocument = (
+  eventName: string,
+  documentPublicId: string,
+  payload: unknown,
+) => void;
 
-export interface Messenger {
-  broadcastToDocument: BroadcastToDocument;
-}
+/**
+ * documentPublicId already bound (Option A). Used by DocumentOrchestrator only.
+ */
+export type EmitToDocument = (eventName: string, payload: unknown) => void;
+
+export const DOCUMENT_STATE_UPDATED_EVENT = "document:state:updated";
+export const DOCUMENT_ANALYSIS_STATUS_EVENT = "document:analysis:status";

@@ -1,15 +1,12 @@
 import { Socket } from "socket.io";
-import { Registry } from "../lib/Registry";
-import { AuthenticatedSocket, Delta } from "../lib/types";
+import { Delta, WorkspaceEntry } from "../lib/types";
 
-export function QuestionDelta(clientSocket: AuthenticatedSocket, registry: Registry, delta: Delta) {
+export function QuestionDelta(socket: Socket, workspaceEntry: WorkspaceEntry, delta: Delta) {
     /**
      * Store delta in doc state, persist to db, trigger provability if needed.
      */
 
     // (1) Apply delta
-
-    // (2) Set up db timer
 
     // (3) After 50 deltas, persist to db
 

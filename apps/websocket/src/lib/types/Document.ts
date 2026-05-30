@@ -20,7 +20,8 @@ export interface HotDocumentState{
 }
 export interface ProofSettingState {
    isOpen: boolean;
-   strictness: boolean; // When <true>, ML will use user-defined statements ONLY. When <false> ML is allowed to populate more math statements alongside user-defined statements.
+   strictnessMathStatements: boolean; // When <true>, ML will use user-defined statements ONLY. When <false> ML is allowed to populate more math statements alongside user-defined statements.
+   strictnessProofType: boolean; // When <true>, ML will use user-defined proof type ONLY. When <false> ML is allowed to change the proof type.
 }
 export interface Content{
   content: string;
