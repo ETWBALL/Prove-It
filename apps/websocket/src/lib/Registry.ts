@@ -1,5 +1,14 @@
 import { DocumentOrchestrator } from "./documentOrchestrator";
-import { BroadcastToDocument, EmitToDocument, HotDocumentState, WorkspaceEntry } from "./types";
+import {
+    BroadcastToDocument,
+    EmitToDocument,
+    ErrorState,
+    HotDocumentState,
+    SelectedLemma,
+    SelectedMathStatement,
+    WorkspaceEntry,
+} from "./types";
+import { LoadedDocument, queryDocument } from "./DatabaseHelpers";
 
 export class Registry {
     /**
@@ -50,6 +59,7 @@ export class Registry {
     }
 
 
+
     // TODO implement this
     public handleLeaveRoom(socketId: string): void {
         /**
@@ -70,6 +80,48 @@ export class Registry {
          */
         return (eventName, payload) =>
             this.#broadcast(eventName, documentPublicId, payload);
+    }
+
+    async #loadDocumentState(documentPublicId: string): Promise<HotDocumentState> {
+        /**
+         * Load the document state from the database. Wrap it in a HotDocumentState interface object. 
+         */
+        const document = await queryDocument(documentPublicId);
+        return this.#formatDocumentState(document);
+    }
+
+    #formatDocumentState(document: LoadedDocument): HotDocumentState {
+        /**
+         * Format the document state into a HotDocumentState interface object. Return the HotDocumentState object.
+         */
+        const body = document.documentBody;
+
+        return {
+            publicId: document.publicId,
+            coursePublicId: document.course?.publicId ?? null,
+            title: document.title,
+            status: document.status,
+            provability: document.provability,
+            proofType: document.proofType,
+            settings: {
+                isOpen: false,
+                strictnessMathStatements: true,
+                strictnessProofType: false,
+            },
+            body: {
+                content: body?.content ?? "",
+                revision: 0,
+                errors: document.errors.map((row) => mapErrorRow(row)),
+            },
+            question: {
+                content: body?.provingStatement ?? "",
+                revision: 0,
+                selectedMathStatements: document.documentMathStatements.map((row) =>
+                    mapMathStatementRow(row),
+                ),
+                selectedLemmas: document.usedLemmas.map((row) => mapLemmaRow(row)),
+            },
+        };
     }
 
     #createOrchestrator(initialState: HotDocumentState, documentPublicId: string): DocumentOrchestrator {
@@ -195,4 +247,78 @@ export class Registry {
         this.#deleteSocket(otherId);  // remove from map first
         this.#disconnectSocket(otherId);   // then kill the socket
     }
+}
+
+type DocumentMathStatementRow = LoadedDocument["documentMathStatements"][number];
+type DocumentLemmaRow = LoadedDocument["usedLemmas"][number];
+type DocumentErrorRow = LoadedDocument["errors"][number];
+
+function mapErrorRow(row: DocumentErrorRow): ErrorState {
+    /**
+     * Map the error row to the ErrorState interface object.
+     */
+    const hasSuggestion =
+        row.suggestionContent != null &&
+        row.suggestionContent.length > 0 &&
+        row.startIndexSuggestion != null &&
+        row.endIndexSuggestion != null;
+
+    return {
+        publicId: row.publicId,
+        info: {
+            type: row.errortype,
+            message: row.errorMessage ?? "",
+            layer: row.layer,
+            problematicContent: row.errorMessage ?? "",
+            startIndex: row.startIndexError,
+            endIndex: row.endIndexError,
+        },
+        suggestion: hasSuggestion
+            ? {
+                  content: row.suggestionContent ?? "",
+                  startIndex: row.startIndexSuggestion!,
+                  endIndex: row.endIndexSuggestion!,
+              }
+            : undefined,
+        resolvedAt: row.resolvedAt,
+        dismissedAt: row.dismissedAt,
+        isPendingReevaluation: false,
+    };
+}
+
+function mapMathStatementRow(row: DocumentMathStatementRow): SelectedMathStatement {
+    /**
+     * Map the math statement row to the SelectedMathStatement interface object. Given <row>, return the SelectedMathStatement object.
+     */
+    const { mathStatement } = row;
+    const ref: SelectedMathStatement["ref"] =
+        mathStatement.privateOwnerId == null
+            ? { source: "course", publicId: mathStatement.publicId }
+            : { source: "user", publicId: mathStatement.publicId };
+
+    return {
+        hintContent: row.hintContent,
+        wasUsed: row.wasUsed,
+        sufficient: row.sufficient,
+        resolvedAt: row.resolvedAt,
+        dismissedAt: row.dismissedAt,
+        ref,
+    };
+}
+
+function mapLemmaRow(row: DocumentLemmaRow): SelectedLemma {
+    /**
+     * Map the lemma row to the SelectedLemma interface object. Given <row>, return the SelectedLemma object.
+     */
+    const { lemma } = row;
+    const ref: SelectedLemma["ref"] =
+        lemma.privateOwnerId == null
+            ? { source: "course", publicId: lemma.publicId }
+            : { source: "user", publicId: lemma.publicId };
+
+    return {
+        lemmaStatus: row.lemmaStatus,
+        lemmaManualOverride: row.lemmaManualOverride,
+        ref,
+    };
 }

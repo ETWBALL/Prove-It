@@ -1,6 +1,6 @@
 import { createServer } from 'http'
 import { Server, Socket } from 'socket.io'
-import { authenticate, authorizeSocket} from './lib/serverHelpers'
+import { authenticate, authorizeSocket} from './lib/authHelpers'
 import { Registry } from './lib/Registry'
 import * as events from './events'
 import { BroadcastToDocument, Delta } from "./lib/types";
@@ -57,7 +57,8 @@ void (async () => {
         // (9) onLemmaAdded: Protected. Users can add lemmas that impact doc state
         // (10) onLemmaUpdated: Protected. Users can update lemmas that impact doc state
         // (11) onMathStatementUpdated: Protected. Users can update math statements that impact doc state
-
+        // (12) error is resolved or dismissed
+        
         // ABORT
         // (1) Proof settings opened
         clientSocket.on('document:settings:opened', authorizeSocket(clientSocket, registry, (socket: Socket, workspace: WorkspaceEntry) => {events.SettingsOpened(socket, workspace)}))

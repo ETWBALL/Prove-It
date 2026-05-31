@@ -15,13 +15,11 @@ export function QuestionDelta(socket: Socket, workspaceEntry: WorkspaceEntry, de
 
     // (3) Check if delta threshold is met. Persist to db if so
     if (workspaceEntry.orchestrator.checkQuestionDeltaThreshold()) {
-        void flushStateToDatabase(
-            workspaceEntry.session.documentPublicId,
-            workspaceEntry.orchestrator.getState(),
-            FlushScopes.content,
-        );
+        flushStateToDatabase(workspaceEntry.session.documentPublicId, workspaceEntry.orchestrator.getState(), FlushScopes.content);
     }
 
     // (4) call statechanges to put a timer on for provability trigger
+    workspaceEntry.orchestrator.onStateMutation();
+
 
 }

@@ -1,4 +1,4 @@
-import { Document, prisma, Prisma } from "@prove-it/db";
+import { prisma, Prisma } from "@prove-it/db";
 import { ErrorState, FlushScope, HotDocumentState } from "./types";
 
 /**
@@ -13,7 +13,28 @@ export interface FlushResult {
 
 type TransactionClient = Prisma.TransactionClient;
 
-export async function queryDocument(documentPublicId: string): Promise<Document> {
+/** Shape returned by `queryDocument` (relations required for Registry.#formatDocumentState). */
+export const documentQueryInclude = {
+    documentBody: true,
+    course: { select: { publicId: true } },
+    errors: true,
+    documentMathStatements: {
+        include: {
+            mathStatement: { select: { publicId: true, privateOwnerId: true } },
+        },
+    },
+    usedLemmas: {
+        include: {
+            lemma: { select: { publicId: true, privateOwnerId: true } },
+        },
+    },
+} as const;
+
+export type LoadedDocument = Prisma.DocumentGetPayload<{
+    include: typeof documentQueryInclude;
+}>;
+
+export async function queryDocument(documentPublicId: string): Promise<LoadedDocument> {
     /**
      * Query a document from the database. Return a Document object.
      *
@@ -24,14 +45,7 @@ export async function queryDocument(documentPublicId: string): Promise<Document>
             publicId: documentPublicId,
             deletedAt: null,
         },
-        include: {
-            documentBody: true,
-            proofAttempts: true,
-            errors: true,
-            documentMathStatements: true,
-            usedLemmas: true,
-            provingLemma: true,
-        },
+        include: documentQueryInclude,
     });
 
     if (!document) {
