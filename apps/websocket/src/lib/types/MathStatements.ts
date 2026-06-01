@@ -37,6 +37,8 @@ export interface SelectedMathStatement {
   ref: MathStatementRef;
 }
 
+export type MathStatement = CourseMathStatement | UserDefinedMathStatement;
+
 export type MathStatementRef =
   | { source: "course"; publicId: string }
   | { source: "user"; publicId: string };
@@ -71,6 +73,8 @@ export interface SelectedLemma {
 
   ref: LemmaRef;
 }
+
+export type Lemma = CourseLemma | UserDefinedLemma;
 
 export type LemmaRef =
   | { source: "course"; publicId: string }

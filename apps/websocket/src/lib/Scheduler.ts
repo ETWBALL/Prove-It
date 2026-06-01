@@ -12,12 +12,14 @@ export class Scheduler {
     #timers: {
         grace: NodeJS.Timeout | null, // One-shot countdown for disconnect grace period
         autosave: NodeJS.Timeout | null, // Interval for periodic autosave
-        ml: NodeJS.Timeout | null // Sliding window debounce for ML triggers
+        mlQuestion: NodeJS.Timeout | null, // Sliding window debounce for ML triggers (Question text)
+        mlBody: NodeJS.Timeout | null, // Sliding window debounce for ML triggers (Body text)
         lemma: NodeJS.Timeout | null // Sliding window debounce for lemma generation triggers
     } = {
         grace: null,
         autosave: null,
-        ml: null,
+        mlQuestion: null,
+        mlBody: null,
         lemma: null,
         
     };
@@ -93,22 +95,43 @@ export class Scheduler {
 
     // ==== ML Trigger Management ====
 
-    public triggerMl(seconds: number){
+    public triggerMlQuestion(seconds: number){
         /**
-         * Trigger ML when:
+         * Trigger ML question when:
          * (1) The user has not typed anything for the past `seconds` seconds
          */
     }
-    public isMlTriggerActive(): boolean {
+    public isMlQuestionTriggerActive(): boolean {
         /**
-         * Check if the ML trigger timer is currently active. Used to determine if an ML task is pending.
+         * Check if the ML question trigger timer is currently active. Used to determine if an ML question task is pending.
          */
-        return this.#timers.ml !== null;
+        return this.#timers.mlQuestion !== null;
     }
 
-    public cancelMlTrigger(){
+    public cancelMlQuestionTrigger(){
         /**
-         * Cancel the pending ML trigger when:
+         * Cancel the pending ML question trigger when:
+         * (1) The user types another character, so we reset the debounce window.
+         */
+    }
+
+    public triggerMlBody(seconds: number){
+        /**
+         * Trigger ML body when:
+         * (1) The user has not typed anything for the past `seconds` seconds
+         */
+    }
+
+    public isMlBodyTriggerActive(): boolean {
+        /**
+         * Check if the ML body trigger timer is currently active. Used to determine if an ML body task is pending.
+         */
+        return this.#timers.mlBody !== null;
+    }
+
+    public cancelMlBodyTrigger(){
+        /**
+         * Cancel the pending ML body trigger when:
          * (1) The user types another character, so we reset the debounce window.
          */
     }

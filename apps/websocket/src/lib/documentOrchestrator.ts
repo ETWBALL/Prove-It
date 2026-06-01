@@ -105,7 +105,7 @@ export class DocumentOrchestrator {
         this.abortMLPipeline();
         
         // TODO come back to this and decide to have a ml trigger class
-        if (this.#checkProvabilityConditions(this.#state.question.text, this.#state.question.currentLemmas)) {
+        if (this.#checkProvabilityConditions(this.#state.question.content, this.#state.question.selectedLemmas)) {
 
             // Check provability 
             this.#mlTrigger.isProvable(800);
@@ -201,7 +201,7 @@ export class DocumentOrchestrator {
     // ==== Abort ML Pipeline Management ====
 
     // TODO: What is the lemma poll timer for? Why call it here? What does cancelMLTrigger do here? also, does the abort controller live in the document orchestrator or somewheere else?
-    public abortMLPipeline(): void {
+    public abortAllMLPipeline(): void {
         /**
          * Cancel scheduled and in-flight ML work for this document.
          *
@@ -213,7 +213,38 @@ export class DocumentOrchestrator {
          *
          * Also: (1) cancelMLTrigger on Scheduler, (2) AbortController for Gemini (TODO).
          */
-        this.#timers.cancelMlTrigger();
+        this.timers.cancelMlQuestionTrigger();
+        this.timers.cancelMlBodyTrigger();
+        this.#analysisRunId += 1;
+        this.broadcastAnalysisStatus("aborted");
+    }
+
+    // TODO implement this
+    public abortMLQuestionPipeline(): void {
+        /**
+         * Cancel scheduled and in-flight ML question work for this document.
+         *
+         * Parameters: none.
+         *
+         * How to use: Call at the start of abort paths (settings opened, question delta,
+         * new state mutation) before starting a new run.
+         */
+        this.timers.cancelMlQuestionTrigger();
+        this.#analysisRunId += 1;
+        this.broadcastAnalysisStatus("aborted");
+    }
+
+    // TODO implement this
+    public abortMLBodyPipeline(): void {
+        /**
+         * Cancel scheduled and in-flight ML body work for this document.
+         *
+         * Parameters: none.
+         *
+         * How to use: Call at the start of abort paths (settings opened, question delta,
+         * new state mutation) before starting a new run.
+         */
+        this.timers.cancelMlBodyTrigger();
         this.#analysisRunId += 1;
         this.broadcastAnalysisStatus("aborted");
     }
@@ -224,7 +255,7 @@ export class DocumentOrchestrator {
          * Force the settings state to be "open," abort ML, and broadcast.
          */
         this.#state.settings.isOpen = true;
-        this.abortMLPipeline();
+        this.abortAllMLPipeline();
         this.broadcastDocumentState();
     }
 
