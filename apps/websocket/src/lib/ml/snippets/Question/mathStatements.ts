@@ -1,5 +1,5 @@
 import { Library } from "@prove-it/db";
-import { resolveMathStatementInformation } from "../../../resolveMathStatement";
+import { resolveMathStatement } from "../../../resolveMathStatement";
 import {
     FieldPolicy,
     PromptContext,
@@ -69,12 +69,13 @@ function formatSelectedMathStatements(context: PromptContext): string {
     }
 
     const lines = context.selectedMathStatements.flatMap((statement) => {
-        const information = resolveMathStatementInformation(
+        const resolved = resolveMathStatement(
             statement.ref,
             context.coursePublicId,
             context.userDefinedMathStatements,
         );
-        if (!information) return [];
+        if (!resolved) return [];
+        const { information } = resolved;
 
         const source = statement.ref.source === "user" ? "user-defined" : "course";
         const kind = formatLibraryKind(information.type);

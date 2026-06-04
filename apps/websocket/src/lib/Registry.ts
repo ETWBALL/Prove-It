@@ -9,7 +9,7 @@ import {
     UserDefinedMathStatement,
     WorkspaceEntry,
 } from "./types";
-import { LoadedDocument, queryDocument } from "./DatabaseHelpers";
+import { LoadedDocument, queryDocument, queryDocumentForUser } from "./DatabaseHelpers";
 
 export class Registry {
     /**
@@ -42,8 +42,7 @@ export class Registry {
         this.#isSocketAlive = isSocketAlive;
     }
 
-    // TODO implement this
-    public registerUser(socketId: string, userId: string, documentPublicId: string): {registered: boolean, message: string} {
+    public async registerUser(socketId: string, userId: string, documentPublicId: string): Promise<{ registered: boolean; message: string }> {
         /**
          * (1) Attempt to register a (socket, user, document) session in the registry on join.
          * (2) Check idempotent Joins
@@ -53,10 +52,39 @@ export class Registry {
          * (6) Load the workspace entry 
          * Return whether registration was successful and a message to emit to the client.
          */ 
-        void socketId;
-        void userId;
-        void documentPublicId;
-        return {registered: false, message: "Registration failed"}
+        try {
+            this.#reconcileStaleSockets(documentPublicId);
+            this.#disconnectSameUserTabs(socketId, userId, documentPublicId);
+
+            if (this.#isInDifferentDoc(socketId, documentPublicId)) {
+                return { registered: false, message: "ALREADY_IN_DOCUMENT" };
+            }
+
+            if (this.#isAlreadyInThisDoc(socketId, documentPublicId)) {
+                return { registered: true, message: "IDEMPOTENT_JOIN" };
+            }
+
+            if (this.#hasOtherSocketInDoc(documentPublicId, socketId)) {
+                return { registered: false, message: "DOCUMENT_LOCKED" };
+            }
+
+            const workspace =
+                this.#workspaces.get(documentPublicId) ??
+                (await this.#ensureWorkspace(documentPublicId, userId));
+
+            if (!workspace) {
+                return { registered: false, message: "FORBIDDEN" };
+            }
+
+            this.#attachSocket(socketId, userId, documentPublicId, workspace);
+            return { registered: true, message: "OK" };
+        } catch (error) {
+            console.error(
+                `[Registry] registerUser failed doc=${documentPublicId} socket=${socketId}:`,
+                error,
+            );
+            return { registered: false, message: "INTERNAL_ERROR" };
+        }
     }
 
 
@@ -113,7 +141,9 @@ export class Registry {
             body: {
                 content: body?.content ?? "",
                 revision: 0,
-                errors: document.errors.map((row) => mapErrorRow(row)),
+                errors: document.errors
+                    .filter((row) => row.resolvedAt == null && row.dismissedAt == null)
+                    .map((row) => mapErrorRow(row)),
             },
             question: {
                 content: body?.provingStatement ?? "",
@@ -141,20 +171,73 @@ export class Registry {
         return new DocumentOrchestrator(initialState, this.#bindEmit(documentPublicId));
     }
 
-    // TODO implement this
-    async #fetchDocument(documentPublicId: string): Promise<WorkspaceEntry> {
-        /**
-         * Fetch document details and populate workspace entry.
-         * Load state via DatabaseHelpers.loadHotDocumentState, then #createOrchestrator.
-         * Persist via DatabaseHelpers.flushStateToDatabase (not here).
-         */
-        void documentPublicId;
-        return Promise.resolve({
-            session: {} as WorkspaceEntry["session"],
-            orchestrator: {} as WorkspaceEntry["orchestrator"],
+    async #ensureWorkspace(documentPublicId: string, userId: string): Promise<WorkspaceEntry | null> {
+        const existing = this.#workspaces.get(documentPublicId);
+        if (existing) {
+            return existing;
+        }
+
+        const document = await queryDocumentForUser(documentPublicId, userId);
+        if (!document) {
+            return null;
+        }
+
+        const initialState = this.#formatDocumentState(document);
+        const orchestrator = this.#createOrchestrator(initialState, documentPublicId);
+        const entry: WorkspaceEntry = {
+            session: {
+                documentPublicId,
+                userId,
+                joinedAt: new Date(),
+            },
+            orchestrator,
             socketId: "",
             registeredSocketIds: new Set(),
-        });
+        };
+
+        this.#workspaces.set(documentPublicId, entry);
+        return entry;
+    }
+
+    #removeStaleSocketsForDocument(documentPublicId: string): void {
+        /**
+         * This documentID might have stale sockets. Remove them
+         */
+        for (const [otherSocketId, mappedDocId] of this.#socketToDocument) {
+            if (mappedDocId !== documentPublicId) {
+                continue;
+            }
+            if (this.#isStale(otherSocketId)) {
+                this.#deleteSocket(otherSocketId);
+            }
+        }
+    }
+
+    #disconnectSameUserTabs(socketId: string, userId: string, documentPublicId: string): void {
+        /**
+         * Disconnect all other sockets for the same user and document. This is to prevent multiple tabs from being open for the same user and document.
+         * <documentPublicId> can be opened in multiple tabs. Make sure
+        */
+        for (const [otherSocketId, mappedDocId] of this.#socketToDocument) {
+            if (mappedDocId !== documentPublicId || otherSocketId === socketId) {
+                continue;
+            }
+            if (!this.#isSameUser(otherSocketId, userId)) {
+                continue;
+            }
+            this.#forceDisconnect(otherSocketId);
+        }
+    }
+
+    #attachSocket(socketId: string, userId: string, documentPublicId: string, workspace: WorkspaceEntry): void {
+        /**
+         * Attach the <socketId> to the <workspace>.
+         */
+        workspace.session.userId = userId;
+        workspace.session.documentPublicId = documentPublicId;
+        workspace.socketId = socketId;
+        workspace.registeredSocketIds.add(socketId);
+        this.#socketToDocument.set(socketId, documentPublicId);
     }
 
 
@@ -293,6 +376,7 @@ function collectUserDefinedMathStatements(rows: LoadedDocument["documentMathStat
     /**
      * Collect the user-defined math statements from the document. Return a record of publicId to UserDefinedMathStatement.
      */
+
     const catalog: Record<string, UserDefinedMathStatement> = {};
     for (const row of rows) {
         const { mathStatement } = row;
@@ -313,13 +397,17 @@ function mapMathStatementRow(row: DocumentMathStatementRow): SelectedMathStateme
     /**
      * Map the math statement row to the SelectedMathStatement interface object. Given <row>, return the SelectedMathStatement object.
      */
+
+
     const { mathStatement } = row;
+
     const ref: SelectedMathStatement["ref"] =
         mathStatement.privateOwnerId == null
             ? { source: "course", publicId: mathStatement.publicId }
             : { source: "user", publicId: mathStatement.publicId };
 
     return {
+        type: mathStatement.type,
         hintContent: row.hintContent,
         wasUsed: row.wasUsed,
         sufficient: row.sufficient,

@@ -1,4 +1,4 @@
-import { PromptContext } from "../../types/Prompt";
+import { PromptContext } from "../../../types";
 
 export function baseRoleSnippet(): string {
     /**

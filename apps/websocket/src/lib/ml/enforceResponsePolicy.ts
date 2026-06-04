@@ -1,15 +1,13 @@
 import { QuestionAnalysisResponse } from "../types/AIResponse";
 import { FieldPolicy, PromptContext } from "../types/Prompt";
 
-/**
- * Server-side enforcement of field policies.
- * The model may violate prompt rules; this normalizes the response before state mutation.
- */
-export function enforceQuestionAnalysisPolicy(
-    response: QuestionAnalysisResponse,
-    fieldPolicy: FieldPolicy,
-    context: PromptContext,
-): QuestionAnalysisResponse {
+
+export function enforceQuestionAnalysisPolicy(response: QuestionAnalysisResponse, fieldPolicy: FieldPolicy, context: PromptContext): QuestionAnalysisResponse {
+    /**
+     * Server-side enforcement of field policies.
+     * The model may violate prompt rules; this normalizes the response before state mutation.
+     */
+    
     let proofType = response.proofType;
     let suggestedMathStatements = response.suggestedMathStatements;
 

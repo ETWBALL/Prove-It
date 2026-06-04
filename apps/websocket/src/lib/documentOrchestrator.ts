@@ -331,9 +331,11 @@ export class DocumentOrchestrator {
             const context = buildPromptContext({ state: this.#state });
             const normalized = enforceQuestionAnalysisPolicy(payload, composed.fieldPolicy, context);
 
+            // (7) Apply the analysis result to the document state
             this.#applyQuestionAnalysisResult(normalized, composed.fieldPolicy);
             this.broadcastDocumentState();
             this.broadcastAnalysisStatus("idle");
+
         } catch (error) {
             // Expected path for explicit aborts.
             if (controller.signal.aborted) return;

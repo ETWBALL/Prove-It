@@ -1,7 +1,6 @@
 import { GlobalLibraryRegistry } from "./globalLibraryRegistry";
 import {
     CourseMathStatement,
-    MathStatementInformation,
     MathStatementRef,
     UserDefinedMathStatement,
 } from "./types";
@@ -13,22 +12,15 @@ export type ResolvedMathStatement = CourseMathStatement | UserDefinedMathStateme
  * - `course` → GlobalLibraryRegistry by course + statement publicId
  * - `user` → document `userDefinedMathStatements` by publicId
  */
-export function resolveMathStatement(
-    ref: MathStatementRef,
-    coursePublicId: string | null,
-    userDefinedMathStatements: Record<string, UserDefinedMathStatement>,
-): ResolvedMathStatement | undefined {
+export function resolveMathStatement(ref: MathStatementRef, coursePublicId: string | null, userDefinedMathStatements: Record<string, UserDefinedMathStatement>): ResolvedMathStatement | undefined {
+    /**
+     * Resolve the math statement from the course catalog or the document's user-defined math statements.
+     */
+
+    // (1) Resolve the math statement from the course catalog
     if (ref.source === "course") {
         if (!coursePublicId) return undefined;
         return GlobalLibraryRegistry.getMathStatement(coursePublicId, ref.publicId);
     }
     return userDefinedMathStatements[ref.publicId];
-}
-
-export function resolveMathStatementInformation(
-    ref: MathStatementRef,
-    coursePublicId: string | null,
-    userDefinedMathStatements: Record<string, UserDefinedMathStatement>,
-): MathStatementInformation | undefined {
-    return resolveMathStatement(ref, coursePublicId, userDefinedMathStatements)?.information;
 }

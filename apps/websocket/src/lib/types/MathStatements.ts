@@ -4,8 +4,8 @@ import { Sufficiency, Library, ProofStatus, Textbook} from "@prove-it/db";
 
 // ==== Math Statement information ====
 
-/** Canonical content for a math statement (course catalog or user-defined). */
-export interface MathStatementInformation {
+// Core Math Statement Information
+export interface Information {
   content: string;
   name: string;
   type: Library;
@@ -14,7 +14,7 @@ export interface MathStatementInformation {
 
 // ONLY <globalLibraryRegistry> is allowed to store this
 export interface CourseMathStatement {
-  information: MathStatementInformation;
+  information: Information;
   textbook: Textbook | null;
   orderIndex: number | null;
   
@@ -24,11 +24,13 @@ export interface CourseMathStatement {
 // Document-owned definitions (not in registry)
 export interface UserDefinedMathStatement {
   publicId: string;        
-  information: MathStatementInformation;
+  information: Information;
 }
 
 /** Junction row: links a document to a statement via `ref`; resolve `information` through the ref. */
 export interface SelectedMathStatement {
+  /** Prisma `Library` kind (definition, theorem, axiom, …). */
+  type: Library;
   hintContent: string | null;
   wasUsed: boolean;
   sufficient: Sufficiency;
@@ -43,8 +45,6 @@ export type MathStatement = CourseMathStatement | UserDefinedMathStatement;
 export type MathStatementRef =
   | { source: "course"; publicId: string }
   | { source: "user"; publicId: string };
-
-
 
 
 // ==== Lemma information ====

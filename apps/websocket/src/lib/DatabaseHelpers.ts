@@ -57,6 +57,32 @@ export async function queryDocument(documentPublicId: string): Promise<LoadedDoc
     return document;
 }
 
+/** Owner-scoped load for join; returns null when the user cannot access the document. */
+export async function queryDocumentForUser(documentPublicId: string, userPublicId: string): Promise<LoadedDocument | null> {
+    /**
+     * Query a document from the database for a specific user. Return a Document object.
+     *
+     * - `documentPublicId`: Public id of the document to load.
+     * - `userPublicId`: Public id of the user to load the document for.
+     */
+    return prisma.document.findFirst({
+        where: {
+            publicId: documentPublicId,
+            deletedAt: null,
+            user: { is: { publicId: userPublicId } },
+        },
+        include: {
+            ...documentQueryInclude,
+            errors: {
+                where: {
+                    resolvedAt: null,
+                    dismissedAt: null,
+                },
+            },
+        },
+    });
+}
+
 export async function flushStateToDatabase(
     documentPublicId: string,
     state: HotDocumentState,
