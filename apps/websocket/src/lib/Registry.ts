@@ -9,7 +9,8 @@ import {
     UserDefinedMathStatement,
     WorkspaceEntry,
 } from "./types";
-import { LoadedDocument, queryDocument, queryDocumentForUser } from "./DatabaseHelpers";
+import { flushStateToDatabase, LoadedDocument, queryDocument, queryDocumentForUser } from "./DatabaseHelpers";
+import { FlushScopes } from "./types";
 
 export class Registry {
     /**
@@ -53,7 +54,7 @@ export class Registry {
          * Return whether registration was successful and a message to emit to the client.
          */ 
         try {
-            this.#reconcileStaleSockets(documentPublicId);
+            this.#removeStaleSocketsForDocument(documentPublicId);
             this.#disconnectSameUserTabs(socketId, userId, documentPublicId);
 
             if (this.#isInDifferentDoc(socketId, documentPublicId)) {
@@ -68,6 +69,7 @@ export class Registry {
                 return { registered: false, message: "DOCUMENT_LOCKED" };
             }
 
+            // The user is allowed to join the document. Load the workspace entry.
             const workspace =
                 this.#workspaces.get(documentPublicId) ??
                 (await this.#ensureWorkspace(documentPublicId, userId));
@@ -76,7 +78,9 @@ export class Registry {
                 return { registered: false, message: "FORBIDDEN" };
             }
 
-            this.#attachSocket(socketId, userId, documentPublicId, workspace);
+            workspace.orchestrator.stopGracePeriod();
+
+            this.#attachSockettoWorkspace(socketId, userId, documentPublicId, workspace);
             return { registered: true, message: "OK" };
         } catch (error) {
             console.error(
@@ -89,12 +93,139 @@ export class Registry {
 
 
 
-    // TODO implement this
+    public validateAuthorizedAccess(
+        socketId: string,
+        userId: string | undefined,
+        documentPublicId?: string,
+    ):
+        | { ok: true; workspace: WorkspaceEntry }
+        | { ok: false; code: "UNAUTHORIZED" | "FORBIDDEN" } {
+        /**
+         * Shared gate for protected socket handlers (via authorizeSocket).
+         * Always checks registration + user match; when documentPublicId is passed,
+         * also checks it matches the socket-bound workspace.
+         */
+        if (!userId) {
+            return { ok: false, code: "UNAUTHORIZED" };
+        }
+
+        const boundDocumentId = this.#socketToDocument.get(socketId);
+        if (!boundDocumentId) {
+            return { ok: false, code: "UNAUTHORIZED" };
+        }
+
+        const workspace = this.getWorkspaceBySocket(socketId);
+        if (!workspace) {
+            return { ok: false, code: "UNAUTHORIZED" };
+        }
+
+        if (!this.#isSameUser(socketId, userId)) {
+            return { ok: false, code: "FORBIDDEN" };
+        }
+
+        if (documentPublicId === undefined) {
+            return { ok: true, workspace };
+        }
+
+        if (boundDocumentId !== documentPublicId) {
+            return { ok: false, code: "FORBIDDEN" };
+        }
+
+        if (!this.#isSameDocument(socketId, documentPublicId)) {
+            return { ok: false, code: "FORBIDDEN" };
+        }
+
+        if (workspace.session.documentPublicId !== documentPublicId) {
+            return { ok: false, code: "FORBIDDEN" };
+        }
+
+        return { ok: true, workspace };
+    }
+
+    public isLastSocketForDocument(socketId: string, documentPublicId: string): boolean {
+        /**
+         * True when this socket is the only registered connection for the document.
+         * Used to decide whether leaving should flush RAM and evict the workspace.
+         */
+        const workspace = this.#workspaces.get(documentPublicId);
+        if (!workspace) {
+            return false;
+        }
+        if (workspace.registeredSocketIds.size > 1) {
+            return false;
+        }
+        if (workspace.registeredSocketIds.size === 1) {
+            return workspace.registeredSocketIds.has(socketId);
+        }
+        return workspace.socketId === socketId;
+    }
+
+    public handleSocketDisconnect(socketId: string): void {
+        /**
+         * Runs on the native Socket.IO `disconnect` event (tab closed, network drop, etc.).
+         * Aborts ML, detaches the socket, and starts a grace timer before RAM eviction.
+         */
+        const documentPublicId = this.#socketToDocument.get(socketId);
+        if (!documentPublicId) {
+            return;
+        }
+
+        const workspace = this.#workspaces.get(documentPublicId);
+        if (!workspace) {
+            return;
+        }
+
+        workspace.orchestrator.abortAllMLTriggers(`aborted:disconnect:${documentPublicId}`);
+
+        const startGrace = this.isLastSocketForDocument(socketId, documentPublicId);
+
+        this.#deleteSocket(socketId);
+
+        if (!startGrace) {
+            return;
+        }
+
+        const remaining = this.#workspaces.get(documentPublicId);
+        if (!remaining) {
+            return;
+        }
+
+        const hasNoActiveSockets =
+            remaining.registeredSocketIds.size === 0 && remaining.socketId === "";
+
+        if (!hasNoActiveSockets) {
+            return;
+        }
+
+        remaining.orchestrator.startGracePeriod(() => {
+            void this.#evictWorkspaceAfterGrace(documentPublicId);
+        });
+    }
+
     public handleLeaveRoom(socketId: string): void {
         /**
          * Remove the <socketId> from the registry.
+         * When no sockets remain, purge orchestrator timers and evict the workspace from #workspaces.
          */
+        const documentPublicId = this.#socketToDocument.get(socketId);
         this.#deleteSocket(socketId);
+
+        if (!documentPublicId) {
+            return;
+        }
+
+        const workspace = this.#workspaces.get(documentPublicId);
+        if (!workspace) {
+            return;
+        }
+
+        const hasNoActiveSockets =
+            workspace.registeredSocketIds.size === 0 && workspace.socketId === "";
+
+        if (hasNoActiveSockets) {
+            workspace.orchestrator.purgeAllTimers();
+            this.#workspaces.delete(documentPublicId);
+        }
     }
 
     #bindEmit(documentPublicId: string): EmitToDocument {
@@ -172,6 +303,10 @@ export class Registry {
     }
 
     async #ensureWorkspace(documentPublicId: string, userId: string): Promise<WorkspaceEntry | null> {
+        /**
+         * Ensure the workspace entry is created for the <documentPublicId> and <userId>.
+         */
+        
         const existing = this.#workspaces.get(documentPublicId);
         if (existing) {
             return existing;
@@ -229,7 +364,7 @@ export class Registry {
         }
     }
 
-    #attachSocket(socketId: string, userId: string, documentPublicId: string, workspace: WorkspaceEntry): void {
+    #attachSockettoWorkspace(socketId: string, userId: string, documentPublicId: string, workspace: WorkspaceEntry): void {
         /**
          * Attach the <socketId> to the <workspace>.
          */
@@ -332,6 +467,39 @@ export class Registry {
          */
         this.#deleteSocket(otherId);  // remove from map first
         this.#disconnectSocket(otherId);   // then kill the socket
+    }
+
+    async #evictWorkspaceAfterGrace(documentPublicId: string): Promise<void> {
+        /**
+         * Flush and remove a workspace after the disconnect grace period expires.
+         */
+        const workspace = this.#workspaces.get(documentPublicId);
+        if (!workspace) {
+            return;
+        }
+
+        const hasNoActiveSockets =
+            workspace.registeredSocketIds.size === 0 && workspace.socketId === "";
+
+        if (!hasNoActiveSockets) {
+            return;
+        }
+
+        try {
+            await flushStateToDatabase(
+                documentPublicId,
+                workspace.orchestrator.getState(),
+                FlushScopes.full,
+            );
+        } catch (error) {
+            console.error(
+                `[Registry] Grace eviction failed to persist document ${documentPublicId}:`,
+                error,
+            );
+        }
+
+        workspace.orchestrator.purgeAllTimers();
+        this.#workspaces.delete(documentPublicId);
     }
 }
 

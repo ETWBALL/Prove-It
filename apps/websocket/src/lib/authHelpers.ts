@@ -1,12 +1,18 @@
-import { Server, Socket } from 'socket.io';
+import { Server } from 'socket.io';
 import { verifyAccessToken } from '@prove-it/auth';
-import { User, WorkspaceEntry } from "./types";
+import { AuthenticatedSocket, AuthorizedSocket, User, WorkspaceEntry } from "./types";
 import { Registry } from './Registry';
+
+export interface AuthorizeSocketOptions {
+    /** First handler arg must be the document public id and must match the bound workspace. */
+    requireDocumentPublicId?: boolean;
+    /** Socket event used when access is denied (default: `error`). */
+    errorEvent?: string;
+}
 
 export function authenticate(io: Server) {
     io.use(async (socket, next) => {
         try {
-            // (1) Extract access token safely
             const accessToken = socket.handshake.auth?.accessToken;
             if (!accessToken) {
                 return next(new Error('Unauthorized'));
@@ -14,12 +20,10 @@ export function authenticate(io: Server) {
 
             const { valid, expired, invalid, payload } = await verifyAccessToken(accessToken);
 
-            // (2) Validation check
             if (expired || invalid || !valid) {
                  return next(new Error('Unauthorized'));
             }
 
-            // (3) Attach payload to socket data
             const user = payload as { publicId: string, sessionPublicId: string };
             socket.data.user = user as User;
             next();
@@ -31,21 +35,38 @@ export function authenticate(io: Server) {
     });
 }
 
-export function authorizeSocket<Args extends any[]>(clientSocket: Socket, registry: Registry, handler: (socket: Socket, workspace: WorkspaceEntry, ...args: Args) => any){
-    /**
-     * Authorize the socket for document access before executing protected handler.
-     */
+export function authorizeSocket<Args extends unknown[]>(
+    clientSocket: AuthenticatedSocket,
+    registry: Registry,
+    handler: (socket: AuthorizedSocket, workspace: WorkspaceEntry, ...args: Args) => unknown,
+    options?: AuthorizeSocketOptions,
+) {
     return async (...args: Args) => {
+        const userId = clientSocket.data.user?.publicId;
+        const documentPublicId =
+            options?.requireDocumentPublicId && typeof args[0] === "string"
+                ? args[0]
+                : undefined;
 
-        // (1) Check if socket is in registry. If not, reject the request as unauthorized.
-        const workspaceEntry = registry.getWorkspaceBySocket(clientSocket.id);
-        if (!workspaceEntry) {
-            console.warn(`[Security] Blocked unauthorized event from socket: ${clientSocket.id}`)
-            clientSocket.emit("error", { message: "Unauthorized" }); 
+        const validation = registry.validateAuthorizedAccess(
+            clientSocket.id,
+            userId,
+            documentPublicId,
+        );
+
+        if (!validation.ok) {
+            console.warn(
+                `[Security] Blocked event from socket ${clientSocket.id}: ${validation.code}`,
+            );
+            const errorEvent = options?.errorEvent ?? "error";
+            clientSocket.emit(errorEvent, { code: validation.code });
             return;
         }
 
-        // (2) Authorized, let socket execute handler
-        return handler(clientSocket, workspaceEntry, ...args);
-    }
+        const authorizedSocket = clientSocket as AuthorizedSocket;
+        authorizedSocket.data.authorizedDocumentId = validation.workspace.session.documentPublicId;
+        authorizedSocket.data.authorizedAt = new Date();
+
+        return handler(authorizedSocket, validation.workspace, ...args);
+    };
 }

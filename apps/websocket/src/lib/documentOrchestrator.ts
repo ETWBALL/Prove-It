@@ -19,6 +19,7 @@ import {
 
 const QUESTION_DELTA_THRESHOLD = 50;
 const BODY_DELTA_THRESHOLD = 30;
+const DISCONNECT_GRACE_MS = 30_000;
 // TODO make sure you have put appropriate emits everywhere
 
 // TODO ask cursor or vscode to put semicolons and fix spacing/formatting everywhere
@@ -432,12 +433,24 @@ export class DocumentOrchestrator {
 
     // ==== Grace Period Management ====
 
-    #startGraceTimer(){
+    public startGracePeriod(onExpire: () => void, durationMs = DISCONNECT_GRACE_MS): void {
         /**
          * Create a new grace period timer when:
          * (1) The user disconnects from a document session.
          */
+        this.#stopGraceTimer();
+        this.#timers.grace = setTimeout(() => {
+            this.#timers.grace = null;
+            onExpire();
+        }, durationMs);
+    }
 
+    public stopGracePeriod(): void {
+        /**
+         * Stop the grace period timer when:
+         * (1) The user rejoins within the grace period, so we cancel the pending eviction.
+         */
+        this.#stopGraceTimer();
     }
 
     #isGraceTimerActive(): boolean {
@@ -447,11 +460,15 @@ export class DocumentOrchestrator {
         return this.#timers.grace !== null;
     }
 
-    #stopGraceTimer(){
+    #stopGraceTimer(): void {
         /** 
          * Stop the grace period timer when:
          * (1) The user rejoins within the grace period, so we cancel the pending eviction.
          */
+        if (this.#timers.grace != null) {
+            clearTimeout(this.#timers.grace);
+            this.#timers.grace = null;
+        }
     }
 
     // ==== Autosave Management ====
@@ -470,11 +487,15 @@ export class DocumentOrchestrator {
         return this.#timers.autosave !== null;
     }
 
-    #stopAutosaveTimer(){
+    #stopAutosaveTimer(): void {
         /**
          * Stop the autosave interval when: 
          * 
          */
+        if (this.#timers.autosave != null) {
+            clearInterval(this.#timers.autosave);
+            this.#timers.autosave = null;
+        }
     }
     // ==== Lemma Trigger Management ====
 
@@ -491,11 +512,15 @@ export class DocumentOrchestrator {
         return this.#timers.lemma !== null;
     }
 
-    #stopLemmaTimer(){
+    #stopLemmaTimer(): void {
         /**
          * Cancel the pending lemma trigger when:
          * (1) The user types another character, so we reset the debounce window.
          */
+        if (this.#timers.lemma != null) {
+            clearTimeout(this.#timers.lemma);
+            this.#timers.lemma = null;
+        }
     }
 
     // ==== ML Trigger Management ====
@@ -513,11 +538,15 @@ export class DocumentOrchestrator {
         return this.#timers.mlQuestion !== null;
     }
 
-    #stopMlQuestionTimer(){
+    #stopMlQuestionTimer(): void {
         /**
          * Cancel the pending ML question trigger when:
          * (1) The user types another character, so we reset the debounce window.
          */
+        if (this.#timers.mlQuestion != null) {
+            clearTimeout(this.#timers.mlQuestion);
+            this.#timers.mlQuestion = null;
+        }
     }
 
     #startMlBodyTimer(seconds: number){
@@ -534,19 +563,28 @@ export class DocumentOrchestrator {
         return this.#timers.mlBody !== null;
     }
 
-    #stopMlBodyTimer(){
+    #stopMlBodyTimer(): void {
         /**
          * Cancel the pending ML body trigger when:
          * (1) The user types another character, so we reset the debounce window.
          */
+        if (this.#timers.mlBody != null) {
+            clearTimeout(this.#timers.mlBody);
+            this.#timers.mlBody = null;
+        }
     }
 
     // ==== Cleanup ====
-    #purgeAllTimers(){
+    public purgeAllTimers(): void {
         /**
          * Purge all timers for a document when:
          * (1) The document session is evicted after the grace period expires, so we clean up all pending timers.
          */
+        this.#stopGraceTimer();
+        this.#stopAutosaveTimer();
+        this.#stopMlQuestionTimer();
+        this.#stopMlBodyTimer();
+        this.#stopLemmaTimer();
     }
 
 
