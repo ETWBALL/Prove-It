@@ -1,18 +1,21 @@
 
-import { ProofStatus, ProofType, Provability} from "@prove-it/db";
-import { SelectedMathStatement, SelectedLemma } from "./MathStatements";
+import { ProofStatus, ProofType, ProofTypeOrigin, Provability} from "@prove-it/db";
+import { SelectedMathStatement, SelectedLemma, UserDefinedMathStatement } from "./MathStatements";
 import { ErrorState } from "./Errors";
 
 
 // ==== Document Information ====
+
 export interface HotDocumentState{
   publicId: string;
   coursePublicId: string | null;
   title: string;
   status: ProofStatus;
-  provability: Provability;
   proofType: ProofType;
+  proofTypeOrigin: ProofTypeOrigin;
   settings: ProofSettingState;
+  /** User-defined statements on this document, keyed by `publicId` (resolve `SelectedMathStatement.ref`). */
+  userDefinedMathStatements: Record<string, UserDefinedMathStatement>;
 
   // DocBody
   body: DocBodyState;
@@ -33,6 +36,7 @@ export interface DocBodyState extends Content{
   errors: ErrorState[]; 
 }
 export interface QuestionState extends Content {
+  provability: Provability;
   selectedMathStatements: SelectedMathStatement[];
   selectedLemmas: SelectedLemma[];
 }

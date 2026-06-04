@@ -11,6 +11,7 @@
     "test:helpers": "node --env-file=../../.env -r ts-node/register test/testHelpers.ts"
   },
   "dependencies": {
+    "@google/genai": "^1.52.0",
     "@prove-it/auth": "workspace:*",
     "@prove-it/db": "workspace:*",
     "dotenv": "^16.4.7",

@@ -39,4 +39,15 @@ export class GlobalLibraryRegistry {
     if (!GlobalLibraryRegistry._instance) return undefined;
     return GlobalLibraryRegistry._instance.#courseLemmas.get(coursePublicId)?.get(lemmaPublicId);
   }
+
+  // ==== FOR ML ====
+
+  // TODO 
+  public static getAllMathStatementsNamesFromCourse(coursePublicId: string): string[] {
+    /**
+     * Given <coursePublicId>, return all the names of the math statements that belong to such course.
+     */
+    if (!GlobalLibraryRegistry._instance) return [];
+    return Array.from(GlobalLibraryRegistry._instance.#courseMathStatements.get(coursePublicId)?.keys() || []);
+  }
 }

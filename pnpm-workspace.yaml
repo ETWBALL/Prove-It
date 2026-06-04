@@ -2,10 +2,12 @@ packages:
   - 'apps/*'
   - 'packages/*'
 allowBuilds:
+  '@google/genai': set this to true or false
   '@prisma/client': false
   '@prisma/engines': true
   bcrypt: true
   prisma: true
+  protobufjs: set this to true or false
   sharp: true
   unrs-resolver: true
 overrides:

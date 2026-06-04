@@ -82,14 +82,17 @@ void (async () => {
         clientSocket.on('document:lemma:removed', authorizeSocket(clientSocket, registry, (socket: Socket, workspace: WorkspaceEntry, lemma: Lemma) => {events.LemmaRemoved(socket, workspace, lemma)}))
         // (9) Proof type updated: Protected. Users can change the proof type or clear it. Also add strictness
         clientSocket.on('document:proofType:updated', authorizeSocket(clientSocket, registry, (socket: Socket, workspace: WorkspaceEntry, proofType: ProofType) => {events.ProofTypeUpdated(socket, workspace, proofType)}))
-        
+        // (10) Settings closed
+        clientSocket.on('document:settings:closed', authorizeSocket(clientSocket, registry, (socket: Socket, workspace: WorkspaceEntry) => {events.SettingsClosed(socket, workspace)}))
+
+
         // ==== ABORT BODY PIPELINE ====
         // (1) OnBodyDelta: Protected. Users can send body edits
         clientSocket.on('document:body:delta', authorizeSocket(clientSocket, registry, (socket: Socket, workspace: WorkspaceEntry, delta: Delta) => {events.BodyDelta(socket, workspace, delta)}))
 
         // SERVER sends
         // (1) ProvableStatus: Send idle, analyizng, provabe, unprovable status to clients
-m
+
 
     })
 })()

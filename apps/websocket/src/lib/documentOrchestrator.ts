@@ -1,12 +1,20 @@
-import { Scheduler } from "./Scheduler";
+import { ProofTypeOrigin } from "@prove-it/db";
+import { buildQuestionPrompt } from "./ml/composePrompt";
+import { callGeminiQuestionAnalysis } from "./ml/gemini";
+import { enforceQuestionAnalysisPolicy } from "./ml/enforceResponsePolicy";
+import { buildPromptContext } from "./ml/promptContext";
 import {
     AnalysisPhase,
     AnalysisStatusPayload,
+    ComposedPrompt,
     Delta,
     DOCUMENT_ANALYSIS_STATUS_EVENT,
     DOCUMENT_STATE_UPDATED_EVENT,
     EmitToDocument,
     HotDocumentState,
+    Lemma,
+    QuestionAnalysisResponse,
+    SelectedLemma,
 } from "./types";
 
 const QUESTION_DELTA_THRESHOLD = 50;
@@ -28,13 +36,28 @@ export class DocumentOrchestrator {
      * - emit: Socket.IO emit with document room already bound (Registry Option A).
      * - analysisRunId: Bumped on abort / new ML run; clients ignore stale analysis events.
      * - deltas: Keeps track of the number of deltas received for both question and body to determine when to persist to the database.
+     * - timers: Maps a composite key of <userId, docId> to its active timer. Enables efficient lookup and cancellation.
      */ 
     #state: HotDocumentState;
-    timers: Scheduler = new Scheduler();
     #emit: EmitToDocument;
     #analysisRunId = 0;
+    #qAbortController: AbortController | null = null;
+    #bAbortController: AbortController | null = null;
     deltas: {question: number, body: number} = {question: 0, body: 0}; 
-
+    #timers: {
+        grace: NodeJS.Timeout | null, // One-shot countdown for disconnect grace period
+        autosave: NodeJS.Timeout | null, // Interval for periodic autosave
+        mlQuestion: NodeJS.Timeout | null, // Sliding window debounce for ML triggers (Question text)
+        mlBody: NodeJS.Timeout | null, // Sliding window debounce for ML triggers (Body text)
+        lemma: NodeJS.Timeout | null // Sliding window debounce for lemma generation triggers
+    } = {
+        grace: null,
+        autosave: null,
+        mlQuestion: null,
+        mlBody: null,
+        lemma: null,
+        
+    };
 
 
     // TODO implement this
@@ -96,22 +119,6 @@ export class DocumentOrchestrator {
         this.#emit(DOCUMENT_ANALYSIS_STATUS_EVENT, payload);
     }
 
-    // TODO implement this
-    public onStateMutation(): void{
-        /**
-         * Whenever a state changes (not including user typing their proof in), check provability. Abort any previous triggers
-         */
-
-        this.abortMLPipeline();
-        
-        // TODO come back to this and decide to have a ml trigger class
-        if (this.#checkProvabilityConditions(this.#state.question.content, this.#state.question.selectedLemmas)) {
-
-            // Check provability 
-            this.#mlTrigger.isProvable(800);
-        }
-    }
-    
     // TODO implement this
     public finalizeMemoryState(contentId: string, persistedErrors: ErrorState[], clearBodyBuffer: boolean, clearQuestionBuffer: boolean): void {
         /**
@@ -198,12 +205,14 @@ export class DocumentOrchestrator {
         return this.deltas.body >= BODY_DELTA_THRESHOLD;
     }
 
+    
+
     // ==== Abort ML Pipeline Management ====
 
     // TODO: What is the lemma poll timer for? Why call it here? What does cancelMLTrigger do here? also, does the abort controller live in the document orchestrator or somewheere else?
-    public abortAllMLPipeline(): void {
+    public abortAllMLTriggers(reason: string): void {
         /**
-         * Cancel scheduled and in-flight ML work for this document.
+         * Cancel all in-flight ML work for this document.
          *
          * Parameters: none.
          *
@@ -213,38 +222,43 @@ export class DocumentOrchestrator {
          *
          * Also: (1) cancelMLTrigger on Scheduler, (2) AbortController for Gemini (TODO).
          */
-        this.timers.cancelMlQuestionTrigger();
-        this.timers.cancelMlBodyTrigger();
+        this.#qAbortController?.abort(reason);
+        this.#qAbortController = null;
+        this.#bAbortController?.abort(reason);
+        this.#bAbortController = null;
+
         this.#analysisRunId += 1;
         this.broadcastAnalysisStatus("aborted");
     }
 
     // TODO implement this
-    public abortMLQuestionPipeline(): void {
+    public abortMLQuestionTrigger(reason: string): void {
         /**
-         * Cancel scheduled and in-flight ML question work for this document.
+         * Cancel in-flight ML question trigger for this document.
          *
          * Parameters: none.
          *
          * How to use: Call at the start of abort paths (settings opened, question delta,
          * new state mutation) before starting a new run.
          */
-        this.timers.cancelMlQuestionTrigger();
+        this.#qAbortController?.abort(reason);
+        this.#qAbortController = null;
         this.#analysisRunId += 1;
         this.broadcastAnalysisStatus("aborted");
     }
 
     // TODO implement this
-    public abortMLBodyPipeline(): void {
+    public abortMLBodyTrigger(reason: string): void {
         /**
-         * Cancel scheduled and in-flight ML body work for this document.
+         * Cancel in-flight ML body trigger for this document.
          *
          * Parameters: none.
          *
          * How to use: Call at the start of abort paths (settings opened, question delta,
          * new state mutation) before starting a new run.
          */
-        this.timers.cancelMlBodyTrigger();
+        this.#bAbortController?.abort(reason);
+        this.#bAbortController = null;
         this.#analysisRunId += 1;
         this.broadcastAnalysisStatus("aborted");
     }
@@ -255,67 +269,282 @@ export class DocumentOrchestrator {
          * Force the settings state to be "open," abort ML, and broadcast.
          */
         this.#state.settings.isOpen = true;
-        this.abortAllMLPipeline();
+        this.abortAllMLTriggers("aborted:settings:opened");
+        this.#stopMlQuestionTimer();
         this.broadcastDocumentState();
     }
 
     
     // ==== ML Trigger Management ====
 
-    // TODO implement this
-    public isProvable(document: HotDocumentState): string | null {
-        /** 
-        * Depending on doc state, give the correct prompt to ML
-        * Choose correct prompt. ML should return <true> if the question is provable and <false> if not.
-        * Note if its provable, 
-        */
+        // TODO implement this
+    public onStateMutation(state: string): void{
+        /**
+         * This is for question only not for body.
+         * <state> is the state that changed.
+         * Whenever a state changes (not including user typing their proof in), check provability. Abort any previous triggers.
+         * Call it when:
+         * (1) When the user opens settings
+         * (2) When the user closes settings
+         */
 
-        // (1) Select the correct prompt. Recieve {prompt: string, format: string} obj
-        // (2) Send the ml result 
-        // (3) Recieve the ml result and store it in the doc state
-        // (4) Depending on the format, store it exactly into the doc state
+        // Since proof depends on question. Need to check question first and then the body
+        this.abortMLQuestionTrigger(`aborted:${state}:mutation`);
+        
 
-        return null;
+        if (this.#checkQuestionTriggerConditions(this.#state.question.content, this.#state.question.selectedLemmas)) {
+
+            // Start a fresh ML run with cancellation + stale-run protection.
+            void this.#runQuestionAnalysis();
+        }
     }
 
+    async #runQuestionAnalysis(): Promise<void> {
+        /**
+         * Run the question analysis.
+         * (5) Call the AI service
+         * (6) Apply the analysis result to the document state
+         * (7) Broadcast the document state
+         * (8) Broadcast the analysis status as "idle"
+         * (9) Clean up the abort controller if it is the current one
+         */
+
+        // (1) Cleanup previous controller, set up new, increment run id
+        const runId = this.#setUpQuestionAnalysis();
+        const controller = this.#qAbortController;
+        if (!controller) return;
+
+        // (2) Broadcast the analysis status as "analyzing." Needed for the UI to show the progress bar.
+        this.broadcastAnalysisStatus("analyzing");
+
+        // (3) Build the prompt
+        const composed = buildQuestionPrompt(this.#state);
+
+        try {
+            // (4) Call Gemini generateContent (JSON).
+            const payload = await this.#callGemini(runId, controller, composed);
+
+            // (5) Stale response guard (newer run started while this request was in flight).
+            if (runId !== this.#analysisRunId) return;
+
+            // (6) Enforce the analysis policy
+            const context = buildPromptContext({ state: this.#state });
+            const normalized = enforceQuestionAnalysisPolicy(payload, composed.fieldPolicy, context);
+
+            this.#applyQuestionAnalysisResult(normalized, composed.fieldPolicy);
+            this.broadcastDocumentState();
+            this.broadcastAnalysisStatus("idle");
+        } catch (error) {
+            // Expected path for explicit aborts.
+            if (controller.signal.aborted) return;
+
+            // If another run superseded this one, drop silently.
+            if (runId !== this.#analysisRunId) return;
+
+            console.error("Question analysis request failed:", error);
+            this.broadcastAnalysisStatus("idle");
+        } finally {
+            
+            // Clean up the abort controller if it is the current one
+            if (this.#qAbortController === controller) {
+                this.#qAbortController = null;
+            }
+        }
+    }
+
+
+    #setUpQuestionAnalysis(): number {
+        /**
+         * Set up a new question analysis run.
+         * (1) Increment the analysis run id
+         * (2) Abort any previous question analysis runs
+         * (3) Create a new abort controller
+         * (4) Return the new analysis run id
+         */
+        this.#analysisRunId += 1;
+        this.#qAbortController?.abort("aborted:superseded");
+        this.#qAbortController = new AbortController();
+        return this.#analysisRunId;
+    }
+
+    async #callGemini(runId: number,controller: AbortController, composed: ComposedPrompt): Promise<QuestionAnalysisResponse> {
+        /**
+         * Question analysis via Gemini `generateContent` only.
+         * `runId` is for server-side correlation; not included in model input.
+         * RAG: plug in `setQuestionRetrievalProvider` under `ml/gemini/retrieval`.
+         */
+        return callGeminiQuestionAnalysis({
+            runId,
+            composed,
+            abortSignal: controller.signal,
+        });
+    }
+
+    #applyQuestionAnalysisResult(response: QuestionAnalysisResponse, fieldPolicy: ComposedPrompt["fieldPolicy"]): void {
+        /**
+         * Apply the question analysis result to the document state.
+         * (1) Update the provability
+         * (2) Update the proof type
+         * (3) Update the suggested math statements
+         */
+        
+        // (1) Update the provability
+        this.#state.question.provability = response.provability;
+
+        // (2) Update the proof type
+        if (response.proofType != null) {
+            this.#state.proofType = response.proofType;
+            if (this.#state.proofTypeOrigin === ProofTypeOrigin.UNDETECTED) {
+                this.#state.proofTypeOrigin = ProofTypeOrigin.DETECTED;
+            }
+        } 
+        else if (fieldPolicy.proofType === "required") {
+            // We're not writing anything here because we do not want to update proof type when the ML model says no.
+        }
+
+        // Prototype: suggested math statements are validated but not merged into state yet.
+        void response.suggestedMathStatements;
+    }
+
+
+    
+
         // TODO implement this
-    #checkProvabilityConditions(question: string, lemmas: Lemma[]): boolean {
+    #checkQuestionTriggerConditions(question: string, lemmas: SelectedLemma[]): boolean {
         /**
          * If: (1) The question is empty. (2) Atleast one lemma is incomplete, return false immediately 
          * Else, return true
+         * Also check for manual overrides. If a lemma is not complete BUT is overriden, skip it and check the next lemma
          */
-    
+        if (question.length === 0) return false;
+        for (const lemma of lemmas){
+            if (lemma.lemmaStatus !== "COMPLETE" && !lemma.lemmaManualOverride) return false;
+        }
+        return true;
     }
 
     
-    #selectPrompt(document: HotDocumentState): {prompt: string, expectedResponseFormat: string} {
+ 
+
+
+
+    // ==== Grace Period Management ====
+
+    #startGraceTimer(){
         /**
-         * Depending on doc state, give the correct prompt to ML
-         * Prompts should change according to the following:
-         * (1) Question is set. 
-         * (2) Question AND ProofType is set
-         * (3) Question AND MathStatents are set
-         * (4) Question AND ProofType AND MathStatements are set
+         * Create a new grace period timer when:
+         * (1) The user disconnects from a document session.
          */
-        return {prompt: "", expectedResponseFormat: ""};
+
     }
 
-    // TODO implement this
-    // TODO small note: MAke sure to format the json file correclty to put it directly back into doc state easily
-    #prompt1(question: string): string | null{
+    #isGraceTimerActive(): boolean {
         /**
-         * Prompt to check provability when only the question is set. 
-         * Else, return null
+         * Check if the grace period timer is currently active. Used to determine if a reconnecting user is within the grace period.
          */
-        return null;
+        return this.#timers.grace !== null;
     }
 
-    #prompt2(question: string, proofType: string): string{
-        /**
-         * Prompt to check provability when the question and proof type are set. Ask for a binary classification of whether the question is provable or not, along with reasoning.
-         * If the question is provable, return <true>. If not, return <false>.
+    #stopGraceTimer(){
+        /** 
+         * Stop the grace period timer when:
+         * (1) The user rejoins within the grace period, so we cancel the pending eviction.
          */
-        return "";
+    }
+
+    // ==== Autosave Management ====
+
+    #startAutosaveTimer(){
+        /**
+         * Start the autosave interval when:
+         * (1) The user made recent edits to the document 
+         */
+
+    }
+    #isAutosaveTimerActive(): boolean {
+        /**
+         * Check if the autosave timer is currently active. Used to determine if we should flush the document state to the database soon.
+         */
+        return this.#timers.autosave !== null;
+    }
+
+    #stopAutosaveTimer(){
+        /**
+         * Stop the autosave interval when: 
+         * 
+         */
+    }
+    // ==== Lemma Trigger Management ====
+
+    #startLemmaTimer(){
+        /**
+         * Trigger Lemma generation when:
+         * (1) The user has not typed anything for the past `seconds` seconds after making an edit that could impact lemmas.
+         */
+    }
+    #isLemmaTimerActive(): boolean {
+        /**
+         * Check if the lemma trigger timer is currently active. Used to determine if a lemma generation task is pending.
+         */
+        return this.#timers.lemma !== null;
+    }
+
+    #stopLemmaTimer(){
+        /**
+         * Cancel the pending lemma trigger when:
+         * (1) The user types another character, so we reset the debounce window.
+         */
+    }
+
+    // ==== ML Trigger Management ====
+
+    #startMlQuestionTimer(seconds: number){
+        /**
+         * Trigger ML question when:
+         * (1) The user has not typed anything for the past `seconds` seconds
+         */
+    }
+    #isMlQuestionTimerActive(): boolean {
+        /**
+         * Check if the ML question trigger timer is currently active. Used to determine if an ML question task is pending.
+         */
+        return this.#timers.mlQuestion !== null;
+    }
+
+    #stopMlQuestionTimer(){
+        /**
+         * Cancel the pending ML question trigger when:
+         * (1) The user types another character, so we reset the debounce window.
+         */
+    }
+
+    #startMlBodyTimer(seconds: number){
+        /**
+         * Trigger ML body when:
+         * (1) The user has not typed anything for the past `seconds` seconds
+         */
+    }
+
+    #isMlBodyTimerActive(): boolean {
+        /**
+         * Check if the ML body trigger timer is currently active. Used to determine if an ML body task is pending.
+         */
+        return this.#timers.mlBody !== null;
+    }
+
+    #stopMlBodyTimer(){
+        /**
+         * Cancel the pending ML body trigger when:
+         * (1) The user types another character, so we reset the debounce window.
+         */
+    }
+
+    // ==== Cleanup ====
+    #purgeAllTimers(){
+        /**
+         * Purge all timers for a document when:
+         * (1) The document session is evicted after the grace period expires, so we clean up all pending timers.
+         */
     }
 
 

@@ -20,7 +20,9 @@ export const documentQueryInclude = {
     errors: true,
     documentMathStatements: {
         include: {
-            mathStatement: { select: { publicId: true, privateOwnerId: true } },
+            mathStatement: {
+                select: { publicId: true, privateOwnerId: true, name: true, type: true, content: true },
+            },
         },
     },
     usedLemmas: {
@@ -128,8 +130,11 @@ async function writeDocumentMetadata(tx: TransactionClient, documentPublicId: st
         data: {
             title: state.title,
             status: state.status,
-            provability: state.provability,
+            provability: state.question.provability,
             proofType: state.proofType,
+            proofTypeOrigin: state.proofTypeOrigin,
+            strictnessProofType: state.settings.strictnessProofType,
+            strictnessMathStatements: state.settings.strictnessMathStatements,
             lastEdited: new Date(),
         },
     });

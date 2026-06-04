@@ -135,6 +135,12 @@ enum Provability {
   UNKNOWN
 }
 
+enum ProofTypeOrigin {
+  UNDETECTED
+  DETECTED
+  USER_SET
+}
+
 model Document {
   // A proof document owned by a user: metadata, course scope, and compile/edit timestamps.
   //
@@ -149,6 +155,9 @@ model Document {
   privateOwnerId                Int
   user                          User                            @relation(fields: [privateOwnerId], references: [privateId], onDelete: Cascade)
   proofType                     ProofType
+  proofTypeOrigin               ProofTypeOrigin                 @default(UNDETECTED)
+  strictnessProofType           Boolean                         @default(false) // When true, ML must not change the selected proof type.
+  strictnessMathStatements      Boolean                         @default(true)  // When true, ML must not add math statements beyond the selected pool.
   privateCourseId               Int?
   course                        Course?                         @relation(fields: [privateCourseId], references: [privateId], onDelete: SetNull)
 

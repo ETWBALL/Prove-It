@@ -6,6 +6,7 @@ import {
     HotDocumentState,
     SelectedLemma,
     SelectedMathStatement,
+    UserDefinedMathStatement,
     WorkspaceEntry,
 } from "./types";
 import { LoadedDocument, queryDocument } from "./DatabaseHelpers";
@@ -101,13 +102,14 @@ export class Registry {
             coursePublicId: document.course?.publicId ?? null,
             title: document.title,
             status: document.status,
-            provability: document.provability,
             proofType: document.proofType,
+            proofTypeOrigin: document.proofTypeOrigin,
             settings: {
                 isOpen: false,
-                strictnessMathStatements: true,
-                strictnessProofType: false,
+                strictnessMathStatements: document.strictnessMathStatements,
+                strictnessProofType: document.strictnessProofType,
             },
+            userDefinedMathStatements: collectUserDefinedMathStatements(document.documentMathStatements),
             body: {
                 content: body?.content ?? "",
                 revision: 0,
@@ -116,6 +118,7 @@ export class Registry {
             question: {
                 content: body?.provingStatement ?? "",
                 revision: 0,
+                provability: document.provability,
                 selectedMathStatements: document.documentMathStatements.map((row) =>
                     mapMathStatementRow(row),
                 ),
@@ -284,6 +287,26 @@ function mapErrorRow(row: DocumentErrorRow): ErrorState {
         dismissedAt: row.dismissedAt,
         isPendingReevaluation: false,
     };
+}
+
+function collectUserDefinedMathStatements(rows: LoadedDocument["documentMathStatements"]): Record<string, UserDefinedMathStatement> {
+    /**
+     * Collect the user-defined math statements from the document. Return a record of publicId to UserDefinedMathStatement.
+     */
+    const catalog: Record<string, UserDefinedMathStatement> = {};
+    for (const row of rows) {
+        const { mathStatement } = row;
+        if (mathStatement.privateOwnerId == null) continue;
+        catalog[mathStatement.publicId] = {
+            publicId: mathStatement.publicId,
+            information: {
+                name: mathStatement.name,
+                type: mathStatement.type,
+                content: mathStatement.content,
+            },
+        };
+    }
+    return catalog;
 }
 
 function mapMathStatementRow(row: DocumentMathStatementRow): SelectedMathStatement {
