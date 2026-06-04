@@ -2,7 +2,7 @@
   "name": "prove-it",
   "private": true,
   "scripts": {
-    "dev": "docker compose up -d redis postgres && concurrently -n web,websocket,ml \"pnpm --filter @prove-it/web dev\" \"pnpm --filter @prove-it/websocket dev\" \"uvicorn --env-file .env --app-dir apps/ml src.main:app --reload --host 0.0.0.0 --port 8000\"",
+    "dev": "docker compose up -d redis postgres && concurrently -n web,websocket \"pnpm --filter @prove-it/web dev\" \"pnpm --filter @prove-it/websocket dev\"",
     "dev:redis": "docker compose up -d redis",
     "dev:database": "docker compose up -d postgres",
     "build": "pnpm -r build",
@@ -13,8 +13,6 @@
     "prisma:studio": "prisma studio --schema=./packages/db/schema.prisma",
     "docker:build:ws": "docker build -f apps/websocket/Dockerfile . -t prove-it-websocket",
     "docker:run:ws": "docker run --env-file .env -p 3001:3001 prove-it-websocket",
-    "docker:build:ml": "docker build -f apps/ml/dockerfile apps/ml -t prove-it-ml",
-    "docker:run:ml": "docker run --env-file .env -p 8000:8000 prove-it-ml",
     "docker:build:web": "docker build -f apps/web/dockerfile apps/web -t prove-it-web",
     "docker:run:web": "docker run --env-file .env -p 3000:3000 prove-it-web"
   },

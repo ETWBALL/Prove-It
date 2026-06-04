@@ -12,8 +12,7 @@
 # change the host mapping (e.g. "5433:5432") and adjust DATABASE_URL override.
 #
 # Hot reload: bind-mount sources into the containers. Node services also use an
-# anonymous `/app/node_modules` volume. ML mounts `./apps/ml` only; pip packages
-# stay in the image under `/usr/local/...`.
+# anonymous `/app/node_modules` volume.
 
 name: prove-it
 
@@ -48,36 +47,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-
-  # ML worker service. Keep env in root `.env`; currently depends on Redis readiness.
-  ml:
-    container_name: prove-it-ml
-    build:
-      context: ./apps/ml
-      dockerfile: dockerfile
-    env_file:
-      - .env
-    environment:
-      PYTHONPATH: /app
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-    command:
-      - uvicorn
-      - src.main:app
-      - --host
-      - "0.0.0.0"
-      - --port
-      - "8000"
-      - --reload
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./apps/ml:/app
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
 
   websocket:
     container_name: prove-it-websocket

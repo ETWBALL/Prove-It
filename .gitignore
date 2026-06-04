@@ -83,6 +83,3 @@ next-env.d.ts
 
 # Local development
 start_local_database.sh
-
-# RAG data
-/apps/ml/data/
