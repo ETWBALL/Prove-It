@@ -12,6 +12,18 @@ import {
 import { flushStateToDatabase, LoadedDocument, queryDocument, queryDocumentForUser } from "./DatabaseHelpers";
 import { FlushScopes } from "./types";
 
+export type RegistryOnDisconnectOptions = {
+    /** Why the socket is detaching — used for the ML abort reason string. */
+    reason: "leave" | "disconnect";
+    /**
+     * `grace` — wait before flush + RAM eviction (optional; not used on native disconnect).
+     * `immediate` — purge timers and delete #workspaces (last connection; caller flushes first).
+     * `none` — detach socket only; workspace stays hot (another connection remains).
+     * `retain-workspace` — last socket detached after persist failed; workspace kept in RAM for retry.
+     */
+    eviction: "grace" | "immediate" | "none" | "retain-workspace";
+};
+
 export class Registry {
     /**
      * Maintains all client connections
@@ -62,6 +74,8 @@ export class Registry {
             }
 
             if (this.#isAlreadyInThisDoc(socketId, documentPublicId)) {
+                const existing = this.#workspaces.get(documentPublicId);
+                existing?.orchestrator.stopGracePeriod();
                 return { registered: true, message: "IDEMPOTENT_JOIN" };
             }
 
@@ -142,16 +156,41 @@ export class Registry {
         return { ok: true, workspace };
     }
 
+    public getBoundDocumentPublicId(socketId: string): string | undefined {
+        /**
+         * Legacy socketDocumentMap.get(socket.id) — which document this socket is attached to.
+         */
+        return this.#socketToDocument.get(socketId);
+    }
+
+    public getDocumentConnectionCount(documentPublicId: string): number {
+        /**
+         * Legacy documentConnectionCounts.get(documentId) — active sockets on this document.
+         */
+        const workspace = this.#workspaces.get(documentPublicId);
+        if (!workspace) {
+            return 0;
+        }
+        if (workspace.registeredSocketIds.size > 0) {
+            return workspace.registeredSocketIds.size;
+        }
+        return workspace.socketId.length > 0 ? 1 : 0;
+    }
+
     public isLastSocketForDocument(socketId: string, documentPublicId: string): boolean {
         /**
          * True when this socket is the only registered connection for the document.
          * Used to decide whether leaving should flush RAM and evict the workspace.
+         * Call before detaching the socket (legacy branched on nextCount === 0).
          */
-        const workspace = this.#workspaces.get(documentPublicId);
-        if (!workspace) {
+        if (this.#socketToDocument.get(socketId) !== documentPublicId) {
             return false;
         }
-        if (workspace.registeredSocketIds.size > 1) {
+        if (this.getDocumentConnectionCount(documentPublicId) !== 1) {
+            return false;
+        }
+        const workspace = this.#workspaces.get(documentPublicId);
+        if (!workspace) {
             return false;
         }
         if (workspace.registeredSocketIds.size === 1) {
@@ -160,71 +199,52 @@ export class Registry {
         return workspace.socketId === socketId;
     }
 
-    public handleSocketDisconnect(socketId: string): void {
+    public onDisconnect(socketId: string, options: RegistryOnDisconnectOptions): void {
         /**
-         * Runs on the native Socket.IO `disconnect` event (tab closed, network drop, etc.).
-         * Aborts ML, detaches the socket, and starts a grace timer before RAM eviction.
+         * Shared teardown when a socket leaves a document (explicit leave or connection drop).
+         * Decrements the connection (registeredSocketIds), then evicts or starts grace when last.
+         * ML abort is the caller's responsibility (OnLeave / OnDisconnect).
          */
         const documentPublicId = this.#socketToDocument.get(socketId);
-        if (!documentPublicId) {
-            return;
-        }
+        const workspace = documentPublicId ? this.#workspaces.get(documentPublicId) : undefined;
 
-        const workspace = this.#workspaces.get(documentPublicId);
-        if (!workspace) {
-            return;
-        }
-
-        workspace.orchestrator.abortAllMLTriggers(`aborted:disconnect:${documentPublicId}`);
-
-        const startGrace = this.isLastSocketForDocument(socketId, documentPublicId);
+        const wasLastSocket =
+            documentPublicId != null && workspace != null
+                ? this.isLastSocketForDocument(socketId, documentPublicId)
+                : false;
 
         this.#deleteSocket(socketId);
 
-        if (!startGrace) {
+        if (
+            !documentPublicId ||
+            !workspace ||
+            options.eviction === "none" ||
+            options.eviction === "retain-workspace"
+        ) {
+            return;
+        }
+
+        if (!wasLastSocket) {
             return;
         }
 
         const remaining = this.#workspaces.get(documentPublicId);
-        if (!remaining) {
+        if (!remaining || !this.#hasNoActiveSockets(remaining)) {
             return;
         }
 
-        const hasNoActiveSockets =
-            remaining.registeredSocketIds.size === 0 && remaining.socketId === "";
-
-        if (!hasNoActiveSockets) {
+        if (options.eviction === "grace") {
+            // Legacy cleared database/ml/question timers when the last connection dropped.
+            remaining.orchestrator.purgeAllTimers();
+            remaining.orchestrator.startGracePeriod(() => {
+                void this.#evictWorkspaceAfterGrace(documentPublicId);
+            });
             return;
         }
 
-        remaining.orchestrator.startGracePeriod(() => {
-            void this.#evictWorkspaceAfterGrace(documentPublicId);
-        });
-    }
-
-    public handleLeaveRoom(socketId: string): void {
-        /**
-         * Remove the <socketId> from the registry.
-         * When no sockets remain, purge orchestrator timers and evict the workspace from #workspaces.
-         */
-        const documentPublicId = this.#socketToDocument.get(socketId);
-        this.#deleteSocket(socketId);
-
-        if (!documentPublicId) {
-            return;
-        }
-
-        const workspace = this.#workspaces.get(documentPublicId);
-        if (!workspace) {
-            return;
-        }
-
-        const hasNoActiveSockets =
-            workspace.registeredSocketIds.size === 0 && workspace.socketId === "";
-
-        if (hasNoActiveSockets) {
-            workspace.orchestrator.purgeAllTimers();
-            this.#workspaces.delete(documentPublicId);
+        if (options.eviction === "immediate") {
+            remaining.orchestrator.purgeAllTimers();
+            this.#evictWorkspaceFromRam(documentPublicId);
         }
     }
 
@@ -376,6 +396,14 @@ export class Registry {
     }
 
 
+    public detachSocket(socketId: string): void {
+        /**
+         * Remove the socket from #socketToDocument and registeredSocketIds only.
+         * Legacy persist-failure path: drop map entries but keep the workspace in #workspaces for retry.
+         */
+        this.#deleteSocket(socketId);
+    }
+
     public getWorkspaceBySocket(socketId: string): WorkspaceEntry | undefined {
         /**
          * Given <socketId>, return the workspace entry associated with it.
@@ -469,19 +497,33 @@ export class Registry {
         this.#disconnectSocket(otherId);   // then kill the socket
     }
 
+    #hasNoActiveSockets(workspace: WorkspaceEntry): boolean {
+        /**
+         * Check if the <workspace> has no active sockets.
+         */
+        return workspace.registeredSocketIds.size === 0 && workspace.socketId === "";
+    }
+
+    #evictWorkspaceFromRam(documentPublicId: string): void {
+        /**
+         * Legacy documentStates.delete — remove workspace from #workspaces when no sockets remain.
+         * Caller must flush first on leave/disconnect when needed.
+         */
+        const workspace = this.#workspaces.get(documentPublicId);
+        if (!workspace || !this.#hasNoActiveSockets(workspace)) {
+            return;
+        }
+
+        workspace.orchestrator.purgeAllTimers();
+        this.#workspaces.delete(documentPublicId);
+    }
+
     async #evictWorkspaceAfterGrace(documentPublicId: string): Promise<void> {
         /**
          * Flush and remove a workspace after the disconnect grace period expires.
          */
         const workspace = this.#workspaces.get(documentPublicId);
-        if (!workspace) {
-            return;
-        }
-
-        const hasNoActiveSockets =
-            workspace.registeredSocketIds.size === 0 && workspace.socketId === "";
-
-        if (!hasNoActiveSockets) {
+        if (!workspace || !this.#hasNoActiveSockets(workspace)) {
             return;
         }
 
@@ -493,9 +535,10 @@ export class Registry {
             );
         } catch (error) {
             console.error(
-                `[Registry] Grace eviction failed to persist document ${documentPublicId}:`,
+                `[Registry] Grace eviction failed to persist document ${documentPublicId}; keeping in-memory state for retry.`,
                 error,
             );
+            return;
         }
 
         workspace.orchestrator.purgeAllTimers();

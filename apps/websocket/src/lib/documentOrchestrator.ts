@@ -15,7 +15,9 @@ import {
     Lemma,
     QuestionAnalysisResponse,
     SelectedLemma,
+    Target,
 } from "./types";
+import { type DeltaValidationCode, validateDeltaForContent } from "./validateDelta";
 
 const QUESTION_DELTA_THRESHOLD = 50;
 const BODY_DELTA_THRESHOLD = 30;
@@ -167,27 +169,65 @@ export class DocumentOrchestrator {
 
     // ==== Delta Management ====
 
-    // TODO implement this
-    public applyDelta(delta: Delta): void {
+    public applyDelta(delta: Delta): DeltaValidationCode | null {
         /**
-         * Apply the delta by first validating it, then storing it into the hot
-         * doc state. Target is either 'question' or 'content'.
-         * 
-        */
-       // (1) Validate the delta. Check if the delta is well-formed, if the revision number is correct, and if the delta can be applied to the current state without conflicts
-       
-       // (2) Apply the delta to the in-memory document state. This involves updating the question text or content based on the type of delta (insert, delete, replace) and its target.
+         * Validate then apply a delta to question or body content.
+         * Returns a validation error code, or null on success.
+         */
+        const validationError = this.#validateDelta(delta);
+        if (validationError) {
+            return validationError;
+        }
 
+        // (2) Apply the delta to the in-memory document state (TODO: insert/delete/replace on content string).
 
+        if (delta.target === "question") {
+            this.deltas.question += 1;
+        } else {
+            this.deltas.body += 1;
+        }
 
+        return null;
     }
 
-    #validateDelta(delta: Delta): boolean {
+    public hasPendingEdits(): boolean {
         /**
-         * Check if the delta is well-formed, if the revision number is correct, and if the delta can be applied to the current state without conflicts.
-         * Return true if valid, false otherwise.
+         * True when unsaved deltas are still in RAM (legacy buffer / questionBuffer length > 0).
          */
-        return false;
+        return this.deltas.body > 0 || this.deltas.question > 0;
+    }
+
+    public clearPendingEditCounters(): void {
+        /**
+         * Reset pending-delta counters after a successful content flush.
+         */
+        this.deltas.body = 0;
+        this.deltas.question = 0;
+    }
+
+    #validateDelta(delta: Delta): DeltaValidationCode | null {
+        /**
+         * Check delta shape, revision ordering, and content bounds before apply.
+         */
+        const slice = this.#getContentSlice(delta.target);
+        if (slice.revision + 1 !== delta.revision) {
+            return "REVISION_MISMATCH";
+        }
+
+        return validateDeltaForContent(delta, slice.content.length);
+    }
+
+    #getContentSlice(target: Target): { content: string; revision: number } {
+        if (target === "question") {
+            return {
+                content: this.#state.question.content,
+                revision: this.#state.question.revision,
+            };
+        }
+        return {
+            content: this.#state.body.content,
+            revision: this.#state.body.revision,
+        };
     }
 
     public checkQuestionDeltaThreshold(): boolean {
@@ -227,6 +267,9 @@ export class DocumentOrchestrator {
         this.#qAbortController = null;
         this.#bAbortController?.abort(reason);
         this.#bAbortController = null;
+
+        this.#stopMlQuestionTimer();
+        this.#stopMlBodyTimer();
 
         this.#analysisRunId += 1;
         this.broadcastAnalysisStatus("aborted");
@@ -271,7 +314,7 @@ export class DocumentOrchestrator {
          */
         this.#state.settings.isOpen = true;
         this.abortAllMLTriggers("aborted:settings:opened");
-        this.#stopMlQuestionTimer();
+        this.stopMlQuestionTimer();
         this.broadcastDocumentState();
     }
 
@@ -435,8 +478,8 @@ export class DocumentOrchestrator {
 
     public startGracePeriod(onExpire: () => void, durationMs = DISCONNECT_GRACE_MS): void {
         /**
-         * Create a new grace period timer when:
-         * (1) The user disconnects from a document session.
+         * Optional delayed eviction (Registry `eviction: "grace"` only).
+         * Native disconnect uses immediate RAM eviction like legacy — no grace window.
          */
         this.#stopGraceTimer();
         this.#timers.grace = setTimeout(() => {
@@ -453,14 +496,14 @@ export class DocumentOrchestrator {
         this.#stopGraceTimer();
     }
 
-    #isGraceTimerActive(): boolean {
+    public isGraceTimerActive(): boolean {
         /**
          * Check if the grace period timer is currently active. Used to determine if a reconnecting user is within the grace period.
          */
         return this.#timers.grace !== null;
     }
 
-    #stopGraceTimer(): void {
+    public stopGraceTimer(): void {
         /** 
          * Stop the grace period timer when:
          * (1) The user rejoins within the grace period, so we cancel the pending eviction.
@@ -473,21 +516,21 @@ export class DocumentOrchestrator {
 
     // ==== Autosave Management ====
 
-    #startAutosaveTimer(){
+    public startAutosaveTimer(){
         /**
          * Start the autosave interval when:
          * (1) The user made recent edits to the document 
          */
 
     }
-    #isAutosaveTimerActive(): boolean {
+    public isAutosaveTimerActive(): boolean {
         /**
          * Check if the autosave timer is currently active. Used to determine if we should flush the document state to the database soon.
          */
         return this.#timers.autosave !== null;
     }
 
-    #stopAutosaveTimer(): void {
+    public stopAutosaveTimer(): void {
         /**
          * Stop the autosave interval when: 
          * 
@@ -499,20 +542,20 @@ export class DocumentOrchestrator {
     }
     // ==== Lemma Trigger Management ====
 
-    #startLemmaTimer(){
+    public startLemmaTimer(){
         /**
          * Trigger Lemma generation when:
          * (1) The user has not typed anything for the past `seconds` seconds after making an edit that could impact lemmas.
          */
     }
-    #isLemmaTimerActive(): boolean {
+    public isLemmaTimerActive(): boolean {
         /**
          * Check if the lemma trigger timer is currently active. Used to determine if a lemma generation task is pending.
          */
         return this.#timers.lemma !== null;
     }
 
-    #stopLemmaTimer(): void {
+    public stopLemmaTimer(): void {
         /**
          * Cancel the pending lemma trigger when:
          * (1) The user types another character, so we reset the debounce window.
@@ -525,20 +568,20 @@ export class DocumentOrchestrator {
 
     // ==== ML Trigger Management ====
 
-    #startMlQuestionTimer(seconds: number){
+    public startMlQuestionTimer(seconds: number){
         /**
          * Trigger ML question when:
          * (1) The user has not typed anything for the past `seconds` seconds
          */
     }
-    #isMlQuestionTimerActive(): boolean {
+    public isMlQuestionTimerActive(): boolean {
         /**
          * Check if the ML question trigger timer is currently active. Used to determine if an ML question task is pending.
          */
         return this.#timers.mlQuestion !== null;
     }
 
-    #stopMlQuestionTimer(): void {
+    public stopMlQuestionTimer(): void {
         /**
          * Cancel the pending ML question trigger when:
          * (1) The user types another character, so we reset the debounce window.
@@ -549,21 +592,21 @@ export class DocumentOrchestrator {
         }
     }
 
-    #startMlBodyTimer(seconds: number){
+    public startMlBodyTimer(seconds: number){
         /**
          * Trigger ML body when:
          * (1) The user has not typed anything for the past `seconds` seconds
          */
     }
 
-    #isMlBodyTimerActive(): boolean {
+    public isMlBodyTimerActive(): boolean {
         /**
          * Check if the ML body trigger timer is currently active. Used to determine if an ML body task is pending.
          */
         return this.#timers.mlBody !== null;
     }
 
-    #stopMlBodyTimer(): void {
+    public stopMlBodyTimer(): void {
         /**
          * Cancel the pending ML body trigger when:
          * (1) The user types another character, so we reset the debounce window.
@@ -578,13 +621,14 @@ export class DocumentOrchestrator {
     public purgeAllTimers(): void {
         /**
          * Purge all timers for a document when:
-         * (1) The document session is evicted after the grace period expires, so we clean up all pending timers.
+         * (1) The last socket disconnects (before a new grace timer is started).
+         * (2) The workspace is evicted from RAM (explicit leave or post-grace flush).
          */
-        this.#stopGraceTimer();
-        this.#stopAutosaveTimer();
-        this.#stopMlQuestionTimer();
-        this.#stopMlBodyTimer();
-        this.#stopLemmaTimer();
+        this.stopGraceTimer();
+        this.stopAutosaveTimer();
+        this.stopMlQuestionTimer();
+        this.stopMlBodyTimer();
+        this.stopLemmaTimer();
     }
 
 

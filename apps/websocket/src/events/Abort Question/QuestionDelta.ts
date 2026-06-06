@@ -7,11 +7,14 @@ export function QuestionDelta(socket: Socket, workspaceEntry: WorkspaceEntry, de
      * Store delta in doc state, persist to db, trigger provability if needed.
      */
 
-    // (1) Apply delta
-    workspaceEntry.orchestrator.applyDelta(delta);
+    const validationError = workspaceEntry.orchestrator.applyDelta(delta);
+    if (validationError) {
+        socket.emit("document:delta:error", { code: validationError });
+        return;
+    }
 
     // (2) Set up db timer
-    workspaceEntry.orchestrator.timers.startAutosave();
+    workspaceEntry.orchestrator.startAutosaveTimer();
 
     // (3) Check if delta threshold is met. Persist to db if so
     if (workspaceEntry.orchestrator.checkQuestionDeltaThreshold()) {
@@ -19,7 +22,7 @@ export function QuestionDelta(socket: Socket, workspaceEntry: WorkspaceEntry, de
     }
 
     // (4) call statechanges to put a timer on for provability trigger
-    workspaceEntry.orchestrator.onStateMutation();
+    workspaceEntry.orchestrator.onStateMutation("question:modified");
 
 
 }

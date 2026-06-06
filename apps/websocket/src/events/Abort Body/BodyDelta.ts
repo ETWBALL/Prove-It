@@ -6,10 +6,12 @@ export const BodyDelta = (socket: Socket, workspace: WorkspaceEntry, delta: Delt
     /**
      * Store delta in doc state, persist to db, trigger error checking if needed.
      */
-    // TODO 
-    // (1) Apply delta
-    workspace.orchestrator.applyDelta(delta);
+    const validationError = workspace.orchestrator.applyDelta(delta);
+    if (validationError) {
+        socket.emit("document:delta:error", { code: validationError });
+        return;
+    }
 
     // (2) Set up db timer
-    workspace.orchestrator.timers.startAutosave();
+    workspace.orchestrator.startAutosaveTimer();
 }

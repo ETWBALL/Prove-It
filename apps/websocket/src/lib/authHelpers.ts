@@ -13,17 +13,19 @@ export interface AuthorizeSocketOptions {
 export function authenticate(io: Server) {
     io.use(async (socket, next) => {
         try {
+            // (1) Extract access token safely
             const accessToken = socket.handshake.auth?.accessToken;
             if (!accessToken) {
                 return next(new Error('Unauthorized'));
             }
 
             const { valid, expired, invalid, payload } = await verifyAccessToken(accessToken);
-
+            // (2) Validation check
             if (expired || invalid || !valid) {
                  return next(new Error('Unauthorized'));
             }
 
+            // (3) Set user data on socket
             const user = payload as { publicId: string, sessionPublicId: string };
             socket.data.user = user as User;
             next();
@@ -35,12 +37,10 @@ export function authenticate(io: Server) {
     });
 }
 
-export function authorizeSocket<Args extends unknown[]>(
-    clientSocket: AuthenticatedSocket,
-    registry: Registry,
-    handler: (socket: AuthorizedSocket, workspace: WorkspaceEntry, ...args: Args) => unknown,
-    options?: AuthorizeSocketOptions,
-) {
+export function authorizeSocket<Args extends unknown[]>(clientSocket: AuthenticatedSocket, registry: Registry, handler: (socket: AuthorizedSocket, workspace: WorkspaceEntry, ...args: Args) => unknown, options?: AuthorizeSocketOptions) {
+    /**
+     * Authorize the socket for document access before executing protected handler.
+     */
     return async (...args: Args) => {
         const userId = clientSocket.data.user?.publicId;
         const documentPublicId =

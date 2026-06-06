@@ -66,7 +66,7 @@ void (async () => {
         clientSocket.on('document:question:delta', authorizeSocket(clientSocket as AuthenticatedSocket, registry, (socket, workspace, delta: Delta) => {events.QuestionDelta(socket, workspace, delta)}))
         // (2) OnDisconnect: Native Socket.IO drop (tab close, network loss). Web client does not emit a custom event.
         clientSocket.on('disconnect', () => {
-            events.OnDisconnect(clientSocket, registry);
+            void events.OnDisconnect(clientSocket as AuthenticatedSocket, registry);
         })
 
         // (3) OnLeave: Protected. Users can leave 
