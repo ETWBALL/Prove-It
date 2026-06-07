@@ -1,4 +1,4 @@
-import { ProofTypeOrigin } from "@prove-it/db";
+import { MathStatement, ProofType, ProofTypeOrigin } from "@prove-it/db";
 import { buildQuestionPrompt } from "./ml/composePrompt";
 import { callGeminiQuestionAnalysis } from "./ml/gemini";
 import { enforceQuestionAnalysisPolicy } from "./ml/enforceResponsePolicy";
@@ -7,6 +7,7 @@ import {
     AnalysisPhase,
     AnalysisStatusPayload,
     ComposedPrompt,
+    CourseLemma,
     Delta,
     DOCUMENT_ANALYSIS_STATUS_EVENT,
     DOCUMENT_STATE_UPDATED_EVENT,
@@ -16,8 +17,13 @@ import {
     QuestionAnalysisResponse,
     SelectedLemma,
     Target,
+    UserDefinedLemma,
 } from "./types";
 import { type DeltaValidationCode, validateDeltaForContent } from "./validateDelta";
+import { GlobalLibraryRegistry } from "./globalLibraryRegistry";
+
+// TIMERS durations
+const LEMMA_TIMER_DURATION_MS = 10_000; // 10 seconds
 
 const QUESTION_DELTA_THRESHOLD = 50;
 const BODY_DELTA_THRESHOLD = 30;
@@ -48,11 +54,11 @@ export class DocumentOrchestrator {
     #bAbortController: AbortController | null = null;
     deltas: {question: number, body: number} = {question: 0, body: 0}; 
     #timers: {
-        grace: NodeJS.Timeout | null, // One-shot countdown for disconnect grace period
-        autosave: NodeJS.Timeout | null, // Interval for periodic autosave
-        mlQuestion: NodeJS.Timeout | null, // Sliding window debounce for ML triggers (Question text)
-        mlBody: NodeJS.Timeout | null, // Sliding window debounce for ML triggers (Body text)
-        lemma: NodeJS.Timeout | null // Sliding window debounce for lemma generation triggers
+        grace: NodeJS.Timeout | null; // One-shot countdown for disconnect grace period
+        autosave: NodeJS.Timeout | null; // Interval for periodic autosave
+        mlQuestion: NodeJS.Timeout | null; // Sliding window debounce for ML triggers (Question text)
+        mlBody: NodeJS.Timeout | null; // Sliding window debounce for ML triggers (Body text)
+        lemma: NodeJS.Timeout | null; // Sliding window debounce for lemma generation triggers
     } = {
         grace: null,
         autosave: null,
@@ -133,11 +139,135 @@ export class DocumentOrchestrator {
          */
     }
 
-    // TODO implement this
-    public addLemma(lemma: Lemma): void {
+    // ==== Lemma Management ====
+
+    public getSelectedLemma(lemmaPublicId: string): SelectedLemma | undefined {
         /**
-         * Add lemma to document state. 
+         * Given some <lemmaPublicId>, return the corresponding <SelectedLemma> object in the document state.
+         * Return undefined if the lemma is not in the document state.
          */
+        return this.#state.question.selectedLemmas.find(selectedLemma => selectedLemma.ref.publicId === lemmaPublicId);
+    }
+
+    public lemmaOrigin(lemma: Lemma): "user-defined" | "course" {
+        /**
+         * Return the type of lemma. 
+         * Return "user-defined" if the lemma is a user-defined lemma.
+         * Return "course" if the lemma is a course lemma.
+         */
+        return lemma.kind;
+    }
+
+    public isLemmaInDocumentState(lemma: Lemma): boolean {
+        /**
+         * Check if <lemma> is in document state as a <SelectedLemma> object.
+         * Return true if it is, false otherwise.
+         */
+
+        // Compare reference publicId
+        return this.#state.question.selectedLemmas.some(selectedLemma => selectedLemma.ref.publicId === lemma.publicId);
+    }
+
+    // TODO implement this
+    public addLemma(newLemma: Lemma): void {
+        /**
+         * Add lemma to document state. <newLemma> is either a user-defined or a course lemma.
+         */
+
+        // (1) Check if the lemma is already added
+        if (this.isLemmaInDocumentState(newLemma)) {
+            throw new Error(`Lemma ${newLemma.publicId} already in document state.`);
+        }
+
+        if (newLemma.kind === "user-defined") {
+            this.#addUserDefinedLemma(newLemma);
+        }
+
+        else {
+            this.#addCourseLemma(newLemma);
+        }
+    }
+
+    #addUserDefinedLemma(newLemma: UserDefinedLemma): void {
+        /**
+         * <newlemma> is a user-defined lemma. It has no concept of textbook, order index, or course.
+         * 
+         * === Precondition === 
+         * newLemma must already be in the database with a valid publicID.
+         */
+
+        const newSelectedLemma: SelectedLemma = {
+            lemmaStatus: "INCOMPLETE",
+            lemmaManualOverride: false,
+            ref: {
+                source: "user-defined",
+                publicId: newLemma.publicId,
+            },
+        };
+
+        this.#state.question.selectedLemmas.push(newSelectedLemma);
+    }
+
+    #addCourseLemma(newLemma: CourseLemma): void{
+        /**
+         * <newLemma> is a course lemma. <CourseLemma> interface contains extra fields
+         * <newLemma> is completely new. It does not have a <lemmaStatus> or <lemmaManualOverride> fields yet.
+         * 
+         * === Preconditions === 
+         * newLemma must already be in the database <Lemma> table with a valid publicID.
+         */
+
+        // (1) Pull the lemma from the global library registry. This is because lemma is stored in the global library already
+        const reference = GlobalLibraryRegistry.getLemma(newLemma.coursePublicId, newLemma.publicId);
+        if (!reference) {
+            throw new Error(`Course lemma ${newLemma.publicId} not found in global library registry.`);
+        }
+
+        // (2) Create the selected lemma object
+        const newSelectedLemma: SelectedLemma = {
+            lemmaStatus: "INCOMPLETE",
+            lemmaManualOverride: false,
+            ref: {
+                source: "course",
+                publicId: newLemma.publicId,
+            },
+        };
+
+        // (3) Add the selected lemma to the document state
+        this.#state.question.selectedLemmas.push(newSelectedLemma);
+
+    }
+
+    public isSelectedLemmaComplete(selectedLemma: SelectedLemma): boolean {
+        /**
+         * Check if <selectedLemma> is complete.
+         * If the <selectedLemma> is complete, return true.
+         * Otherwise, return false.
+         * 
+         * === Precondition ===
+         * <selectedLemma> must be a valid <SelectedLemma> object in the document state.
+         */
+        return selectedLemma.lemmaStatus === "COMPLETE";
+    }
+
+    public isSelectedLemmaOverridden(selectedLemma: SelectedLemma): boolean {
+        /**
+         * If <selectedLemma> is not complete but has been overriden, then return true.
+         * Remember, completeness means either proven or manually overridden.
+         */
+        return selectedLemma.lemmaManualOverride;
+    }
+
+    public deleteSelectedLemma(selectedLemma: SelectedLemma): void {
+        /**
+         * Delete <selectedLemma> from the document state.
+         * 
+         * === Precondition ===
+         * <selectedLemma> must exist in the document
+         */
+        this.#state.question.selectedLemmas = this.#state.question.selectedLemmas.filter(
+            lemma => lemma.ref.publicId !== selectedLemma.ref.publicId,
+        );
     }
 
     // TODO implement this
@@ -155,15 +285,20 @@ export class DocumentOrchestrator {
          */
     }
 
+ 
 
-    // TODO implement this
     public checkLemmas(): boolean {
         /**
          * Check if all lemmas are complete. 
          * If atleast one lemma is incomplete, return false immediately.
          * Otherwise, return true.
          */
-        return false;
+        const lemmas = this.#state.question.selectedLemmas;
+
+        for (const lemma of lemmas){
+            if (lemma.lemmaStatus !== "COMPLETE" && !lemma.lemmaManualOverride) return false;
+        }
+        return true;
     
     }
 
@@ -268,8 +403,8 @@ export class DocumentOrchestrator {
         this.#bAbortController?.abort(reason);
         this.#bAbortController = null;
 
-        this.#stopMlQuestionTimer();
-        this.#stopMlBodyTimer();
+        this.stopMlQuestionTimer();
+        this.stopMlBodyTimer();
 
         this.#analysisRunId += 1;
         this.broadcastAnalysisStatus("aborted");
@@ -454,8 +589,6 @@ export class DocumentOrchestrator {
 
 
     
-
-        // TODO implement this
     #checkQuestionTriggerConditions(question: string, lemmas: SelectedLemma[]): boolean {
         /**
          * If: (1) The question is empty. (2) Atleast one lemma is incomplete, return false immediately 
@@ -476,24 +609,16 @@ export class DocumentOrchestrator {
 
     // ==== Grace Period Management ====
 
-    public startGracePeriod(onExpire: () => void, durationMs = DISCONNECT_GRACE_MS): void {
+    public startGraceTimer(onExpire: () => void, durationMs = DISCONNECT_GRACE_MS): void {
         /**
-         * Optional delayed eviction (Registry `eviction: "grace"` only).
+         * Start the grace timer for delayed eviction (Registry `eviction: "grace"` only).
          * Native disconnect uses immediate RAM eviction like legacy — no grace window.
          */
-        this.#stopGraceTimer();
+        this.stopGraceTimer();
         this.#timers.grace = setTimeout(() => {
             this.#timers.grace = null;
             onExpire();
         }, durationMs);
-    }
-
-    public stopGracePeriod(): void {
-        /**
-         * Stop the grace period timer when:
-         * (1) The user rejoins within the grace period, so we cancel the pending eviction.
-         */
-        this.#stopGraceTimer();
     }
 
     public isGraceTimerActive(): boolean {
@@ -544,15 +669,35 @@ export class DocumentOrchestrator {
 
     public startLemmaTimer(){
         /**
-         * Trigger Lemma generation when:
-         * (1) The user has not typed anything for the past `seconds` seconds after making an edit that could impact lemmas.
+         * When this timer ends, check if all selected lemmas are complete. 
+         * If lemmas are complete, do nothing. Else, restart timer
+         * 
          */
+
+        // (1) Stop the current timer
+        this.stopLemmaTimer();
+
+        // (2) Start a new timer
+        this.#timers.lemma = setTimeout(() => {
+            this.#timers.lemma = null;
+            this.checkLemmas();
+        }, LEMMA_TIMER_DURATION_MS);
     }
+
+    
     public isLemmaTimerActive(): boolean {
         /**
          * Check if the lemma trigger timer is currently active. Used to determine if a lemma generation task is pending.
          */
         return this.#timers.lemma !== null;
+    }
+
+    public canStopLemmaTimer(): boolean {
+        /**
+         * Check if the lemma timer can be stopped.
+         * If all selected lemmas are complete, return true. Else, return false.
+         */
+        return this.#state.question.selectedLemmas.every(lemma => lemma.lemmaStatus === "COMPLETE");
     }
 
     public stopLemmaTimer(): void {

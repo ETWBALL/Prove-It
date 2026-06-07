@@ -13,8 +13,7 @@ export interface Information {
 
 
 // ONLY <globalLibraryRegistry> is allowed to store this
-export interface CourseMathStatement {
-  information: Information;
+export interface CourseMathStatement extends Information {
   textbook: Textbook | null;
   orderIndex: number | null;
   
@@ -22,9 +21,8 @@ export interface CourseMathStatement {
 
 
 // Document-owned definitions (not in registry)
-export interface UserDefinedMathStatement {
+export interface UserDefinedMathStatement extends Information {
   publicId: string;        
-  information: Information;
 }
 
 /** Junction row: links a document to a statement via `ref`; resolve `information` through the ref. */
@@ -47,35 +45,39 @@ export type MathStatementRef =
   | { source: "user"; publicId: string };
 
 
+  
 // ==== Lemma information ====
-
 interface LemmaInformation {
+  kind:     'course' | 'user-defined';  // ← the discriminant
   content: string;
   name: string;
+  publicId: string;
 }
 
 // ONLY <globalLibraryRegistry> is allowed to store this
-export interface CourseLemma {
-  information: LemmaInformation;
+export interface CourseLemma extends LemmaInformation {
+  kind:       'course';
   textbook: Textbook | null;
   orderIndex: number | null;
+  coursePublicId: string;
 }
 
 // Document-owned definitions (not in registry)
-export interface UserDefinedLemma {
-  publicId: string;
-  information: LemmaInformation;
+export interface UserDefinedLemma extends LemmaInformation {
+  kind:       'user-defined';
 }
 
-// Document: one row per “this doc uses this lemma”
+export type Lemma = CourseLemma | UserDefinedLemma;
+
+export type LemmaRef = {
+  source:   Lemma['kind'];   // 'course' | 'user-defined' — always in sync
+  publicId: string;
+};
+
+
+// What the document state stores:
 export interface SelectedLemma {
   lemmaStatus: ProofStatus;
   lemmaManualOverride: boolean;
   ref: LemmaRef;
 }
-
-export type Lemma = CourseLemma | UserDefinedLemma;
-
-export type LemmaRef =
-  | { source: "course"; publicId: string }
-  | { source: "user"; publicId: string };

@@ -1,10 +1,30 @@
-import { prisma, Prisma } from "@prove-it/db";
+import { DocumentLemma, prisma, Prisma } from "@prove-it/db";
 import { ErrorState, FlushScope, HotDocumentState } from "./types";
 
 /**
  * All Prisma / database access for document workspaces lives here.
  * Callers pass HotDocumentState in; helpers do not read from Registry or DocumentOrchestrator.
  */
+
+
+export type DocumentLemmaStatus = Pick<DocumentLemma, "lemmaStatus" | "lemmaManualOverride">;
+
+export async function getDocumentLemma(documentPublicId: string, lemmaPublicId: string): Promise<DocumentLemmaStatus | null> {    /**
+     * Get the DocumentLemma row from the database.
+     */
+    return prisma.documentLemma.findFirst({
+        where: {
+            document: { publicId: documentPublicId, deletedAt: null },
+            lemma: { publicId: lemmaPublicId },
+        },
+        select: {
+            lemmaStatus: true,
+            lemmaManualOverride: true,
+        },
+    });
+}
+
+
 
 export interface FlushResult {
     /** When `scope.errors` is true, errors include DB `publicId`s for newly created rows. */
