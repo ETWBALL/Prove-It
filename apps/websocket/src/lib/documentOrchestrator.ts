@@ -1,4 +1,4 @@
-import { MathStatement, ProofType, ProofTypeOrigin } from "@prove-it/db";
+import { ProofType, ProofTypeOrigin } from "@prove-it/db";
 import { buildQuestionPrompt } from "./ml/composePrompt";
 import { callGeminiQuestionAnalysis } from "./ml/gemini";
 import { enforceQuestionAnalysisPolicy } from "./ml/enforceResponsePolicy";
@@ -18,6 +18,10 @@ import {
     SelectedLemma,
     Target,
     UserDefinedLemma,
+    MathStatement,
+    SelectedMathStatement,
+    UserDefinedMathStatement,
+    CourseMathStatement,
 } from "./types";
 import { type DeltaValidationCode, validateDeltaForContent } from "./validateDelta";
 import { GlobalLibraryRegistry } from "./globalLibraryRegistry";
@@ -25,9 +29,17 @@ import { GlobalLibraryRegistry } from "./globalLibraryRegistry";
 // TIMERS durations
 const LEMMA_TIMER_DURATION_MS = 10_000; // 10 seconds
 
+
+
+// DELTA DB Thresholds
 const QUESTION_DELTA_THRESHOLD = 50;
 const BODY_DELTA_THRESHOLD = 30;
 const DISCONNECT_GRACE_MS = 30_000;
+
+// DELTA CONTENT BOUNDS
+const MAX_DELTA_CONTENT_LENGTH = 50_000;
+const MAX_DOCUMENT_LENGTH = 1_000_000;
+
 // TODO make sure you have put appropriate emits everywhere
 
 // TODO ask cursor or vscode to put semicolons and fix spacing/formatting everywhere
@@ -199,6 +211,11 @@ export class DocumentOrchestrator {
         const newSelectedLemma: SelectedLemma = {
             lemmaStatus: "INCOMPLETE",
             lemmaManualOverride: false,
+            hintContent: null,
+            wasUsed: false,
+            sufficient: "INSUFFICIENT",
+            resolvedAt: null,
+            dismissedAt: null,
             ref: {
                 source: "user-defined",
                 publicId: newLemma.publicId,
@@ -227,6 +244,11 @@ export class DocumentOrchestrator {
         const newSelectedLemma: SelectedLemma = {
             lemmaStatus: "INCOMPLETE",
             lemmaManualOverride: false,
+            hintContent: null,
+            wasUsed: false,
+            sufficient: "INSUFFICIENT",
+            resolvedAt: null,
+            dismissedAt: null,
             ref: {
                 source: "course",
                 publicId: newLemma.publicId,
@@ -270,23 +292,6 @@ export class DocumentOrchestrator {
         );
     }
 
-    // TODO implement this
-    public addMathStatement(mathStatement: MathStatement): void {
-        /**
-         * This can either be user-defined or a course math statement.
-         * Regardless, add the math statement to the document state.
-         */
-    }
-
-    // TODO implement this
-    public changeProofType(proofType: ProofType): void {
-        /**
-         * Update the proof type of the question. 
-         */
-    }
-
- 
-
     public checkLemmas(): boolean {
         /**
          * Check if all lemmas are complete. 
@@ -306,20 +311,39 @@ export class DocumentOrchestrator {
 
     public applyDelta(delta: Delta): DeltaValidationCode | null {
         /**
-         * Validate then apply a delta to question or body content.
+         * Apply a delta to question or body content.
          * Returns a validation error code, or null on success.
          */
-        const validationError = this.#validateDelta(delta);
-        if (validationError) {
-            return validationError;
-        }
-
-        // (2) Apply the delta to the in-memory document state (TODO: insert/delete/replace on content string).
-
+        
+        // (1) Increment the delta counter and get the content
+        let content;
         if (delta.target === "question") {
             this.deltas.question += 1;
+            content = this.#state.question.content;
+
         } else {
             this.deltas.body += 1;
+            content = this.#state.body.content;
+        }
+
+        // (2) Apply the delta
+        let nextContent: string;
+        if (delta.type === "insert") {
+            nextContent = content.slice(0, delta.index) + delta.content + content.slice(delta.index);
+        } else if (delta.type === "delete") {
+            nextContent = content.slice(0, delta.startIndex) + content.slice(delta.endIndex);
+        } else if (delta.type === "replace") {
+            nextContent = content.slice(0, delta.startIndex) + delta.content + content.slice(delta.endIndex);
+        } else {
+            return "INVALID_DELTA_SHAPE";
+        }
+
+        if (delta.target === "question") {
+            this.#state.question.content = nextContent;
+            this.#state.question.revision = delta.revision;
+        } else {
+            this.#state.body.content = nextContent;
+            this.#state.body.revision = delta.revision;
         }
 
         return null;
@@ -340,19 +364,135 @@ export class DocumentOrchestrator {
         this.deltas.question = 0;
     }
 
-    #validateDelta(delta: Delta): DeltaValidationCode | null {
+    isCleanDelta(delta: Delta): DeltaValidationCode | null {
         /**
          * Check delta shape, revision ordering, and content bounds before apply.
          */
+        // (1) Validate revision number
+        const revisionError = this.#validateRevisionNumber(delta);
+        if (revisionError) {
+            return revisionError;
+        }
+
+        // (2) Validate delta shape
+        const slice = this.#getContentSlice(delta.target);
+        const deltaShapeError = this.#validateDeltaShape(delta, slice.content.length);
+        if (deltaShapeError){
+            return deltaShapeError;
+        }
+
+        return null;
+    }
+
+    #validateNextLength(
+        contentLength: number,
+        removedLength: number,
+        insertedLength: number,
+    ): DeltaValidationCode | null {
+        /**
+         * Given <contentLength>, <removedLength>, and <insertedLength>, check if the next length is within the bounds.
+         */
+        const nextLength = contentLength - removedLength + insertedLength;
+        if (nextLength < 0 || nextLength > MAX_DOCUMENT_LENGTH) {
+            return "DOCUMENT_SIZE_LIMIT";
+        }
+        return null;
+    }
+    #validateDeltaShape(delta: Delta, contentLength: number): DeltaValidationCode | null {
+        /**
+         * Given <delta>, check if the delta fields are correct before applying it to the hot document state.
+         */
+
+        switch (delta.type) {
+            case "insert": {
+                if (!Number.isSafeInteger(delta.index)) {
+                    return "INVALID_DELTA_SHAPE";
+                }
+                if (delta.index < 0 || delta.index > contentLength) {
+                    return "INDEX_OUT_OF_BOUNDS";
+                }
+                const contentError = this.#validateContentString(delta.content);
+                if (contentError) {
+                    return contentError;
+                }
+                return this.#validateNextLength(contentLength, 0, delta.content.length);
+            }
+            case "delete": {
+                if (!Number.isSafeInteger(delta.startIndex) || !Number.isSafeInteger(delta.endIndex)) {
+                    return "INVALID_DELTA_SHAPE";
+                }
+                if (delta.startIndex < 0 || delta.endIndex < 0) {
+                    return "INVALID_INDEX";
+                }
+                if (delta.startIndex > delta.endIndex) {
+                    return "INVALID_RANGE";
+                }
+                if (delta.startIndex > contentLength || delta.endIndex > contentLength) {
+                    return "INDEX_OUT_OF_BOUNDS";
+                }
+                return this.#validateNextLength(contentLength, delta.endIndex - delta.startIndex, 0);
+            }
+            case "replace": {
+                if (!Number.isSafeInteger(delta.startIndex) || !Number.isSafeInteger(delta.endIndex)) {
+                    return "INVALID_DELTA_SHAPE";
+                }
+                if (delta.startIndex < 0 || delta.endIndex < 0) {
+                    return "INVALID_INDEX";
+                }
+                if (delta.startIndex > delta.endIndex) {
+                    return "INVALID_RANGE";
+                }
+                if (delta.startIndex > contentLength || delta.endIndex > contentLength) {
+                    return "INDEX_OUT_OF_BOUNDS";
+                }
+                const contentError = this.#validateContentString(delta.content);
+                if (contentError) {
+                    return contentError;
+                }
+                return this.#validateNextLength(
+                    contentLength,
+                    delta.endIndex - delta.startIndex,
+                    delta.content.length,
+                );
+            }
+        }
+    }
+
+    #validateContentString(content: string): DeltaValidationCode | null {
+        if (typeof content !== "string") {
+            return "INVALID_CONTENT";
+        }
+        if (content.length > MAX_DELTA_CONTENT_LENGTH) {
+            return "DELTA_TOO_LARGE";
+        }
+        return null;
+    }
+
+
+    #validateRevisionNumber(delta: Delta): DeltaValidationCode | null {
+        /**
+         * Given <delta>, Return the appropriate delta validation code if payload is incorrect. Otherwise, return null.
+         */
+
+        if (!Number.isSafeInteger(delta.revision)) {
+            return "INVALID_DELTA_SHAPE";
+        }
+        if (delta.revision <= 0) {
+            return "INVALID_REVISION";
+        }
+        // Revision is appropriate, check if it is the next revision
         const slice = this.#getContentSlice(delta.target);
         if (slice.revision + 1 !== delta.revision) {
             return "REVISION_MISMATCH";
         }
-
-        return validateDeltaForContent(delta, slice.content.length);
+        // Revision is appropriate and is the next revision, return null
+        return null;  
     }
 
     #getContentSlice(target: Target): { content: string; revision: number } {
+        /**
+         * Given <target>, return the content and revision of the target.
+         */
         if (target === "question") {
             return {
                 content: this.#state.question.content,
@@ -448,12 +588,150 @@ export class DocumentOrchestrator {
          * Force the settings state to be "open," abort ML, and broadcast.
          */
         this.#state.settings.isOpen = true;
-        this.abortAllMLTriggers("aborted:settings:opened");
-        this.stopMlQuestionTimer();
-        this.broadcastDocumentState();
     }
 
+
+    public closeSettings(): void {
+        /**
+         * Force the settings state to be "closed," start a new ML run, and broadcast.
+         * Lock the proof text box TODO make the frontend do this.
+         */
+        this.#state.settings.isOpen = false;
+    }
+
+    // ==== Proof Text Box Management ====
     
+    public lockProofTextBox(): void {
+        /**
+         * Lock the proof text box.
+         * 
+         */
+    
+        this.#state.settings.isOpen = false;
+    }
+
+    public unlockProofTextBox(): void {
+        /**
+         * Unlock the proof text box.
+         */
+        this.#state.settings.isOpen = true;
+    }
+
+    // ==== Proof Type Management ====
+    public updateProofType(proofType: ProofType, proofTypeOrigin: ProofTypeOrigin): void {
+        /**
+         * Update the proof type of the document.
+         */
+        
+        this.#state.proofType = proofType;
+        this.#state.proofTypeOrigin = proofTypeOrigin;
+    }
+    public getProofType(): ProofType {
+        /**
+         * Return the proof type of the document.
+         */
+        return this.#state.proofType;
+    }
+
+    // ==== Math Statement Management ====
+    public isMathStatementInDocumentState(mathStatement: MathStatement): boolean {
+        /**
+         * Given a <mathStatement>, return true if it exists in the current document state. Else, return false.
+         */
+
+        return this.#state.question.selectedMathStatements.some(selectedMathStatement => selectedMathStatement.ref.publicId === mathStatement.publicId);
+    }
+
+    public addMathStatement(mathStatement: MathStatement): void {
+        /**
+         * Add a <mathStatement> to the document state.
+         * <mathStatement> can be a user-defined or a course math statement.
+         */
+        // (1) Check if the math statement is already in the document state
+        if (this.isMathStatementInDocumentState(mathStatement)) {
+            throw new Error(`Math statement ${mathStatement.type} already in document state.`);
+        }
+
+        // (2) Add the user defined math statement to the document state
+        if (mathStatement.kind === "user-defined") {
+            this.#addUserDefinedMathStatement(mathStatement);
+        }
+
+        // (3) Add the course math statement to the document state
+        else {
+            this.#addCourseMathStatement(mathStatement);
+        }
+    }
+
+    #addUserDefinedMathStatement(mathStatement: UserDefinedMathStatement): void {
+        /**
+         * <mathStatement> is a user-defined math statement.
+         * It has no concept of textbook, order index, or course.
+         */
+        const newSelectedMathStatement: SelectedMathStatement = {
+            type: mathStatement.type,
+            hintContent: null,
+            wasUsed: false,
+            sufficient: "INSUFFICIENT",
+            resolvedAt: null,
+            dismissedAt: null,
+            ref: {
+                source: "user-defined",
+                publicId: mathStatement.publicId,
+            },
+        };
+
+        this.#state.question.selectedMathStatements.push(newSelectedMathStatement);
+    }
+    #addCourseMathStatement(mathStatement: CourseMathStatement): void {
+        /**
+         * <mathStatement> is a course math statement.
+         * It has a concept of textbook, order index, and course.
+         */
+
+         // (1) Pull the lemma from the global library registry. This is because lemma is stored in the global library already
+         const reference = GlobalLibraryRegistry.getMathStatement(mathStatement.coursePublicId, mathStatement.publicId);
+         if (!reference) {
+             throw new Error(`Course math statement ${mathStatement.publicId} not found in global library registry.`);
+         }
+
+        // (2) Create the selected math statement object
+        const newSelectedMathStatement: SelectedMathStatement = {
+            type: mathStatement.type,
+            hintContent: null,
+            wasUsed: false,
+            sufficient: "INSUFFICIENT",
+            resolvedAt: null,
+            dismissedAt: null,
+            ref: {
+                source: "course",
+                publicId: mathStatement.publicId,
+            },
+        };
+
+        // (3) Add the selected math statement to the document state
+        this.#state.question.selectedMathStatements.push(newSelectedMathStatement);
+    }
+
+    public deleteSelectedMathStatement(selectedMathStatement: SelectedMathStatement): void {
+        /**
+         * Delete <selectedMathStatement> from the document state.
+         * 
+         * === Precondition ===
+         * <selectedMathStatement> must exist in the document state
+         */
+        this.#state.question.selectedMathStatements = this.#state.question.selectedMathStatements.filter(
+            mathStatement => mathStatement.ref.publicId !== selectedMathStatement.ref.publicId,
+        );
+    }
+    public getSelectedMathStatement(mathStatementPublicId: string): SelectedMathStatement | undefined {
+        /**
+         * Given a <mathStatementPublicId>, return the corresponding selected math statement from the document state.
+         * If not found, return undefined.
+         */
+        return this.#state.question.selectedMathStatements.find(mathStatement => mathStatement.ref.publicId === mathStatementPublicId);
+    }
+
     // ==== ML Trigger Management ====
 
         // TODO implement this
@@ -474,11 +752,18 @@ export class DocumentOrchestrator {
         if (this.#checkQuestionTriggerConditions(this.#state.question.content, this.#state.question.selectedLemmas)) {
 
             // Start a fresh ML run with cancellation + stale-run protection.
-            void this.#runQuestionAnalysis();
+            void this.runQuestionAnalysis();
         }
     }
 
-    async #runQuestionAnalysis(): Promise<void> {
+    public isSettingsOpen(): boolean {
+        /**
+         * Check if the settings are open.
+         */
+        return this.#state.settings.isOpen;
+    }
+
+    async runQuestionAnalysis(): Promise<void> {
         /**
          * Run the question analysis.
          * (5) Call the AI service

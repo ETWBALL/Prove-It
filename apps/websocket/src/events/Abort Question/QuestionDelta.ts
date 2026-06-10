@@ -7,21 +7,26 @@ export function QuestionDelta(socket: Socket, workspaceEntry: WorkspaceEntry, de
      * Store delta in doc state, persist to db, trigger provability if needed.
      */
 
-    const validationError = workspaceEntry.orchestrator.applyDelta(delta);
-    if (validationError) {
-        socket.emit("document:delta:error", { code: validationError });
+    // (1) Validate delta
+    if (!workspaceEntry.orchestrator.isCleanDelta(delta)) {
+        socket.emit("document:delta:error", { message: "Delta is not formatted correctly" });
         return;
     }
-
-    // (2) Set up db timer
-    workspaceEntry.orchestrator.startAutosaveTimer();
-
+    // (2) Apply delta
+    workspaceEntry.orchestrator.applyDelta(delta);
+    
     // (3) Check if delta threshold is met. Persist to db if so
-    if (workspaceEntry.orchestrator.checkQuestionDeltaThreshold()) {
+    const timerNeeded = workspaceEntry.orchestrator.checkQuestionDeltaThreshold();
+    if (!timerNeeded) {
         flushStateToDatabase(workspaceEntry.session.documentPublicId, workspaceEntry.orchestrator.getState(), FlushScopes.content);
     }
 
-    // (4) call statechanges to put a timer on for provability trigger
+    // (4) Set up db timer
+    if (timerNeeded) {
+        workspaceEntry.orchestrator.startAutosaveTimer();
+    }
+
+    // (5) call statechanges to put a timer on for provability trigger
     workspaceEntry.orchestrator.onStateMutation("question:modified");
 
 

@@ -6,23 +6,26 @@ import { Sufficiency, Library, ProofStatus, Textbook} from "@prove-it/db";
 
 // Core Math Statement Information
 export interface Information {
+  kind: "course" | "user-defined";
   content: string;
   name: string;
   type: Library;
+  publicId: string;
 }
 
 
 // ONLY <globalLibraryRegistry> is allowed to store this
 export interface CourseMathStatement extends Information {
+  kind: "course";
   textbook: Textbook | null;
   orderIndex: number | null;
-  
+  coursePublicId: string;
 }
 
 
 // Document-owned definitions (not in registry)
 export interface UserDefinedMathStatement extends Information {
-  publicId: string;        
+  kind: "user-defined";
 }
 
 /** Junction row: links a document to a statement via `ref`; resolve `information` through the ref. */
@@ -40,10 +43,10 @@ export interface SelectedMathStatement {
 
 export type MathStatement = CourseMathStatement | UserDefinedMathStatement;
 
-export type MathStatementRef =
-  | { source: "course"; publicId: string }
-  | { source: "user"; publicId: string };
-
+export type MathStatementRef = {
+  source: MathStatement['kind'];
+  publicId: string;
+}
 
   
 // ==== Lemma information ====
@@ -79,5 +82,12 @@ export type LemmaRef = {
 export interface SelectedLemma {
   lemmaStatus: ProofStatus;
   lemmaManualOverride: boolean;
+  
+  hintContent: string | null;
+  wasUsed: boolean;
+  sufficient: Sufficiency;
+  resolvedAt: Date | null;
+  dismissedAt: Date | null;
   ref: LemmaRef;
+
 }

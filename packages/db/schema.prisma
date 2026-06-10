@@ -361,6 +361,11 @@ model DocumentLemma {
   // The status belongs to THIS student's document, not the global lemma
   lemmaStatus         ProofStatus @default(INCOMPLETE)
   lemmaManualOverride Boolean     @default(false)
+  createdAt                     DateTime                        @default(now())
+  hintContent                   String?                         @default("")     
+  wasUsed                       Boolean                         @default(false)
+  resolvedAt                    DateTime?
+  dismissedAt                   DateTime?
 
   @@id([privateDocumentId, privateLemmaId])
 }

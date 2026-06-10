@@ -52,29 +52,23 @@ void (async () => {
         // (5) onAcceptSuggestion: Protected. Server needs to change doc state
         // (6) onRejectSuggestion: Protected. Server needs to change doc state
 
-        // State changes
-    
-        // (7) onMathStatementAdded: Protected. Users can add definitions that impact doc state
 
-        // (8) onProofTypeUpdate: Protected. Users can update the proof type of a question, which impacts doc state
 
-        // (12) error is resolved or dismissed
+        //* (12) error is resolved or dismissed
         
 
-        // ==== ABORT QUESTION PIPELINE ====
-        // (1) OnQuestionDelta: Protected. Users can send question edits
+        //* (1) OnQuestionDelta (ABORT): Protected. Users can send question edits 
         clientSocket.on('document:question:delta', authorizeSocket(clientSocket as AuthenticatedSocket, registry, (socket, workspace, delta: Delta) => {events.QuestionDelta(socket, workspace, delta)}))
-        // (2) OnDisconnect: Native Socket.IO drop (tab close, network loss). Web client does not emit a custom event.
+        // (2) OnDisconnect (ABORT): Native Socket.IO drop (tab close, network loss). Web client does not emit a custom event.
         clientSocket.on('disconnect', () => {
             void events.OnDisconnect(clientSocket as AuthenticatedSocket, registry);
         })
-
-        // (3) OnLeave: Protected. Users can leave 
+        // (3) OnLeave (ABORT): Protected. Users can leave 
         clientSocket.on('document:leave', authorizeSocket(clientSocket as AuthenticatedSocket, registry, (socket, workspace, _documentPublicId: string) => {void events.OnLeave(socket, workspace, registry)}, { requireDocumentPublicId: true, errorEvent: 'document:leave:error' }))
 
 
         // Settings 
-        // (4) Proof settings opened
+        // (4) Proof settings opened (ABORT): Protected. Users can open the proof settings
         clientSocket.on('document:settings:opened', authorizeSocket(clientSocket as AuthenticatedSocket, registry, (socket, workspace) => {events.SettingsOpened(socket, workspace)}))
         // (5) Math Statement added: Protected. Users can update math statements that impact doc state 
         clientSocket.on('document:mathStatement:added', authorizeSocket(clientSocket as AuthenticatedSocket, registry, (socket, workspace, mathStatement: MathStatement) => {events.MathStatementAdded(socket, workspace, mathStatement)}))
@@ -96,7 +90,7 @@ void (async () => {
 
         // SERVER sends
         // (1) ProvableStatus: Send idle, analyizng, provabe, unprovable status to clients
-
+        
 
     })
 })()

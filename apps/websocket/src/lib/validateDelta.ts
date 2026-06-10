@@ -14,27 +14,7 @@ export type DeltaValidationCode =
     | "DOCUMENT_SIZE_LIMIT"
     | "REVISION_MISMATCH";
 
-function isSafeInteger(value: number): boolean {
-    /**
-     * Check if a number is a safe integer. We consider it to be "safe" if it is an integer between Number.MIN_SAFE_INTEGER and Number.MAX_SAFE_INTEGER.
-     */
-    return Number.isSafeInteger(value);
-}
 
-function validateRevision(revision: number): DeltaValidationCode | null {
-    /**
-     * Validate the revision number. 
-     * The revision number must be a safe integer and greater than 0.
-     * Return an error code if the revision number is invalid.
-     */
-    if (!isSafeInteger(revision)) {
-        return "INVALID_DELTA_SHAPE";
-    }
-    if (revision <= 0) {
-        return "INVALID_REVISION";
-    }
-    return null;
-}
 
 function validateContentString(content: string): DeltaValidationCode | null {
     if (typeof content !== "string") {
@@ -46,17 +26,7 @@ function validateContentString(content: string): DeltaValidationCode | null {
     return null;
 }
 
-function validateNextLength(
-    contentLength: number,
-    removedLength: number,
-    insertedLength: number,
-): DeltaValidationCode | null {
-    const nextLength = contentLength - removedLength + insertedLength;
-    if (nextLength < 0 || nextLength > MAX_DOCUMENT_LENGTH) {
-        return "DOCUMENT_SIZE_LIMIT";
-    }
-    return null;
-}
+
 
 /** Validates a {@link Delta} before applying it to document content. Returns an error code or null. */
 export function validateDeltaForContent(delta: Delta, contentLength: number): DeltaValidationCode | null {
