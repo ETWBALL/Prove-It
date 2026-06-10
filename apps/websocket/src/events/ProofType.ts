@@ -1,10 +1,7 @@
 import { WorkspaceEntry } from "../lib/types/Other";
 import { Socket } from "socket.io";
 import { ProofType, ProofTypeOrigin } from "@prove-it/db";
-
-
-
-
+import { emitSocketError } from "../lib/emitSocketError";
 export function ProofTypeUpdated(socket: Socket, workspace: WorkspaceEntry, proofType: ProofType) {
     /**
      * Update the proof type of the question. 
@@ -12,7 +9,7 @@ export function ProofTypeUpdated(socket: Socket, workspace: WorkspaceEntry, proo
 
     // (1) first, check if the proof type is already set as requested.
     if (workspace.orchestrator.getProofType() === proofType) {
-        socket.emit("document:proofType:error", { message: `proof type is already set to ${proofType}` });
+        emitSocketError(socket, "document:proofType:error", "PROOF_TYPE_ALREADY_SET");
         return;
     }
 

@@ -6,8 +6,6 @@ import { Registry } from './lib/Registry'
 import * as events from './events'
 import { BroadcastToDocument, Delta } from "./lib/types";
 import { GlobalLibraryRegistry } from './lib/globalLibraryRegistry'
-import { ProofSettingState } from './lib/types/Document'
-import { WorkspaceEntry } from './lib/types/Other'
 import { MathStatement } from './lib/types/MathStatements'
 import { Lemma } from './lib/types/MathStatements'
 import { ProofType } from '@prove-it/db'
@@ -58,7 +56,7 @@ void (async () => {
         
 
         //* (1) OnQuestionDelta (ABORT): Protected. Users can send question edits 
-        clientSocket.on('document:question:delta', authorizeSocket(clientSocket as AuthenticatedSocket, registry, (socket, workspace, delta: Delta) => {events.QuestionDelta(socket, workspace, delta)}))
+        clientSocket.on('document:question:delta', authorizeSocket(clientSocket as AuthenticatedSocket, registry, (socket, workspace, delta: Delta) => {events.QuestionDelta(socket, workspace, delta)}, { errorEvent: 'document:qDelta:error' }))
         // (2) OnDisconnect (ABORT): Native Socket.IO drop (tab close, network loss). Web client does not emit a custom event.
         clientSocket.on('disconnect', () => {
             void events.OnDisconnect(clientSocket as AuthenticatedSocket, registry);
@@ -69,24 +67,24 @@ void (async () => {
 
         // Settings 
         // (4) Proof settings opened (ABORT): Protected. Users can open the proof settings
-        clientSocket.on('document:settings:opened', authorizeSocket(clientSocket as AuthenticatedSocket, registry, (socket, workspace) => {events.SettingsOpened(socket, workspace)}))
+        clientSocket.on('document:settings:opened', authorizeSocket(clientSocket as AuthenticatedSocket, registry, events.SettingsOpened, { errorEvent: 'document:settings:opened:error' }))
         // (5) Math Statement added: Protected. Users can update math statements that impact doc state 
-        clientSocket.on('document:mathStatement:added', authorizeSocket(clientSocket as AuthenticatedSocket, registry, (socket, workspace, mathStatement: MathStatement) => {events.MathStatementAdded(socket, workspace, mathStatement)}))
+        clientSocket.on('document:mathStatement:added', authorizeSocket(clientSocket as AuthenticatedSocket, registry, (socket, workspace, mathStatement: MathStatement) => {events.MathStatementAdded(socket, workspace, mathStatement)}, { errorEvent: 'document:mathStatement:error' }))
         // (6) Math Statement removed: Protected. Users can update math statements that impact doc state 
-        clientSocket.on('document:mathStatement:removed', authorizeSocket(clientSocket as AuthenticatedSocket, registry, (socket, workspace, mathStatement: MathStatement) => {events.MathStatementRemoved(socket, workspace, mathStatement)}))
+        clientSocket.on('document:mathStatement:removed', authorizeSocket(clientSocket as AuthenticatedSocket, registry, (socket, workspace, mathStatement: MathStatement) => {events.MathStatementRemoved(socket, workspace, mathStatement)}, { errorEvent: 'document:mathStatement:error' }))
         // (7) Lemma added: Protected. Users can update lemmas that impact doc state 
-        clientSocket.on('document:lemma:added', authorizeSocket(clientSocket as AuthenticatedSocket, registry, (socket, workspace, lemma: Lemma) => {events.LemmaAdded(socket, workspace, lemma)}))
+        clientSocket.on('document:lemma:added', authorizeSocket(clientSocket as AuthenticatedSocket, registry, (socket, workspace, lemma: Lemma) => {events.LemmaAdded(socket, workspace, lemma)}, { errorEvent: 'document:lemma:error' }))
         // (8) Lemma removed: Protected. Users can update lemmas that impact doc state 
-        clientSocket.on('document:lemma:removed', authorizeSocket(clientSocket as AuthenticatedSocket, registry, (socket, workspace, lemma: Lemma) => {events.LemmaRemoved(socket, workspace, lemma)}))
+        clientSocket.on('document:lemma:removed', authorizeSocket(clientSocket as AuthenticatedSocket, registry, (socket, workspace, lemma: Lemma) => {events.LemmaRemoved(socket, workspace, lemma)}, { errorEvent: 'document:lemma:error' }))
         // (9) Proof type updated: Protected. Users can change the proof type or clear it. Also add strictness
-        clientSocket.on('document:proofType:updated', authorizeSocket(clientSocket as AuthenticatedSocket, registry, (socket, workspace, proofType: ProofType) => {events.ProofTypeUpdated(socket, workspace, proofType)}))
+        clientSocket.on('document:proofType:updated', authorizeSocket(clientSocket as AuthenticatedSocket, registry, (socket, workspace, proofType: ProofType) => {events.ProofTypeUpdated(socket, workspace, proofType)}, { errorEvent: 'document:proofType:error' }))
         // (10) Settings closed
-        clientSocket.on('document:settings:closed', authorizeSocket(clientSocket as AuthenticatedSocket, registry, (socket, workspace) => {events.SettingsClosed(socket, workspace)}))
+        clientSocket.on('document:settings:closed', authorizeSocket(clientSocket as AuthenticatedSocket, registry, events.SettingsClosed, { errorEvent: 'document:settings:closed:error' }))
 
 
         // ==== ABORT BODY PIPELINE ====
         // (1) OnBodyDelta: Protected. Users can send body edits
-        clientSocket.on('document:body:delta', authorizeSocket(clientSocket as AuthenticatedSocket, registry, (socket, workspace, delta: Delta) => {events.BodyDelta(socket, workspace, delta)}))
+        clientSocket.on('document:body:delta', authorizeSocket(clientSocket as AuthenticatedSocket, registry, (socket, workspace, delta: Delta) => {events.BodyDelta(socket, workspace, delta)}, { errorEvent: 'document:delta:error' }))
 
         // SERVER sends
         // (1) ProvableStatus: Send idle, analyizng, provabe, unprovable status to clients

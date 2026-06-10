@@ -1,6 +1,9 @@
 import { WorkspaceEntry, MathStatement} from "../lib/types";
 import { Socket } from "socket.io";
 import { GlobalLibraryRegistry } from "../lib/globalLibraryRegistry";
+import { emitSocketError } from "../lib/emitSocketError";
+
+const MATH_STATEMENT_ERROR = "document:mathStatement:error";
 
 export function MathStatementAdded(socket: Socket, workspace: WorkspaceEntry, mathStatement: MathStatement) {
     /**
@@ -14,7 +17,7 @@ export function MathStatementAdded(socket: Socket, workspace: WorkspaceEntry, ma
     if (mathStatementKind === "user-defined") {
         // (2) check if the math statement is already in the document state
         if (workspace.orchestrator.isMathStatementInDocumentState(mathStatement)) {
-            socket.emit("document:mathStatement:error", { message: `Math statement ${mathStatement.type} already in document state.` });
+            emitSocketError(socket, MATH_STATEMENT_ERROR, "ALREADY_IN_DOCUMENT");
             return;
         }
     }
@@ -22,24 +25,24 @@ export function MathStatementAdded(socket: Socket, workspace: WorkspaceEntry, ma
     else if (mathStatementKind === "course") {
         // (2) Check if the course is in the library registry. May be an invalid course
         if (!GlobalLibraryRegistry.isCourseInLibraryRegistry(mathStatement.coursePublicId)) {
-            socket.emit("document:mathStatement:error", { message: `Course ${mathStatement.coursePublicId} not found in library registry. Please add a valid course first.` });
+            emitSocketError(socket, MATH_STATEMENT_ERROR, "COURSE_NOT_IN_REGISTRY");
             return;
         }
 
         // (3) Check if the math statement is in the course. May be an invalid math statement that doesn't belong to any course.
         if (!GlobalLibraryRegistry.isMathStatementInCourse(mathStatement.coursePublicId, mathStatement.publicId)) {
-            socket.emit("document:mathStatement:error", { message: `Math statement ${mathStatement.publicId} not found in course ${mathStatement.coursePublicId}.` });
+            emitSocketError(socket, MATH_STATEMENT_ERROR, "NOT_IN_COURSE");
             return;
         }
 
         // (4) Check if the math statement is already in the document state
         if (workspace.orchestrator.isMathStatementInDocumentState(mathStatement)) {
-            socket.emit("document:mathStatement:error", { message: `Math statement ${mathStatement.type} already in document state.` });
+            emitSocketError(socket, MATH_STATEMENT_ERROR, "ALREADY_IN_DOCUMENT");
             return;
         }
     }
     else {
-        socket.emit("document:mathStatement:error", { message: "Invalid math statement kind" });
+        emitSocketError(socket, MATH_STATEMENT_ERROR, "INVALID_KIND");
         return;
     }
 
@@ -64,7 +67,7 @@ export function MathStatementRemoved(socket: Socket, workspace: WorkspaceEntry, 
     // (1) Check if the math statement is in the document state
     const selectedMathStatement = workspace.orchestrator.getSelectedMathStatement(mathStatement.publicId);
     if (!selectedMathStatement) {
-        socket.emit("document:mathStatement:error", { message: `Math statement ${mathStatement.publicId} not found in document state.` });
+        emitSocketError(socket, MATH_STATEMENT_ERROR, "NOT_IN_DOCUMENT");
         return;
     }
 

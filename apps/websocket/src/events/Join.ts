@@ -2,6 +2,7 @@ import { Socket } from 'socket.io';
 import { GlobalLibraryRegistry } from '../lib/globalLibraryRegistry';
 import { Registry } from '../lib/Registry';
 import { ErrorState, HotDocumentState } from '../lib/types';
+import { emitSocketError } from '../lib/emitSocketError';
 
 export async function Join(clientSocket: Socket, registry: Registry, documentPublicId: string) {
     /**
@@ -10,7 +11,7 @@ export async function Join(clientSocket: Socket, registry: Registry, documentPub
 
     const userPublicId = clientSocket.data.user?.publicId;
     if (!userPublicId) {
-        clientSocket.emit('document:join:error', { code: 'UNAUTHORIZED' });
+        emitSocketError(clientSocket, 'document:join:error', 'UNAUTHORIZED');
         return;
     }
 
@@ -24,7 +25,7 @@ export async function Join(clientSocket: Socket, registry: Registry, documentPub
         );
 
         if (!registered) {
-            clientSocket.emit('document:join:error', { code: message });
+            emitSocketError(clientSocket, 'document:join:error', message);
             clientSocket.disconnect(true);
             return;
         }
@@ -33,7 +34,7 @@ export async function Join(clientSocket: Socket, registry: Registry, documentPub
 
         const workspace = registry.getWorkspaceBySocket(clientSocket.id);
         if (!workspace) {
-            clientSocket.emit('document:join:error', { code: 'INTERNAL_ERROR' });
+            emitSocketError(clientSocket, 'document:join:error', 'INTERNAL_ERROR');
             clientSocket.disconnect(true);
             return;
         }
@@ -44,7 +45,7 @@ export async function Join(clientSocket: Socket, registry: Registry, documentPub
         );
     } catch (error) {
         console.error(`Unhandled join error for document ${documentPublicId}:`, error);
-        clientSocket.emit('document:join:error', { code: 'INTERNAL_ERROR' });
+        emitSocketError(clientSocket, 'document:join:error', 'INTERNAL_ERROR');
     }
 }
 

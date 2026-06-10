@@ -2,7 +2,9 @@ import { WorkspaceEntry } from "../lib/types/Other";
 import { Socket } from "socket.io";
 import { Lemma } from "../lib/types/MathStatements";
 import { GlobalLibraryRegistry } from "../lib/globalLibraryRegistry";
+import { emitSocketError } from "../lib/emitSocketError";
 
+const LEMMA_ERROR = "document:lemma:error";
 
 export function LemmaAdded(socket: Socket, workspace: WorkspaceEntry, lemma: Lemma) {
     /**
@@ -18,7 +20,7 @@ export function LemmaAdded(socket: Socket, workspace: WorkspaceEntry, lemma: Lem
 
         // (2) Check if the lemma is already in the document state
         if (workspace.orchestrator.isLemmaInDocumentState(lemma)) {
-            socket.emit("document:lemma:error", { message: `Lemma ${lemma.publicId} already in document state.` });
+            emitSocketError(socket, LEMMA_ERROR, "ALREADY_IN_DOCUMENT");
             return;
         }
 
@@ -27,26 +29,26 @@ export function LemmaAdded(socket: Socket, workspace: WorkspaceEntry, lemma: Lem
     else if (lemmaOrigin === "course") {
         // (2) Check if the course is in the library registry. May be an invalid course
         if (!GlobalLibraryRegistry.isCourseInLibraryRegistry(lemma.coursePublicId)) {
-            socket.emit("document:lemma:error", { message: `Course ${lemma.coursePublicId} not found in library registry. Please add a valid course first.` });
+            emitSocketError(socket, LEMMA_ERROR, "COURSE_NOT_IN_REGISTRY");
             return;
         }
 
         // (3) Check if the lemma is in the course. May be an invalid lemma that doesn't belong to any course.
         if (!GlobalLibraryRegistry.isLemmaInCourse(lemma.coursePublicId, lemma.publicId)) {
-            socket.emit("document:lemma:error", { message: `Lemma ${lemma.publicId} not found in course ${lemma.coursePublicId}.` });
+            emitSocketError(socket, LEMMA_ERROR, "NOT_IN_COURSE");
             return;
         }
 
 
         // (4) Check if the lemma is already in the document state
         if (workspace.orchestrator.isLemmaInDocumentState(lemma)) {
-            socket.emit("document:lemma:error", { message: `Lemma ${lemma.publicId} already in document state.` });
+            emitSocketError(socket, LEMMA_ERROR, "ALREADY_IN_DOCUMENT");
             return;
         }
 
     }
     else {
-        socket.emit("document:lemma:error", { message: "Invalid lemma origin" });
+        emitSocketError(socket, LEMMA_ERROR, "INVALID_KIND");
         return;
     }
 
@@ -70,7 +72,7 @@ export function LemmaRemoved(socket: Socket, workspace: WorkspaceEntry, lemma: L
     // (1) First check if the lemma is in the document state
     const selectedLemma = workspace.orchestrator.getSelectedLemma(lemma.publicId);
     if (!selectedLemma) {
-        socket.emit("document:lemma:error", { message: `Lemma ${lemma.publicId} not found in document state. Please provide a valid lemma.` });
+        emitSocketError(socket, LEMMA_ERROR, "NOT_IN_DOCUMENT");
         return;
     }
     // (2) Remove the lemma from the document state

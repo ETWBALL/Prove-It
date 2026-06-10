@@ -2,6 +2,7 @@ import { flushStateToDatabase } from "../lib/DatabaseHelpers";
 import { Registry, RegistryOnDisconnectOptions } from "../lib/Registry";
 import { AuthorizedSocket, FlushScopes } from "../lib/types";
 import { WorkspaceEntry } from "../lib/types/Other";
+import { emitSocketError } from "../lib/emitSocketError";
 
 export async function OnLeave(socket: AuthorizedSocket, workspace: WorkspaceEntry, registry: Registry) {
     /**
@@ -25,7 +26,7 @@ export async function OnLeave(socket: AuthorizedSocket, workspace: WorkspaceEntr
             }
         } catch (error) {
             console.error(`Leave aborted: failed to persist document ${documentPublicId}`, error);
-            socket.emit("document:leave:error", { code: "PERSIST_FAILED" });
+            emitSocketError(socket, "document:leave:error", "PERSIST_FAILED");
             eviction = "retain-workspace";
         }
     }

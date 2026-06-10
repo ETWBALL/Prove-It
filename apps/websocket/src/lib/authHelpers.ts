@@ -2,12 +2,13 @@ import { Server } from 'socket.io';
 import { verifyAccessToken } from '@prove-it/auth';
 import { AuthenticatedSocket, AuthorizedSocket, User, WorkspaceEntry } from "./types";
 import { Registry } from './Registry';
+import { emitSocketError } from './emitSocketError';
 
 export interface AuthorizeSocketOptions {
     /** First handler arg must be the document public id and must match the bound workspace. */
     requireDocumentPublicId?: boolean;
-    /** Socket event used when access is denied (default: `error`). */
-    errorEvent?: string;
+    /** Domain `:error` event — auth failures and handler errors are emitted here. */
+    errorEvent: string;
 }
 
 export function authenticate(io: Server) {
@@ -37,14 +38,14 @@ export function authenticate(io: Server) {
     });
 }
 
-export function authorizeSocket<Args extends unknown[]>(clientSocket: AuthenticatedSocket, registry: Registry, handler: (socket: AuthorizedSocket, workspace: WorkspaceEntry, ...args: Args) => unknown, options?: AuthorizeSocketOptions) {
+export function authorizeSocket<Args extends unknown[]>(clientSocket: AuthenticatedSocket, registry: Registry, handler: (socket: AuthorizedSocket, workspace: WorkspaceEntry, ...args: Args) => unknown, options: AuthorizeSocketOptions) {
     /**
      * Authorize the socket for document access before executing protected handler.
      */
     return async (...args: Args) => {
         const userId = clientSocket.data.user?.publicId;
         const documentPublicId =
-            options?.requireDocumentPublicId && typeof args[0] === "string"
+            options.requireDocumentPublicId && typeof args[0] === "string"
                 ? args[0]
                 : undefined;
 
@@ -58,8 +59,7 @@ export function authorizeSocket<Args extends unknown[]>(clientSocket: Authentica
             console.warn(
                 `[Security] Blocked event from socket ${clientSocket.id}: ${validation.code}`,
             );
-            const errorEvent = options?.errorEvent ?? "error";
-            clientSocket.emit(errorEvent, { code: validation.code });
+            emitSocketError(clientSocket, options.errorEvent, validation.code);
             return;
         }
 
@@ -67,6 +67,14 @@ export function authorizeSocket<Args extends unknown[]>(clientSocket: Authentica
         authorizedSocket.data.authorizedDocumentId = validation.workspace.session.documentPublicId;
         authorizedSocket.data.authorizedAt = new Date();
 
-        return handler(authorizedSocket, validation.workspace, ...args);
+        try {
+            return await handler(authorizedSocket, validation.workspace, ...args);
+        } catch (error) {
+            console.error(
+                `[Handler] Unhandled error for socket ${clientSocket.id} on ${options.errorEvent}:`,
+                error,
+            );
+            emitSocketError(clientSocket, options.errorEvent, "INTERNAL_ERROR");
+        }
     };
 }

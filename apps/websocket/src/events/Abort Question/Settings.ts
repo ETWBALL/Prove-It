@@ -1,5 +1,6 @@
 import { WorkspaceEntry } from "../../lib/types/Other";
 import { Socket } from "socket.io";
+import { emitSocketError } from "../../lib/emitSocketError";
 
 export function SettingsOpened(socket: Socket, workspace: WorkspaceEntry) {
     /**
@@ -8,7 +9,7 @@ export function SettingsOpened(socket: Socket, workspace: WorkspaceEntry) {
 
     // (0) Check if the settings are already open
     if (workspace.orchestrator.isSettingsOpen()) {
-        socket.emit('document:settings:opened:error', 'Settings tab is already open.');
+        emitSocketError(socket, "document:settings:opened:error", "ALREADY_OPEN");
         return;
     }
 
@@ -34,7 +35,7 @@ export function SettingsClosed(socket: Socket, workspace: WorkspaceEntry) {
 
     // (0) Check if the settings are already closed
     if (!workspace.orchestrator.isSettingsOpen()) {
-        socket.emit('document:settings:closed:error', 'Settings tab is already closed.');
+        emitSocketError(socket, "document:settings:closed:error", "ALREADY_CLOSED");
         return;
     }
 

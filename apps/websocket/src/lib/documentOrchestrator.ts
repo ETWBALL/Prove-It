@@ -308,25 +308,51 @@ export class DocumentOrchestrator {
     }
 
     // ==== Delta Management ====
+    public checkQuestionDeltaThreshold(): boolean {
+        /**
+         * Return true if # of deltas (for question) has exceeded QUESTION_DELTA_THRESHOLD.
+         * Return false otherwise.
+         */
+        return this.deltas.question >= QUESTION_DELTA_THRESHOLD;
+    }
+
+    public checkBodyDeltaThreshold(): boolean {
+        /**
+         * Return true if # of deltas (for body) has exceeded BODY_DELTA_THRESHOLD.
+         * Return false otherwise.
+         */
+        return this.deltas.body >= BODY_DELTA_THRESHOLD;
+    }
+
+    public resetDeltaCounters(type: "question" | "body"): void {
+        /**
+         * Reset the delta counter for the given type.
+         */
+        switch (type) {
+            case "question":
+                this.deltas.question = 0;
+                break;
+            case "body":
+                this.deltas.body = 0;
+                break;
+        }
+    }
 
     public applyDelta(delta: Delta): DeltaValidationCode | null {
         /**
-         * Apply a delta to question or body content.
+         * Apply <delta> to question or body content.
          * Returns a validation error code, or null on success.
          */
         
-        // (1) Increment the delta counter and get the content
-        let content;
-        if (delta.target === "question") {
-            this.deltas.question += 1;
-            content = this.#state.question.content;
+        // (1) Increment the delta counter
+        const isQuestion = delta.target === "question";
+        this.deltas[isQuestion ? "question" : "body"] += 1;
 
-        } else {
-            this.deltas.body += 1;
-            content = this.#state.body.content;
-        }
+        // (2) Get the content slice
+        const slice = isQuestion ? this.#state.question : this.#state.body;
+        const { content } = slice;
 
-        // (2) Apply the delta
+        // (3) Apply the delta
         let nextContent: string;
         if (delta.type === "insert") {
             nextContent = content.slice(0, delta.index) + delta.content + content.slice(delta.index);
@@ -338,14 +364,9 @@ export class DocumentOrchestrator {
             return "INVALID_DELTA_SHAPE";
         }
 
-        if (delta.target === "question") {
-            this.#state.question.content = nextContent;
-            this.#state.question.revision = delta.revision;
-        } else {
-            this.#state.body.content = nextContent;
-            this.#state.body.revision = delta.revision;
-        }
-
+        // (4) Update the content and revision
+        slice.content = nextContent;
+        slice.revision = delta.revision;
         return null;
     }
 
@@ -505,21 +526,7 @@ export class DocumentOrchestrator {
         };
     }
 
-    public checkQuestionDeltaThreshold(): boolean {
-        /**
-         * Return true if # of deltas (for question) has exceeded QUESTION_DELTA_THRESHOLD.
-         * Return false otherwise.
-         */
-        return this.deltas.question >= QUESTION_DELTA_THRESHOLD;
-    }
-
-    public checkBodyDeltaThreshold(): boolean {
-        /**
-         * Return true if # of deltas (for body) has exceeded BODY_DELTA_THRESHOLD.
-         * Return false otherwise.
-         */
-        return this.deltas.body >= BODY_DELTA_THRESHOLD;
-    }
+   
 
     
 
