@@ -50,7 +50,7 @@ export class GlobalLibraryRegistry {
     if (!GlobalLibraryRegistry._instance) return false;
 
     //Check if the lemma is in the library registry under <coursePublicId>
-    return !GlobalLibraryRegistry._instance.#courseLemmas.get(coursePublicId)?.has(lemmaPublicId)
+    return GlobalLibraryRegistry._instance.#courseLemmas.get(coursePublicId)?.has(lemmaPublicId) ?? false;
   }
 
   public static isMathStatementInCourse(coursePublicId: string, mathStatementPublicId: string): boolean {
@@ -60,7 +60,7 @@ export class GlobalLibraryRegistry {
      * If true, then math statement is automatically in the library registry.
      */
     if (!GlobalLibraryRegistry._instance) return false;
-    return !GlobalLibraryRegistry._instance.#courseMathStatements.get(coursePublicId)?.has(mathStatementPublicId)
+    return GlobalLibraryRegistry._instance.#courseMathStatements.get(coursePublicId)?.has(mathStatementPublicId) ?? false;
   }
 
   public static getLemma(coursePublicId: string, lemmaPublicId: string): CourseLemma | undefined {

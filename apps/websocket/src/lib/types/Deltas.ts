@@ -25,4 +25,15 @@ export interface ReplaceDelta extends BaseDelta {
     endIndex: number;
     content: string;
 }
-export type Delta = InsertDelta | DeleteDelta | ReplaceDelta; 
+export type Delta = InsertDelta | DeleteDelta | ReplaceDelta;
+
+export type DeltaValidationCode =
+    | "INVALID_DELTA_SHAPE"
+    | "INVALID_REVISION"
+    | "INVALID_INDEX"
+    | "INVALID_RANGE"
+    | "INDEX_OUT_OF_BOUNDS"
+    | "INVALID_CONTENT"
+    | "DELTA_TOO_LARGE"
+    | "DOCUMENT_SIZE_LIMIT"
+    | "REVISION_MISMATCH";

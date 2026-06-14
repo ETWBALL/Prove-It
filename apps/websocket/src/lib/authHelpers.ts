@@ -70,10 +70,12 @@ export function authorizeSocket<Args extends unknown[]>(clientSocket: Authentica
         try {
             return await handler(authorizedSocket, validation.workspace, ...args);
         } catch (error) {
+            // (1) Log error
             console.error(
                 `[Handler] Unhandled error for socket ${clientSocket.id} on ${options.errorEvent}:`,
                 error,
             );
+            // (2) Emit error
             emitSocketError(clientSocket, options.errorEvent, "INTERNAL_ERROR");
         }
     };

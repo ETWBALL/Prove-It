@@ -1,6 +1,5 @@
 import { WorkspaceEntry } from "../../lib/types/Other";
 import { Socket } from "socket.io";
-import { emitSocketError } from "../../lib/emitSocketError";
 
 export function SettingsOpened(socket: Socket, workspace: WorkspaceEntry) {
     /**
@@ -9,16 +8,15 @@ export function SettingsOpened(socket: Socket, workspace: WorkspaceEntry) {
 
     // (0) Check if the settings are already open
     if (workspace.orchestrator.isSettingsOpen()) {
-        emitSocketError(socket, "document:settings:opened:error", "ALREADY_OPEN");
+        workspace.orchestrator.broadcastDocumentState();
         return;
     }
 
-    // (1) Open
-    workspace.orchestrator.openSettings();
-
-    // (2) Abort any previous ML triggers. We assume user is making changes to the question.
+    // (1) Abort in-flight ML first so a completing run cannot apply after settings open.
     workspace.orchestrator.abortAllMLTriggers("aborted:settings:opened");
-    workspace.orchestrator.stopMlQuestionTimer();
+
+    // (2) Open settings
+    workspace.orchestrator.openSettings();
 
     // (3) Broadcast the state for UI changes
     workspace.orchestrator.broadcastDocumentState();
@@ -35,7 +33,7 @@ export function SettingsClosed(socket: Socket, workspace: WorkspaceEntry) {
 
     // (0) Check if the settings are already closed
     if (!workspace.orchestrator.isSettingsOpen()) {
-        emitSocketError(socket, "document:settings:closed:error", "ALREADY_CLOSED");
+        workspace.orchestrator.broadcastDocumentState();
         return;
     }
 
@@ -45,9 +43,8 @@ export function SettingsClosed(socket: Socket, workspace: WorkspaceEntry) {
     // (2) Lock proof text box
     workspace.orchestrator.lockProofTextBox();
 
-    // (3) Run a new ML run
-    workspace.orchestrator.runQuestionAnalysis();
-    workspace.orchestrator.broadcastDocumentState();
+    // (3) Run a new ML run. Fire-and-forget: runQuestionAnalysis contains its own errors.
+    void workspace.orchestrator.runQuestionAnalysis();
 
     // (4) Broadcast the state for UI changes
     workspace.orchestrator.broadcastDocumentState();

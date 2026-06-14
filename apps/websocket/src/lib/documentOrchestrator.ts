@@ -22,8 +22,8 @@ import {
     SelectedMathStatement,
     UserDefinedMathStatement,
     CourseMathStatement,
+    DeltaValidationCode,
 } from "./types";
-import { type DeltaValidationCode, validateDeltaForContent } from "./validateDelta";
 import { GlobalLibraryRegistry } from "./globalLibraryRegistry";
 
 // TIMERS durations
@@ -385,7 +385,7 @@ export class DocumentOrchestrator {
         this.deltas.question = 0;
     }
 
-    isCleanDelta(delta: Delta): DeltaValidationCode | null {
+    public isCleanDelta(delta: Delta): DeltaValidationCode | null {
         /**
          * Check delta shape, revision ordering, and content bounds before apply.
          */
@@ -592,7 +592,7 @@ export class DocumentOrchestrator {
     // ==== Settings Management ====
     public openSettings(): void {
         /**
-         * Force the settings state to be "open," abort ML, and broadcast.
+         * Mark settings as open. Callers must abort ML before opening when needed.
          */
         this.#state.settings.isOpen = true;
     }
@@ -780,18 +780,18 @@ export class DocumentOrchestrator {
          * (9) Clean up the abort controller if it is the current one
          */
 
-        // (1) Cleanup previous controller, set up new, increment run id
+        // (1) Cleanup previous controller, set up new, increment run id (synchronous field writes; cannot throw)
         const runId = this.#setUpQuestionAnalysis();
         const controller = this.#qAbortController;
         if (!controller) return;
 
-        // (2) Broadcast the analysis status as "analyzing." Needed for the UI to show the progress bar.
-        this.broadcastAnalysisStatus("analyzing");
-
-        // (3) Build the prompt
-        const composed = buildQuestionPrompt(this.#state);
-
         try {
+            // (2) Broadcast the analysis status as "analyzing." Needed for the UI to show the progress bar.
+            this.broadcastAnalysisStatus("analyzing");
+
+            // (3) Build the prompt. Inside try so a build failure recovers to "idle" instead of rejecting.
+            const composed = buildQuestionPrompt(this.#state);
+
             // (4) Call Gemini generateContent (JSON).
             const payload = await this.#callGemini(runId, controller, composed);
 

@@ -5,6 +5,8 @@ import { io, Socket } from 'socket.io-client'
 import Editor, { EditorHandle, EditorHighlight } from './editor'
 import ErrorPanel from './errorPanel'
 import MathStatementsPanel, { MathStatement } from './mathStatementsPanel'
+import ProofSettingsPanel from './proofSettingsPanel'
+import { handleSocketDomainError, type SocketErrorPayload } from '../lib/handleSocketDomainError'
 
 type SuggestionState = {
   suggestionContent: string
@@ -232,6 +234,7 @@ export default function EditorLayout({ documentId }: EditorLayoutProps) {
   // Connection lifecycle.
   const [status, setStatus] = useState<SocketStatus>('connecting')
   const [statusMessage, setStatusMessage] = useState('Connecting to realtime service...')
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const socketRef = useRef<Socket | null>(null)
   const editorRef = useRef<EditorHandle | null>(null)
@@ -245,6 +248,33 @@ export default function EditorLayout({ documentId }: EditorLayoutProps) {
   const inFlightQuestionDeltaRef = useRef<ComputedDelta | null>(null)
 
   const wsUrl = useMemo(() => process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:3001', [])
+
+  const isJoined = status === 'joined'
+
+  const handleDomainError = useCallback(
+    (payload: SocketErrorPayload) => {
+      const socket = socketRef.current
+      if (!socket) return
+      handleSocketDomainError(socket, documentId, payload, setStatus, setStatusMessage)
+    },
+    [documentId],
+  )
+
+  const handleOpenSettings = useCallback(() => {
+    if (!isJoined || settingsOpen) return
+    socketRef.current?.emit('document:settings:opened')
+  }, [isJoined, settingsOpen])
+
+  const handleCloseSettings = useCallback(() => {
+    if (!isJoined || !settingsOpen) return
+    socketRef.current?.emit('document:settings:closed')
+  }, [isJoined, settingsOpen])
+
+  const handleAddLemma = useCallback(() => {
+    if (!isJoined) return
+    // Lemma picker + REST create flow not wired yet; button is join-gated for when it is.
+    setStatusMessage('Lemma library picker coming soon.')
+  }, [isJoined])
 
   useEffect(() => {
     const socket = io(wsUrl, {
@@ -289,12 +319,58 @@ export default function EditorLayout({ documentId }: EditorLayoutProps) {
 
       setStatus('joined')
       setStatusMessage(`Connected to document ${payload.documentId}`)
+      setSettingsOpen(false)
     })
 
     socket.on('document:join:error', (payload: { code?: string }) => {
       setStatus('error')
       setStatusMessage(`Unable to join document (${payload?.code ?? 'UNKNOWN'})`)
     })
+
+    socket.on('document:state:updated', (state: { settings?: { isOpen?: boolean } }) => {
+      if (typeof state.settings?.isOpen === 'boolean') {
+        setSettingsOpen(state.settings.isOpen)
+      }
+    })
+
+    const domainErrorEvents = [
+      'document:lemma:error',
+      'document:mathStatement:error',
+      'document:proofType:error',
+    ] as const
+
+    for (const event of domainErrorEvents) {
+      socket.on(event, handleDomainError)
+    }
+
+    socket.on('document:settings:opened:error', (payload: SocketErrorPayload) => {
+      // Legacy/fallback: server is idempotent; treat duplicate open as silent no-op.
+      if (payload.code === 'ALREADY_OPEN') {
+        setSettingsOpen(true)
+        return
+      }
+      handleDomainError(payload)
+    })
+
+    socket.on('document:settings:closed:error', (payload: SocketErrorPayload) => {
+      if (payload.code === 'ALREADY_CLOSED') {
+        setSettingsOpen(false)
+        return
+      }
+      handleDomainError(payload)
+    })
+
+    const onAnalysisStatus = (payload: { phase?: string }) => {
+      if (payload.phase === 'analyzing') {
+        setStatusMessage('Analyzing question…')
+      } else if (payload.phase === 'aborted') {
+        setStatusMessage('Analysis paused.')
+      } else if (payload.phase === 'idle') {
+        setStatusMessage(`Connected to document ${documentId}`)
+      }
+    }
+
+    socket.on('document:analysis:status', onAnalysisStatus)
 
     // Body delta ack — server accepted the in-flight delta; advance the base content + revision.
     socket.on('document:delta:ack', (payload: DeltaAckPayload) => {
@@ -318,7 +394,7 @@ export default function EditorLayout({ documentId }: EditorLayoutProps) {
     })
 
     // Proving statement ack / error — same dance, separate channel.
-    socket.on('document:qDelta:ack', (payload: DeltaAckPayload) => {
+    socket.on('document:question:delta:ack', (payload: DeltaAckPayload) => {
       const acknowledgedDelta = inFlightQuestionDeltaRef.current
       setQuestionRevision(payload.revision)
       setBaseQuestion((previous) => {
@@ -329,7 +405,7 @@ export default function EditorLayout({ documentId }: EditorLayoutProps) {
       setQuestionInFlight(false)
     })
 
-    socket.on('document:qDelta:error', (payload: DeltaErrorPayload) => {
+    socket.on('document:question:delta:error', (payload: DeltaErrorPayload) => {
       setStatusMessage(`Proving statement delta rejected (${payload.code}). Re-syncing...`)
       inFlightQuestionDeltaRef.current = null
       pendingQuestionQueueRef.current = []
@@ -360,11 +436,18 @@ export default function EditorLayout({ documentId }: EditorLayoutProps) {
     })
 
     return () => {
+      for (const event of domainErrorEvents) {
+        socket.off(event, handleDomainError)
+      }
+      socket.off('document:settings:opened:error')
+      socket.off('document:settings:closed:error')
+      socket.off('document:state:updated')
+      socket.off('document:analysis:status', onAnalysisStatus)
       socket.emit('document:leave', documentId)
       socket.disconnect()
       socketRef.current = null
     }
-  }, [documentId, wsUrl])
+  }, [documentId, handleDomainError, wsUrl])
 
   // Body: queue a delta as the user types. We rely on onBeforeInput so each keystroke is captured
   // before React re-renders the textarea, keeping our index math aligned with the live value.
@@ -378,7 +461,7 @@ export default function EditorLayout({ documentId }: EditorLayoutProps) {
     [draftContent, status],
   )
 
-  // Proving statement: same pattern as the body but routed through document:qDelta.
+  // Proving statement: same pattern as the body but routed through document:question:delta.
   const handleStatementBeforeInput = useCallback(
     (event: FormEvent<HTMLInputElement>) => {
       if (status !== 'joined') return
@@ -431,7 +514,7 @@ export default function EditorLayout({ documentId }: EditorLayoutProps) {
     inFlightQuestionDeltaRef.current = delta
     setQuestionInFlight(true)
 
-    socket.emit('document:qDelta', {
+    socket.emit('document:question:delta', {
       type: delta.type,
       documentId,
       startIndex: delta.startIndex,
@@ -499,7 +582,7 @@ export default function EditorLayout({ documentId }: EditorLayoutProps) {
           ref={editorRef}
           statement={draftQuestion}
           proof={draftContent}
-          disabled={status !== 'joined'}
+          disabled={!isJoined}
           highlights={editorHighlights}
           activeHighlightId={activeErrorId}
           onStatementChange={setDraftQuestion}
@@ -509,6 +592,13 @@ export default function EditorLayout({ documentId }: EditorLayoutProps) {
         />
 
         <aside className="flex min-h-0 flex-col gap-4">
+          <ProofSettingsPanel
+            disabled={!isJoined}
+            settingsOpen={settingsOpen}
+            onOpenSettings={handleOpenSettings}
+            onCloseSettings={handleCloseSettings}
+            onAddLemma={handleAddLemma}
+          />
           <div className="flex min-h-0 flex-1 flex-col">
             <MathStatementsPanel statements={mathStatements} />
           </div>

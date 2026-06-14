@@ -7,6 +7,11 @@ export const BodyDelta = (socket: Socket, workspace: WorkspaceEntry, delta: Delt
     /**
      * Store delta in doc state, persist to db, trigger error checking if needed.
      */
+    if (delta.documentId !== workspace.session.documentPublicId) {
+        emitSocketError(socket, "document:delta:error", "FORBIDDEN");
+        return;
+    }
+
     const validationError = workspace.orchestrator.isCleanDelta(delta);
     if (validationError) {
         emitSocketError(socket, "document:delta:error", validationError);
@@ -17,4 +22,7 @@ export const BodyDelta = (socket: Socket, workspace: WorkspaceEntry, delta: Delt
 
     // (2) Set up db timer
     workspace.orchestrator.startAutosaveTimer();
+
+    // (3) Ack in-flight delta so the client advances revision + base content
+    socket.emit("document:delta:ack", { revision: delta.revision });
 }
